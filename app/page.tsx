@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import type { Division } from '@/lib/pricing';
 import { calculateFeePreview, formatCents } from '@/lib/pricing';
@@ -50,7 +50,7 @@ export default function RegisterPage() {
     handleSubmit,
     watch,
     setValue,
-    formState: { errors, isValid },
+    formState: { errors },
   } = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {

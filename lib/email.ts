@@ -8,7 +8,6 @@ function getResend() {
 
 const FROM = `${process.env.RESEND_FROM_NAME ?? 'VSYC-26 Registration'} <${process.env.RESEND_FROM_EMAIL ?? 'vastateyoyocontest@dmvthrowers.club'}>`;
 const REPLY_TO = process.env.RESEND_REPLY_TO ?? 'dmvthrowers@gmail.com';
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
 
 export type EmailResult = { ok: true } | { ok: false; error: string };
 

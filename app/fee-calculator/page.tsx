@@ -71,7 +71,11 @@ export default function FeeCalculatorPage() {
   const toggle = (id: Division) => {
     setSelected(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
     // Clear applied comp code if selections change
