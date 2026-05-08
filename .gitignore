@@ -1,1 +1,23 @@
 .github/
+
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# env — never commit real secrets
+.env*.local
+.env.production
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# vercel
+.vercel
+
+# OS
+.DS_Store
+Thumbs.db

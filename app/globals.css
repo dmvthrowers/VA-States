@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * DMV Throwers Design System — VSYC-26 token layer
+ * Canonical font stack: Playfair Display (display) · DM Sans (body) · Barlow Condensed (labels/nav)
+ * Source: C:\GIT\DMV Throwers Design System\colors_and_type.css + ui_kits\vsyc26\index.html
+ */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@400;600;700&family=Barlow+Condensed:wght@700;800&display=swap');
+
+/* ── Color tokens ────────────────────────────────────── */
+:root {
+  /* Core */
+  --red:           #B80000;   /* canonical brand red (corrected from #C8102E) */
+  --red-dark:      #7a0000;
+  --gold:          #C9A84C;
+  --gold-light:    #e8c97a;
+
+  /* Surfaces */
+  --navy:          #1a2744;   /* VSYC-26 primary surface (--color-navy-alt) */
+  --navy-deep:     #08122a;   /* Darkest background (--color-navy-deep) */
+  --navy-border:   #2a3a5a;
+  --cream:         #f5f0e8;
+
+  /* Text */
+  --text-body:     #c8d0e0;   /* on-dark body text */
+  --text-muted:    #8090b8;   /* on-dark muted text */
+
+  /* Fonts */
+  --font-display:    'Playfair Display', Georgia, serif;
+  --font-body:       'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-condensed:  'Barlow Condensed', system-ui, sans-serif;
+
+  /* Letter-spacing */
+  --caps-track:      0.12em;
+  --caps-wide:       0.18em;
+  --caps-widest:     0.20em;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--navy-deep);
+  color: #fff;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Form elements inherit body font */
+input, select, textarea {
+  font-family: var(--font-body);
+}
+
+/* ── Skip link ───────────────────────────────────────── */
+.skip-link {
+  position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden;
+}
+.skip-link:focus {
+  position: fixed; top: 0; left: 0; width: auto; height: auto; overflow: visible;
+  background: var(--gold); color: var(--navy-deep);
+  padding: 12px 20px; font-family: var(--font-body); font-weight: 700;
+  font-size: 0.82rem; letter-spacing: var(--caps-track); z-index: 9999; text-decoration: none;
+}
+
+/* ── Focus ring — gold everywhere ────────────────────── */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ── Design system component primitives ─────────────── */
+
+/* Buttons */
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 14px 32px;
+  font-family: var(--font-condensed);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  border-radius: 0;
+  transition: background 0.2s, transform 0.15s;
+}
+.ds-btn-gold  { background: var(--gold);  color: var(--navy-deep); }
+.ds-btn-gold:hover { background: var(--gold-light); transform: translateY(-1px); }
+.ds-btn-outline { background: transparent; border: 2px solid var(--gold); color: var(--gold); }
+.ds-btn-outline:hover { background: var(--gold); color: var(--navy-deep); }
+.ds-btn-red   { background: var(--red);   color: #fff; }
+.ds-btn-red:hover { background: var(--red-dark); transform: translateY(-1px); }
+
+/* Tags */
+.ds-gold-tag {
+  display: inline-block;
+  background: var(--gold);
+  color: var(--navy-deep);
+  font-family: var(--font-condensed);
+  font-size: 0.65rem;
+  letter-spacing: var(--caps-widest);
+  padding: 4px 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.ds-red-tag {
+  display: inline-block;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--font-condensed);
+  font-size: 0.65rem;
+  letter-spacing: var(--caps-widest);
+  padding: 4px 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+/* Dividers */
+.ds-divider-gold {
+  width: 48px;
+  height: 3px;
+  background: var(--gold);
+  border: none;
+  margin: 16px 0 28px;
+}
+
+/* Note box */
+.ds-note-box {
+  background: var(--navy-deep);
+  border: 1px solid var(--navy-border);
+  padding: 20px 24px;
+  border-left: 4px solid var(--gold);
+}
+
+/* Dot-pattern hero overlay */
+.ds-dot-pattern {
+  background-image: radial-gradient(rgba(201,168,76,0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Price box (fee calculator / registration) */
+.ds-price-box {
+  background: var(--navy);
+  border: 1px solid var(--navy-border);
+  padding: 24px;
+}
+.ds-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--navy-border);
+}
+.ds-price-row:last-child { border-bottom: none; }
+.ds-price-div  { font-size: 0.88rem; font-weight: 600; color: #fff; font-family: var(--font-body); }
+.ds-price-val  { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; color: var(--gold); }
+.ds-price-free { color: #6adb8a; }
+.ds-price-strike { text-decoration: line-through; opacity: 0.45; font-size: 0.85rem; }
