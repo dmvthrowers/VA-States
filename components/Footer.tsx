@@ -1,5 +1,7 @@
 /** VSYC-26 Footer — matches ui_kits/vsyc26/index.html footer pattern */
 
+import Image from 'next/image';
+
 const SITE_HOME = 'https://dmvthrowers.club/vsyc26-register.html';
 
 const FOOTER_LINKS = [
@@ -30,7 +32,7 @@ export default function Footer() {
         }}>
           {/* Brand */}
           <a href={SITE_HOME} style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
-            <img
+            <Image
               src="https://dmvthrowers.club/assets/images/vsyc26-va-logo-32.png"
               alt="VSYC-26"
               width={34}

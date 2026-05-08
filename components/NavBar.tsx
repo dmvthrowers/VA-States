@@ -1,5 +1,7 @@
 /** VSYC-26 NavBar — matches ui_kits/vsyc26/index.html nav pattern */
 
+import Image from 'next/image';
+
 const SITE_HOME = 'https://dmvthrowers.club/vsyc26-register.html';
 
 interface NavBarProps {
@@ -80,7 +82,7 @@ export default function NavBar({ activePage }: NavBarProps) {
             aria-label="VSYC-26 home"
             style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}
           >
-            <img
+            <Image
               src="https://dmvthrowers.club/assets/images/vsyc26-va-logo-32.png"
               alt=""
               aria-hidden="true"
