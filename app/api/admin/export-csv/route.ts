@@ -28,7 +28,7 @@ export const GET = withErrorHandling(async (requestId) => {
 
   const rows = (data ?? []).map(row =>
     csvRow(COLUMNS.map(col => {
-      const val = (row as Record<string, unknown>)[col];
+      const val = (row as unknown as Record<string, unknown>)[col];
       if (Array.isArray(val)) return val.join(';');
       return String(val ?? '');
     }))

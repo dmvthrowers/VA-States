@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
@@ -10,7 +10,7 @@ const MAX_MB = 128;
 
 type UploadState = 'idle' | 'uploading' | 'done' | 'error';
 
-export default function UploadPage() {
+function UploadContent() {
   const params = useSearchParams();
   const token = params.get('token') ?? '';
 
@@ -208,5 +208,17 @@ export default function UploadPage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Loading…</p>
+      </div>
+    }>
+      <UploadContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
@@ -18,7 +18,7 @@ interface ConfirmData {
   paid: boolean;
 }
 
-export default function ConfirmPage() {
+function ConfirmContent() {
   const params = useSearchParams();
   const id = params.get('id');
 
@@ -177,5 +177,17 @@ export default function ConfirmPage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function ConfirmPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Loading…</p>
+      </div>
+    }>
+      <ConfirmContent />
+    </Suspense>
   );
 }
