@@ -1,6 +1,5 @@
 .github/*
 !.github/workflows/
-!.github/workflows/**
 
 # dependencies
 node_modules/
