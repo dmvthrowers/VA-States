@@ -32,6 +32,8 @@ type FormValues = {
   emergency_contact_phone: string;
   volunteer_interest: boolean;
   accessibility_needs: string;
+  performance_time_pref: 'no_pref' | 'early' | 'late' | 'conflict' | '';
+  scheduling_notes: string;
   _hp: string;
 };
 
@@ -237,10 +239,28 @@ export default function RegisterPage() {
 
             <div className="space-y-3">
               {([
-                { code: '1A' as Division, name: '1A — Single String', price: '$25', desc: 'The flagship division.' },
-                { code: 'X' as Division, name: 'X Division', price: '$20', desc: '2A, 3A, 4A, or 5A — choose your style.' },
-                { code: 'SBJ' as Division, name: 'Sport / Beginner / Junior', price: '$15', desc: 'New competitors, all ages. Low pressure.' },
-              ] as const).map(({ code, name, price, desc }) => (
+                {
+                  code: '1A' as Division,
+                  name: '1A — Single String',
+                  price: '$25',
+                  desc: 'Classic 1-string freestyle. 3-minute routine, judged on execution, difficulty, and presentation.',
+                  format: '3 min · Scored judging',
+                },
+                {
+                  code: 'X' as Division,
+                  name: 'X Division',
+                  price: '$20',
+                  desc: 'Non-1A styles: 2A (looping), 3A (two strings), 4A (offstring), or 5A (freehand). Pick one.',
+                  format: '3 min · Scored judging',
+                },
+                {
+                  code: 'SBJ' as Division,
+                  name: 'Sport / Beginner / Junior',
+                  price: '$15',
+                  desc: 'Open to all skill levels and ages. Relaxed format, simplified judging, great entry point.',
+                  format: '2 min · Simplified scoring',
+                },
+              ] as const).map(({ code, name, price, desc, format }) => (
                 <button
                   key={code}
                   type="button"
@@ -251,17 +271,18 @@ export default function RegisterPage() {
                       : 'border-navy-border bg-navy-deep hover:border-gold/50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 border-2 flex items-center justify-center flex-shrink-0 ${watchedDivisions.includes(code) ? 'border-gold bg-gold' : 'border-navy-border'}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-5 h-5 border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${watchedDivisions.includes(code) ? 'border-gold bg-gold' : 'border-navy-border'}`}>
                         {watchedDivisions.includes(code) && <span className="text-navy-deep font-black text-xs">✓</span>}
                       </div>
                       <div>
                         <div className="font-bold text-white text-sm">{name}</div>
                         <div className="text-xs text-text-body mt-0.5">{desc}</div>
+                        <div className="text-xs text-gold/60 mt-1">{format}</div>
                       </div>
                     </div>
-                    <span className="font-display font-bold text-gold text-lg ml-4">{price}</span>
+                    <span className="font-display font-bold text-gold text-lg flex-shrink-0">{price}</span>
                   </div>
                 </button>
               ))}
@@ -294,6 +315,17 @@ export default function RegisterPage() {
                 ★ 1A + X Division combo: $40 (saves $5 vs. registering separately)
               </div>
             )}
+
+            <div className="mt-2">
+              <a
+                href="https://dmvthrowers.club/vsyc26-rules.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-gold/60 hover:text-gold"
+              >
+                → View full division rules &amp; judging criteria ↗
+              </a>
+            </div>
 
             {/* Comp code */}
             <div className="mt-5">
@@ -360,6 +392,39 @@ export default function RegisterPage() {
                 <textarea {...register('accessibility_needs')} className={`${inputCls(false)} resize-none`} rows={2} />
               </Field>
             </div>
+
+            {/* ── Scheduling preference ── */}
+            <div className="mt-6 p-4 border border-navy-border bg-navy-deep">
+              <div className="text-xs font-black tracking-caps text-gold mb-1">SCHEDULE PREFERENCE</div>
+              <p className="text-xs text-text-body mb-3">Optional — helps us build the run order. We&apos;ll do our best to accommodate.</p>
+              <Field label="Performance Time Preference">
+                <select
+                  {...register('performance_time_pref')}
+                  className={`${inputCls(false)} appearance-none`}
+                  defaultValue=""
+                >
+                  <option value="">— No preference —</option>
+                  <option value="no_pref">No preference</option>
+                  <option value="early">Early in the day (first half)</option>
+                  <option value="late">Late in the day (second half)</option>
+                  <option value="conflict">I have a time conflict — please see notes</option>
+                </select>
+              </Field>
+              {(watch('performance_time_pref') === 'conflict' || watch('performance_time_pref') === 'early' || watch('performance_time_pref') === 'late') && (
+                <div className="mt-3">
+                  <Field label="Scheduling Notes" hint="Up to 300 characters">
+                    <textarea
+                      {...register('scheduling_notes', { maxLength: { value: 300, message: 'Max 300 characters' } })}
+                      className={`${inputCls(!!errors.scheduling_notes)} resize-none`}
+                      rows={2}
+                      placeholder={watch('performance_time_pref') === 'conflict' ? 'e.g. I need to be done by 2pm for a prior commitment' : 'Any notes for the organizers'}
+                    />
+                  </Field>
+                  {errors.scheduling_notes && <p className="text-red text-xs mt-1">{errors.scheduling_notes.message}</p>}
+                </div>
+              )}
+            </div>
+
             <label className="flex gap-3 items-center mt-4 cursor-pointer">
               <input {...register('volunteer_interest')} type="checkbox" className="w-4 h-4 accent-gold flex-shrink-0" />
               <span className="text-sm text-text-body">I&apos;m interested in volunteering at VSYC-26 (someone will follow up)</span>
@@ -531,6 +596,26 @@ export default function RegisterPage() {
             <div className="mt-4 pt-4 border-t border-navy-border">
               <div className="text-xs font-black tracking-caps text-gold mb-2">MUSIC DEADLINE</div>
               <p className="text-xs text-text-body">Upload link sent after registration. <strong className="text-white">Deadline: Sept 12, 2026.</strong></p>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-navy-border">
+              <div className="text-xs font-black tracking-caps text-gold mb-3">WHAT HAPPENS NEXT</div>
+              <ol className="space-y-2.5">
+                {[
+                  { n: '1', label: 'Submit this form', sub: 'You\'re in the queue' },
+                  { n: '2', label: 'Pay within 72 hours', sub: 'Venmo, PayPal, or check' },
+                  { n: '3', label: 'Upload your music', sub: 'Link emailed · due Sept 12' },
+                  { n: '4', label: 'Show up Sept 19', sub: 'Dulles Town Center, Sterling VA' },
+                ].map(({ n, label, sub }) => (
+                  <li key={n} className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 bg-gold text-navy-deep text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">{n}</span>
+                    <div>
+                      <div className="text-xs font-semibold text-white">{label}</div>
+                      <div className="text-xs text-text-body">{sub}</div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </div>
 
             <div className="mt-4 pt-4 border-t border-navy-border space-y-2">

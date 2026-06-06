@@ -41,6 +41,11 @@ export const registrationSchema = z.object({
   emergency_contact_phone: z.string().trim().max(20).optional().or(z.literal('')),
   volunteer_interest:      z.boolean().optional(),
   accessibility_needs:     z.string().trim().max(500).optional().or(z.literal('')),
+
+  // Scheduling — used by organizers to build the run order / draw
+  performance_time_pref: z.enum(['no_pref', 'early', 'late', 'conflict']).optional(),
+  scheduling_notes:      z.string().trim().max(300).optional().or(z.literal('')),
+
   merch_order:             z.array(z.object({
     type:        z.string(),
     size:        z.string().optional(),

@@ -1,4 +1,22 @@
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const navLinks = [
+    { href: '/admin', label: 'Registrations' },
+    { href: '/admin/codes', label: 'Comp Codes' },
+    { href: '/admin/run-order', label: 'Run Order' },
+    { href: '/admin/walk-up', label: 'Walk-Up' },
+    { href: '/admin/results', label: 'Results' },
+    { href: '/api/admin/export-csv', label: 'Export CSV ↓' },
+  ];
+
+  const linkStyle: React.CSSProperties = {
+    color: 'var(--text-body)',
+    textDecoration: 'none',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase',
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--navy-deep)' }}>
       <header style={{ background: 'var(--navy)', borderBottom: '2px solid var(--red)', padding: '0 1.5rem' }}>
@@ -7,16 +25,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span style={{ fontFamily: "'Playfair Display', serif", color: 'var(--gold)', fontWeight: 700, fontSize: '1rem', letterSpacing: '0.05em' }}>
               VSYC-26 Admin
             </span>
-            <nav aria-label="Admin navigation" style={{ display: 'flex', gap: '1rem' }}>
-              <a href="/admin" style={{ color: 'var(--text-body)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                Registrations
-              </a>
-              <a href="/admin/codes" style={{ color: 'var(--text-body)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                Comp Codes
-              </a>
-              <a href="/api/admin/export-csv" style={{ color: 'var(--text-body)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                Export CSV ↓
-              </a>
+            <nav aria-label="Admin navigation" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              {navLinks.map(({ href, label }) => (
+                <a key={href} href={href} style={linkStyle}>{label}</a>
+              ))}
             </nav>
           </div>
           <span style={{ color: 'var(--red)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>

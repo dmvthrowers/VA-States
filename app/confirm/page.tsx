@@ -55,7 +55,7 @@ function ConfirmContent() {
 
         {data && (
           <>
-            <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+            <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✓</div>
               <h1 style={{ fontFamily: "'Playfair Display', serif", color: 'var(--gold)', fontSize: '2rem', margin: '0 0 0.5rem' }}>
                 You&rsquo;re registered!
@@ -64,6 +64,37 @@ function ConfirmContent() {
                 {data.first_name} {data.last_name} · Confirmation #{data.id.slice(0, 8).toUpperCase()}
               </p>
             </div>
+
+            {/* Step progress tracker */}
+            <section aria-label="Registration progress" style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1.5rem', marginBottom: '2rem' }}>
+              <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--gold)', marginBottom: '1rem' }}>YOUR CHECKLIST</div>
+              <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {[
+                  { done: true,  label: 'Registered',       sub: `Confirmation #${data.id.slice(0, 8).toUpperCase()}` },
+                  { done: data.paid || data.fee_cents === 0, label: data.fee_cents === 0 ? 'Payment — comp pass (FREE)' : `Pay entry fee ($${formatCents(data.fee_cents)})`, sub: data.paid ? 'Received' : data.fee_cents === 0 ? 'No payment needed' : 'Within 72 hours · Venmo @DMVThrow · PayPal paypal.biz/Dmvthrowers' },
+                  { done: false, label: 'Upload your music', sub: `Deadline: ${deadlineLabel} · link in your email` },
+                  { done: false, label: 'See you Sept 19',   sub: 'Dulles Town Center · Sterling, VA · doors open 10am' },
+                ].map(({ done, label, sub }, i) => (
+                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                    <span style={{
+                      width: '1.5rem', height: '1.5rem', flexShrink: 0,
+                      background: done ? 'var(--gold)' : 'transparent',
+                      border: done ? 'none' : '2px solid var(--navy-border)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.7rem', fontWeight: 800,
+                      color: done ? 'var(--navy-deep)' : 'var(--text-muted)',
+                      marginTop: '0.1rem',
+                    }}>
+                      {done ? '✓' : i + 1}
+                    </span>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: done ? '#fff' : 'var(--text-body)' }}>{label}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{sub}</div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
 
             {/* Payment block */}
             {data.fee_cents > 0 && !data.paid && (

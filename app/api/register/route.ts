@@ -103,6 +103,8 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       emergency_contact_phone:   data.emergency_contact_phone || null,
       volunteer_interest:        data.volunteer_interest ?? false,
       accessibility_needs:       data.accessibility_needs || null,
+      performance_time_pref:     data.performance_time_pref || null,
+      scheduling_notes:          data.scheduling_notes || null,
       merch_order:               data.merch_order ?? null,
       merch_total_cents:         (data.merch_order ?? []).reduce((s, i) => s + i.price_cents * i.qty, 0),
       ip_address:                ip === 'unknown' ? null : ip,
