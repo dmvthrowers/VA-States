@@ -8,11 +8,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/api/admin/export-csv', label: 'Export CSV ↓' },
   ];
 
+  const portalLinks = [
+    { href: '/dj', label: 'DJ Portal' },
+    { href: '/judge', label: 'Judge Portal' },
+  ];
+
   const linkStyle: React.CSSProperties = {
     color: 'var(--text-body)',
     textDecoration: 'none',
     fontSize: '0.8rem',
     fontWeight: 600,
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase',
+  };
+
+  const portalLinkStyle: React.CSSProperties = {
+    color: 'var(--gold)',
+    textDecoration: 'none',
+    fontSize: '0.75rem',
+    fontWeight: 700,
     letterSpacing: '0.05em',
     textTransform: 'uppercase',
   };
@@ -25,9 +39,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span style={{ fontFamily: "'Playfair Display', serif", color: 'var(--gold)', fontWeight: 700, fontSize: '1rem', letterSpacing: '0.05em' }}>
               VSYC-26 Admin
             </span>
-            <nav aria-label="Admin navigation" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <nav aria-label="Admin navigation" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
               {navLinks.map(({ href, label }) => (
                 <a key={href} href={href} style={linkStyle}>{label}</a>
+              ))}
+              <span style={{ color: 'var(--navy-border)', fontSize: '0.9rem', userSelect: 'none' }}>|</span>
+              {portalLinks.map(({ href, label }) => (
+                <a key={href} href={href} style={portalLinkStyle} target="_blank" rel="noopener noreferrer">{label} ↗</a>
               ))}
             </nav>
           </div>

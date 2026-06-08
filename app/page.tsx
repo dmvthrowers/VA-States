@@ -133,11 +133,34 @@ export default function RegisterPage() {
         body: JSON.stringify(payload),
       });
 
-      const json = await res.json() as { id?: string; error?: { message: string } };
+      const json = await res.json() as {
+        id?: string;
+        fee_cents?: number;
+        is_comp?: boolean;
+        error?: { message: string };
+      };
 
       if (!res.ok) {
         setServerError(json.error?.message ?? 'Registration failed. Please try again.');
         return;
+      }
+
+      // Payment due → send straight to Stripe Checkout. Comp / $0 → confirmation.
+      if (json.id && (json.fee_cents ?? 0) > 0 && !json.is_comp) {
+        try {
+          const checkout = await fetch('/api/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: json.id }),
+          });
+          const co = await checkout.json() as { url?: string };
+          if (checkout.ok && co.url) {
+            window.location.href = co.url;
+            return;
+          }
+        } catch {
+          // Fall through to the confirmation page, which offers Pay Now + manual fallback.
+        }
       }
 
       router.push(`/confirm?id=${json.id}`);

@@ -21,10 +21,36 @@ interface ConfirmData {
 function ConfirmContent() {
   const params = useSearchParams();
   const id = params.get('id');
+  const canceled = params.get('canceled') === '1';
 
   const [data, setData] = useState<ConfirmData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+
+  const payNow = async () => {
+    if (!id) return;
+    setPaying(true);
+    setPayError(null);
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const json = await res.json() as { url?: string; error?: { message: string } };
+      if (res.ok && json.url) {
+        window.location.href = json.url;
+        return;
+      }
+      setPayError(json.error?.message ?? 'Could not start card payment. Use an option below instead.');
+    } catch {
+      setPayError('Network error starting payment. Use an option below instead.');
+    } finally {
+      setPaying(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) { setError('Missing registration ID.'); setLoading(false); return; }
@@ -102,8 +128,36 @@ function ConfirmContent() {
                 <h2 id="payment-heading" style={{ color: 'var(--gold)', fontFamily: "'Playfair Display', serif", margin: '0 0 1rem', fontSize: '1.3rem' }}>
                   Step 1 — Pay your entry fee
                 </h2>
+
+                {canceled && (
+                  <p role="status" style={{ color: '#ffb86b', marginTop: 0, fontSize: '0.85rem' }}>
+                    Card payment was canceled — your spot is still held. You can try again below.
+                  </p>
+                )}
+
+                {/* Primary: pay by card via Stripe */}
+                <button
+                  type="button"
+                  onClick={payNow}
+                  disabled={paying}
+                  style={{
+                    display: 'block', width: '100%', cursor: paying ? 'wait' : 'pointer',
+                    background: 'var(--gold)', color: 'var(--navy-deep)', border: 'none',
+                    padding: '0.9rem 1.5rem', fontWeight: 800, letterSpacing: '0.05em',
+                    textTransform: 'uppercase', fontSize: '0.9rem', marginBottom: '0.75rem',
+                  }}
+                >
+                  {paying ? 'Starting secure checkout…' : `Pay $${formatCents(data.fee_cents)} by card →`}
+                </button>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: 0, marginBottom: '1.5rem' }}>
+                  Secure card payment powered by Stripe. Apple Pay &amp; Google Pay supported.
+                </p>
+                {payError && (
+                  <p role="alert" style={{ color: '#ff6b6b', fontSize: '0.8rem', marginTop: '-1rem', marginBottom: '1.25rem' }}>{payError}</p>
+                )}
+
                 <p style={{ color: 'var(--text-body)', marginTop: 0 }}>
-                  Your spot is held for <strong style={{ color: '#fff' }}>72 hours</strong>. Send{' '}
+                  Prefer to pay another way? Your spot is held for <strong style={{ color: '#fff' }}>72 hours</strong>. Send{' '}
                   <strong style={{ color: 'var(--gold)' }}>${formatCents(data.fee_cents)}</strong> via one of the options below and include the note:
                 </p>
                 <code style={{ display: 'block', background: '#0d1428', padding: '0.75rem 1rem', color: 'var(--gold-light)', fontFamily: 'monospace', marginBottom: '1.5rem', letterSpacing: '0.05em' }}>

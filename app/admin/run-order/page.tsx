@@ -59,6 +59,7 @@ export default function AdminRunOrderPage() {
   const [advanceMsg, setAdvanceMsg] = useState<string | null>(null);
 
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
+  const [uploadStatus, setUploadStatus] = useState<Record<string, 'uploading' | 'done' | 'error'>>({});
 
   const fetchData = useCallback(async (div: Division) => {
     setLoading(true);
@@ -180,6 +181,30 @@ export default function AdminRunOrderPage() {
     fetchData(division);
   }
 
+  async function handleMusicUpload(registration_id: string, file: File) {
+    setUploadStatus((s) => ({ ...s, [registration_id]: 'uploading' }));
+    try {
+      const res = await fetch('/api/admin/music-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registration_id, filename: file.name }),
+      });
+      if (!res.ok) { setUploadStatus((s) => ({ ...s, [registration_id]: 'error' })); return; }
+      const { upload_url } = await res.json() as { upload_url: string };
+      const up = await fetch(upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'audio/mpeg' },
+        body: file,
+      });
+      if (!up.ok) { setUploadStatus((s) => ({ ...s, [registration_id]: 'error' })); return; }
+      setUploadStatus((s) => ({ ...s, [registration_id]: 'done' }));
+      fetchData(division);
+    } catch {
+      setUploadStatus((s) => ({ ...s, [registration_id]: 'error' }));
+    }
+  }
+
+
   const regMap = new Map<string, ScheduledRow | UnscheduledRow>();
   [...(data?.ordered ?? []), ...(data?.unscheduled ?? [])].forEach((r) => regMap.set(r.registration_id, r));
 
@@ -267,6 +292,31 @@ export default function AdminRunOrderPage() {
                         {reg.scheduling_notes && (
                           <span style={{ marginLeft: '0.4rem', color: 'var(--text-muted)' }}>— {reg.scheduling_notes}</span>
                         )}
+                      </div>
+                      <div style={{ marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {uploadStatus[id] === 'uploading' ? (
+                          <span style={{ fontSize: '0.6rem', color: 'var(--gold)' }}>uploading…</span>
+                        ) : uploadStatus[id] === 'done' ? (
+                          <span style={{ fontSize: '0.6rem', color: '#7fff7f' }}>uploaded OK</span>
+                        ) : uploadStatus[id] === 'error' ? (
+                          <span style={{ fontSize: '0.6rem', color: '#ff6b6b' }}>upload failed</span>
+                        ) : reg.music_filename ? (
+                          <span style={{ fontSize: '0.6rem', color: '#7fff7f' }}>&#9834; {reg.music_filename}</span>
+                        ) : (
+                          <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>no music</span>
+                        )}
+                        <label style={{ cursor: 'pointer', display: 'inline-block' }} title="Upload music">
+                          <span style={{ fontSize: '0.55rem', color: 'var(--gold)', fontWeight: 800, padding: '0.05rem 0.3rem', border: '1px solid var(--gold)', letterSpacing: '0.05em' }}>
+                            {uploadStatus[id] === 'uploading' ? '...' : 'UP'}
+                          </span>
+                          <input
+                            type="file"
+                            accept="audio/*,.mp3,.wav,.flac,.aiff,.m4a,.ogg"
+                            style={{ display: 'none' }}
+                            disabled={uploadStatus[id] === 'uploading'}
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMusicUpload(id, f); e.target.value = ''; }}
+                          />
+                        </label>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>

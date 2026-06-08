@@ -75,17 +75,29 @@ export default function DJPage() {
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, [pin, division, fetchRunOrder]);
 
-  function handlePinSubmit(e: React.FormEvent) {
+  async function handlePinSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const expected = process.env.NEXT_PUBLIC_DJ_PIN_HINT; // not the actual pin — just a hint if set
-    // We validate client-side only by checking the value is non-empty (server has no DJ-specific API)
-    if (pinInput.trim().length < 3) {
+    if (!pinInput.trim()) {
       setPinError('Enter the DJ PIN provided by contest admin.');
       return;
     }
-    sessionStorage.setItem(PIN_KEY, pinInput.trim());
-    setPin(pinInput.trim());
     setPinError('');
+    try {
+      const res = await fetch('/api/dj/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: pinInput.trim() }),
+      });
+      if (res.ok) {
+        sessionStorage.setItem(PIN_KEY, pinInput.trim());
+        setPin(pinInput.trim());
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setPinError((json as { error?: { message?: string } }).error?.message ?? 'Incorrect PIN.');
+      }
+    } catch {
+      setPinError('Network error — try again.');
+    }
   }
 
   // PIN gate
