@@ -9,8 +9,17 @@ const COLUMNS = [
   'email', 'phone', 'parent_email', 'registration_source', 'bracket_seed', 'admin_notes',
 ];
 
+// Neutralize spreadsheet formula injection: registrant-controlled values
+// starting with = or @ (or +/- unless they're plain numbers/phone-like)
+// would otherwise execute when the CSV is opened in Excel/Sheets.
+function csvSafe(v: string): string {
+  if (/^[=@]/.test(v)) return `'${v}`;
+  if (/^[+\-]/.test(v) && !/^[+\-][\d\s().\-]*$/.test(v)) return `'${v}`;
+  return v;
+}
+
 function csvRow(values: string[]): string {
-  return values.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
+  return values.map(v => `"${csvSafe(String(v ?? '')).replace(/"/g, '""')}"`).join(',');
 }
 
 export const GET = withErrorHandling(async (requestId) => {

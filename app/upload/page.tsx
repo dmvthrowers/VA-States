@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 
-const ACCEPTED = '.mp3,.wav,.aiff,.aif,.m4a,audio/mpeg,audio/wav,audio/aiff,audio/mp4';
+const ACCEPTED = '.mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4';
 const MAX_MB = 128;
 
 type UploadState = 'idle' | 'uploading' | 'done' | 'error';
@@ -50,28 +50,45 @@ function UploadContent() {
     setState('uploading');
     setProgress(0);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('token', token);
-
     try {
-      // Use XHR for upload progress tracking
+      // 1. Get a signed Storage URL for this registration's enforced filename
+      const initRes = await fetch('/api/upload/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, filename: file.name, size: file.size }),
+      });
+      const initJson = await initRes.json().catch(() => null);
+      if (!initRes.ok || !initJson?.signed_url) {
+        throw initJson?.error?.message ?? 'Could not start upload. Please try again.';
+      }
+
+      // 2. Upload directly to Supabase Storage (XHR for progress tracking)
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/upload');
+        xhr.open('PUT', initJson.signed_url);
+        xhr.setRequestHeader('x-upsert', 'true');
+        xhr.setRequestHeader('Content-Type', initJson.content_type);
         xhr.upload.onprogress = (ev) => {
           if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 100));
         };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else {
-            try { reject(JSON.parse(xhr.responseText).message ?? 'Upload failed'); }
-            catch { reject('Upload failed'); }
-          }
+          else reject('Upload to storage failed. Please try again.');
         };
         xhr.onerror = () => reject('Network error');
-        xhr.send(formData);
+        xhr.send(file);
       });
+
+      // 3. Confirm so the registration is updated and email sent
+      const doneRes = await fetch('/api/upload/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, filename: initJson.filename }),
+      });
+      const doneJson = await doneRes.json().catch(() => null);
+      if (!doneRes.ok) {
+        throw doneJson?.error?.message ?? 'Upload finished but could not be confirmed. Please retry.';
+      }
 
       setState('done');
     } catch (err) {
@@ -100,7 +117,7 @@ function UploadContent() {
           Music Upload
         </h1>
         <p style={{ color: 'var(--text-body)', marginTop: 0, marginBottom: '2rem' }}>
-          Upload your freestyle music. Accepted: MP3, WAV, AIFF, M4A · Max {MAX_MB} MB
+          Upload your freestyle music. Accepted: MP3, WAV, M4A · Max {MAX_MB} MB
         </p>
 
         {state === 'done' ? (

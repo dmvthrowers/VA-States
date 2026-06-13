@@ -25,14 +25,18 @@ export async function POST(req: NextRequest) {
   if (!id) return NextResponse.json({ message: 'id required' }, { status: 400 });
 
   const supabase = createAdminClient();
+  // Only touch payment_method / admin_notes when explicitly provided, so a
+  // bare paid/unpaid toggle never wipes existing notes or method.
+  const update: Record<string, unknown> = {
+    paid,
+    paid_at: paid ? new Date().toISOString() : null,
+  };
+  if (payment_method !== undefined) update.payment_method = payment_method;
+  if (notes !== undefined) update.admin_notes = notes;
+
   const { error } = await supabase
     .from('vsyc_registrations')
-    .update({
-      paid,
-      paid_at: paid ? new Date().toISOString() : null,
-      payment_method: payment_method ?? 'pending',
-      admin_notes: notes ?? null,
-    })
+    .update(update)
     .eq('id', id);
 
   if (error) return NextResponse.json({ message: 'Update failed' }, { status: 500 });

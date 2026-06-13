@@ -167,3 +167,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .ds-price-val  { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; color: var(--gold); }
 .ds-price-free { color: #6adb8a; }
 .ds-price-strike { text-decoration: line-through; opacity: 0.45; font-size: 0.85rem; }
+
+/* Footer nav links — hover handled in CSS so Footer stays a Server Component */
+.footer-link:hover { color: var(--gold) !important; }

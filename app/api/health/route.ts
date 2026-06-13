@@ -8,6 +8,7 @@ export async function GET() {
     if (error) throw error;
     return NextResponse.json({ ok: true, db: 'connected', ts: new Date().toISOString() });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 503 });
+    console.error('[health] check failed:', e);
+    return NextResponse.json({ ok: false, error: 'database unavailable' }, { status: 503 });
   }
 }

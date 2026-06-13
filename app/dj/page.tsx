@@ -77,8 +77,6 @@ export default function DJPage() {
 
   function handlePinSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const expected = process.env.NEXT_PUBLIC_DJ_PIN_HINT; // not the actual pin — just a hint if set
-    // We validate client-side only by checking the value is non-empty (server has no DJ-specific API)
     if (pinInput.trim().length < 3) {
       setPinError('Enter the DJ PIN provided by contest admin.');
       return;
@@ -151,7 +149,6 @@ export default function DJPage() {
   const performers = data?.performers ?? [];
   const nowPerforming = performers.find((p) => p.status === 'performing');
   const upcoming = performers.filter((p) => p.status === 'upcoming');
-  const done = performers.filter((p) => p.status === 'done');
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--navy-deep)', padding: '0' }}>

@@ -1,4 +1,5 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import Link from 'next/link';
+import { createAdminClient, hasAdminCredentials } from '@/lib/supabase/admin';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 
@@ -16,6 +17,10 @@ const DIVISIONS: { code: string; label: string }[] = [
 ];
 
 async function getCompetitors(): Promise<Record<string, Competitor[]>> {
+  // CI builds prerender this page without Supabase credentials; render the
+  // empty state there and let ISR fill in real data once deployed.
+  if (!hasAdminCredentials()) return {};
+
   const supabase = createAdminClient();
 
   const { data, error } = await supabase
@@ -135,7 +140,7 @@ export default async function CompetitorsPage() {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
             List shows paid registrants only. Updated every 60 seconds.{' '}
             Run order will be published closer to the event.{' '}
-            <a href="/" style={{ color: 'var(--gold-light)' }}>Register now →</a>
+            <Link href="/" style={{ color: 'var(--gold-light)' }}>Register now →</Link>
           </p>
         </footer>
       </main>

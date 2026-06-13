@@ -91,6 +91,16 @@ export async function sendPaymentReminderEmail(p: PaymentReminderParams): Promis
 
 // ─── HTML builders ───────────────────────────────────────────────────────────
 
+/** Escape registrant-supplied values before interpolating into email HTML. */
+function esc(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function emailWrap(body: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
 <body style="margin:0;padding:0;background:#0d1428;font-family:Montserrat,system-ui,sans-serif;color:#c8d0e0;">
@@ -107,13 +117,15 @@ function emailWrap(body: string): string {
 }
 
 function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
+  const first = esc(p.firstName);
+  const last = esc(p.lastName);
   return emailWrap(`
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Registration Received</h1>
-    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${p.firstName} — you're in. Here's everything you need.</p>
+    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${first} — you're in. Here's everything you need.</p>
     <div style="background:#0d1428;padding:20px;margin-bottom:16px;">
       <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">YOUR REGISTRATION</div>
-      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Name:</strong> ${p.firstName} ${p.lastName}</div>
-      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Division(s):</strong> ${p.divisions.join(', ')}</div>
+      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Name:</strong> ${first} ${last}</div>
+      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Division(s):</strong> ${esc(p.divisions.join(', '))}</div>
       <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Entry fee:</strong> ${fee}</div>
       <div style="font-size:0.85rem;"><strong style="color:#fff;">ID:</strong> ${p.registrationId.slice(0, 8).toUpperCase()}</div>
     </div>
@@ -138,10 +150,10 @@ function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
 function buildMusicReceivedHtml(p: MusicReceivedParams): string {
   return emailWrap(`
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Music Received</h1>
-    <p style="font-size:0.9rem;margin:0 0 24px;">Got it, ${p.firstName}. Your music is in.</p>
+    <p style="font-size:0.9rem;margin:0 0 24px;">Got it, ${esc(p.firstName)}. Your music is in.</p>
     <div style="background:#0d1428;padding:20px;margin-bottom:16px;">
-      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Division:</strong> ${p.division}</div>
-      <div style="font-size:0.85rem;"><strong style="color:#fff;">File saved as:</strong> <span style="font-family:monospace;color:#C9A84C;">${p.filename}</span></div>
+      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Division:</strong> ${esc(p.division)}</div>
+      <div style="font-size:0.85rem;"><strong style="color:#fff;">File saved as:</strong> <span style="font-family:monospace;color:#C9A84C;">${esc(p.filename)}</span></div>
     </div>
     <p style="font-size:0.82rem;color:#6a7a9a;">Music deadline was September 12, 2026. You're all set. See you at Dulles Town Center on September 19.</p>
   `);
@@ -151,7 +163,7 @@ function buildPaymentReminderHtml(p: PaymentReminderParams): string {
   const fee = `$${(p.feeCents / 100).toFixed(2)}`;
   return emailWrap(`
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Payment Reminder</h1>
-    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${p.firstName} — we haven't received your VSYC-26 entry payment yet.</p>
+    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${esc(p.firstName)} — we haven't received your VSYC-26 entry payment yet.</p>
     <div style="background:#0d1428;border-left:4px solid #C8102E;padding:20px;margin-bottom:16px;">
       <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Amount due:</strong> ${fee}</div>
       <div style="font-size:0.85rem;margin-bottom:4px;">💸 <strong style="color:#fff;">Venmo:</strong> @DMVThrow</div>

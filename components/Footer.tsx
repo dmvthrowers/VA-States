@@ -67,6 +67,7 @@ export default function Footer() {
               <a
                 key={link.label}
                 href={link.href}
+                className="footer-link"
                 style={{
                   color: '#fff',
                   fontSize: '0.75rem',
@@ -75,8 +76,6 @@ export default function Footer() {
                   fontFamily: 'var(--font-body)',
                   transition: 'color 0.2s',
                 }}
-                onMouseOver={e => (e.currentTarget.style.color = 'var(--gold)')}
-                onMouseOut={e => (e.currentTarget.style.color = '#fff')}
               >
                 {link.label}
               </a>

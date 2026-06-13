@@ -93,7 +93,9 @@ async function getResults(): Promise<Record<Division, Competitor[]>> {
   return result;
 }
 
-export const revalidate = 10;
+// Render on demand — admin live-results must not be prerendered at build
+// (CI has no Supabase credentials) and should always show fresh scores.
+export const dynamic = 'force-dynamic';
 
 export default async function AdminResultsPage() {
   const results = await getResults();
