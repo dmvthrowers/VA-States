@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { createAdminClient, hasAdminCredentials } from '@/lib/supabase/admin';
+import { getDb, parseDivisions } from '@/lib/db';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 
@@ -17,19 +17,19 @@ const DIVISIONS: { code: string; label: string }[] = [
 ];
 
 async function getCompetitors(): Promise<Record<string, Competitor[]>> {
-  // CI builds prerender this page without Supabase credentials; render the
-  // empty state there and let ISR fill in real data once deployed.
-  if (!hasAdminCredentials()) return {};
-
-  const supabase = createAdminClient();
-
-  const { data, error } = await supabase
-    .from('vsyc_registrations')
-    .select('id, first_name, last_name, preferred_bracket_name, city, state, divisions')
-    .eq('paid', true)
-    .order('created_at', { ascending: true });
-
-  if (error || !data) return {};
+  let data: { id: string; first_name: string; last_name: string; preferred_bracket_name: string | null; city: string | null; state: string | null; divisions: string }[];
+  try {
+    const { results } = await getDb()
+      .prepare(
+        `SELECT id, first_name, last_name, preferred_bracket_name, city, state, divisions
+         FROM vsyc_registrations WHERE paid = 1 ORDER BY created_at ASC`
+      )
+      .all<typeof data[number]>();
+    data = results;
+  } catch (e) {
+    console.error('[competitors] query error:', e);
+    return {};
+  }
 
   const grouped: Record<string, Competitor[]> = { '1A': [], X: [], SBJ: [] };
 
@@ -40,7 +40,7 @@ async function getCompetitors(): Promise<Record<string, Competitor[]>> {
       city: reg.city ?? null,
       state: reg.state ?? null,
     };
-    for (const div of reg.divisions as string[]) {
+    for (const div of parseDivisions(reg.divisions)) {
       if (grouped[div]) grouped[div].push(entry);
     }
   }
@@ -48,7 +48,9 @@ async function getCompetitors(): Promise<Record<string, Competitor[]>> {
   return grouped;
 }
 
-export const revalidate = 60; // ISR — refresh at most once per minute
+// Rendered on demand — D1 isn't reachable at build time and the query is
+// cheap enough to run per request.
+export const dynamic = 'force-dynamic';
 
 export default async function CompetitorsPage() {
   const byDivision = await getCompetitors();
@@ -138,7 +140,7 @@ export default async function CompetitorsPage() {
 
         <footer style={{ borderTop: '1px solid var(--navy-border)', paddingTop: '1.5rem', marginTop: '1rem' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
-            List shows paid registrants only. Updated every 60 seconds.{' '}
+            List shows paid registrants only. Updated live.{' '}
             Run order will be published closer to the event.{' '}
             <Link href="/" style={{ color: 'var(--gold-light)' }}>Register now →</Link>
           </p>

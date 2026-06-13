@@ -1,0 +1,44 @@
+// Cloudflare Workers configuration for VSYC-26 registration.
+// See DEPLOY.md for setup steps (create the D1 database and R2 bucket,
+// fill in database_id, set secrets, then `npm run deploy`).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vsyc26-registration",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vsyc26",
+      // Replace with the id printed by: npx wrangler d1 create vsyc26
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations/d1"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MUSIC_BUCKET",
+      "bucket_name": "vsyc26-music"
+    }
+  ],
+  // Non-secret config. Secrets (RESEND_API_KEY, ADMIN_PASSWORD, JUDGE_PIN)
+  // are set with: npx wrangler secret put <NAME>
+  "vars": {
+    "NEXT_PUBLIC_BASE_URL": "https://register.dmvthrowers.club",
+    "RESEND_FROM_EMAIL": "vastateyoyocontest@dmvthrowers.club",
+    "RESEND_FROM_NAME": "VSYC-26 Registration",
+    "RESEND_REPLY_TO": "dmvthrowers@gmail.com",
+    "ADMIN_USERNAME": "admin",
+    "EARLY_BIRD_CUTOFF_ISO": "2026-06-01T00:00:00-04:00",
+    "ONLINE_REG_CUTOFF_ISO": "2026-09-13T23:59:59-04:00",
+    "MUSIC_DEADLINE_ISO": "2026-09-12T23:59:59-04:00"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

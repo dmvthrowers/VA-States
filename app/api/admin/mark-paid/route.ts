@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logAudit } from '@/lib/audit';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getDb } from '@/lib/db';
 
 // Accepts both FormData (from admin table toggle) and JSON (from API clients)
 export async function POST(req: NextRequest) {
@@ -24,22 +24,23 @@ export async function POST(req: NextRequest) {
 
   if (!id) return NextResponse.json({ message: 'id required' }, { status: 400 });
 
-  const supabase = createAdminClient();
   // Only touch payment_method / admin_notes when explicitly provided, so a
   // bare paid/unpaid toggle never wipes existing notes or method.
-  const update: Record<string, unknown> = {
-    paid,
-    paid_at: paid ? new Date().toISOString() : null,
-  };
-  if (payment_method !== undefined) update.payment_method = payment_method;
-  if (notes !== undefined) update.admin_notes = notes;
+  const sets = ['paid = ?', 'paid_at = ?'];
+  const params: unknown[] = [paid ? 1 : 0, paid ? new Date().toISOString() : null];
+  if (payment_method !== undefined) { sets.push('payment_method = ?'); params.push(payment_method); }
+  if (notes !== undefined) { sets.push('admin_notes = ?'); params.push(notes); }
+  params.push(id);
 
-  const { error } = await supabase
-    .from('vsyc_registrations')
-    .update(update)
-    .eq('id', id);
-
-  if (error) return NextResponse.json({ message: 'Update failed' }, { status: 500 });
+  try {
+    await getDb()
+      .prepare(`UPDATE vsyc_registrations SET ${sets.join(', ')} WHERE id = ?`)
+      .bind(...params)
+      .run();
+  } catch (e) {
+    console.error('[mark-paid] update error:', e);
+    return NextResponse.json({ message: 'Update failed' }, { status: 500 });
+  }
 
   await logAudit(paid ? 'marked_paid' : 'marked_unpaid', {
     registrationId: id,

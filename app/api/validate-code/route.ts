@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getDb } from '@/lib/db';
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   const ip = getClientIp(req.headers);
@@ -21,19 +21,17 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('bad_request', 'Invalid code', requestId);
   }
 
-  const supabase = createAdminClient();
-  const now = new Date();
+  const row = await getDb()
+    .prepare('SELECT active, uses_count, max_uses, expires_at FROM vsyc_comp_codes WHERE code = ?1')
+    .bind(code)
+    .first<{ active: number; uses_count: number; max_uses: number; expires_at: string }>();
 
-  const { data, error } = await supabase
-    .from('vsyc_comp_codes')
-    .select('active, uses_count, max_uses, expires_at')
-    .eq('code', code)
-    .single();
-
-  const valid = !error && data && data.active && data.uses_count < data.max_uses && new Date(data.expires_at) >= now;
+  const valid = Boolean(
+    row && row.active && row.uses_count < row.max_uses && new Date(row.expires_at) >= new Date()
+  );
 
   return NextResponse.json(
-    { valid: Boolean(valid) },
+    { valid },
     { headers: { 'x-request-id': requestId } }
   );
 });

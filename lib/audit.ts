@@ -1,4 +1,4 @@
-import { createAdminClient } from './supabase/admin';
+import { getDb } from './db';
 
 export async function logAudit(
   action: string,
@@ -9,13 +9,17 @@ export async function logAudit(
   } = {},
 ): Promise<void> {
   try {
-    const supabase = createAdminClient();
-    await supabase.from('vsyc_audit_log').insert({
-      action,
-      registration_id: opts.registrationId ?? null,
-      actor: opts.actor ?? 'system',
-      details: opts.details ?? {},
-    });
+    await getDb()
+      .prepare(
+        'INSERT INTO vsyc_audit_log (registration_id, actor, action, details) VALUES (?1, ?2, ?3, ?4)'
+      )
+      .bind(
+        opts.registrationId ?? null,
+        opts.actor ?? 'system',
+        action,
+        JSON.stringify(opts.details ?? {}),
+      )
+      .run();
   } catch (e) {
     // Audit failures must never crash the main request path
     console.error('[audit] log failed:', e);

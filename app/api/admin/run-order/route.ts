@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getDb, DIVISION_CONTAINS_SQL } from '@/lib/db';
 import { z } from 'zod';
 
 const VALID_DIVISIONS = ['1A', 'X', 'SBJ'] as const;
@@ -11,12 +11,27 @@ const saveRunOrderSchema = z.object({
   registration_ids: z.array(z.string().uuid()).min(1).max(200),
 });
 
+interface DivisionReg {
+  id: string;
+  divisions: string;
+  paid: number;
+  first_name: string;
+  last_name: string;
+  preferred_bracket_name: string | null;
+  city: string | null;
+  state: string | null;
+  performance_time_pref: string | null;
+  scheduling_notes: string | null;
+  music_filename: string | null;
+}
+
 /**
  * POST /api/admin/run-order
  *
- * Saves (upserts) the full run order for a division.
- * Completely replaces any existing order for that division.
- * Preserves status for rows that already exist; new rows start as 'upcoming'.
+ * Saves the full run order for a division: deletes the existing order and
+ * inserts the new one in a single atomic D1 batch (no partial state if a
+ * statement fails). Preserves status for rows that already exist; new rows
+ * start as 'upcoming'.
  *
  * Body: { division: "1A", registration_ids: ["uuid1", "uuid2", ...] }
  */
@@ -32,66 +47,55 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   }
 
   const { division, registration_ids } = parsed.data;
-  const supabase = createAdminClient();
+  const db = getDb();
 
   // Verify all registration IDs are paid + in this division
-  const { data: regs, error: regsError } = await supabase
-    .from('vsyc_registrations')
-    .select('id, divisions, paid')
-    .in('id', registration_ids);
+  const { results: divisionRegs } = await db
+    .prepare(`SELECT id, divisions, paid FROM vsyc_registrations WHERE ${DIVISION_CONTAINS_SQL}`)
+    .bind(division)
+    .all<Pick<DivisionReg, 'id' | 'divisions' | 'paid'>>();
 
-  if (regsError) {
-    return apiError('upstream_error', 'Failed to validate registrations', requestId);
-  }
-
-  const regMap = new Map((regs ?? []).map((r) => [r.id, r]));
+  const regMap = new Map(divisionRegs.map((r) => [r.id, r]));
 
   for (const id of registration_ids) {
     const reg = regMap.get(id);
-    if (!reg) return apiError('bad_request', `Registration ${id} not found`, requestId);
+    if (!reg) return apiError('bad_request', `Registration ${id} not found in division ${division}`, requestId);
     if (!reg.paid) return apiError('unprocessable', `Registration ${id} has not paid`, requestId);
-    if (!(reg.divisions as string[]).includes(division)) {
-      return apiError('unprocessable', `Registration ${id} is not in division ${division}`, requestId);
-    }
   }
 
-  // Fetch existing statuses so we can preserve them on upsert
-  const { data: existing } = await supabase
-    .from('vsyc_run_order')
-    .select('registration_id, status')
-    .eq('division', division);
+  // Fetch existing statuses so we can preserve them across the rewrite
+  const { results: existing } = await db
+    .prepare('SELECT registration_id, status FROM vsyc_run_order WHERE division = ?1')
+    .bind(division)
+    .all<{ registration_id: string; status: string }>();
 
-  const existingStatusMap = new Map((existing ?? []).map((r) => [r.registration_id, r.status]));
+  const existingStatusMap = new Map(existing.map((r) => [r.registration_id, r.status]));
 
-  // Build upsert rows
-  const rows = registration_ids.map((rid, i) => ({
-    division,
-    registration_id: rid,
-    position: i + 1,
-    status: existingStatusMap.get(rid) ?? 'upcoming',
-  }));
+  // Atomic rewrite: delete + chunked inserts in one transaction
+  const insertSql =
+    'INSERT INTO vsyc_run_order (id, division, registration_id, position, status) VALUES (?,?,?,?,?)';
+  const statements = [
+    db.prepare('DELETE FROM vsyc_run_order WHERE division = ?1').bind(division),
+    ...registration_ids.map((rid, i) =>
+      db.prepare(insertSql).bind(
+        crypto.randomUUID(),
+        division,
+        rid,
+        i + 1,
+        existingStatusMap.get(rid) ?? 'upcoming',
+      )
+    ),
+  ];
 
-  // Delete old rows for this division, then insert new order
-  const { error: deleteError } = await supabase
-    .from('vsyc_run_order')
-    .delete()
-    .eq('division', division);
-
-  if (deleteError) {
-    return apiError('upstream_error', 'Failed to clear existing run order', requestId);
-  }
-
-  const { error: insertError } = await supabase
-    .from('vsyc_run_order')
-    .insert(rows);
-
-  if (insertError) {
-    console.error('[admin/run-order] insert error:', insertError);
+  try {
+    await db.batch(statements);
+  } catch (e) {
+    console.error('[admin/run-order] batch error:', e);
     return apiError('upstream_error', 'Failed to save run order', requestId);
   }
 
   return NextResponse.json(
-    { ok: true, division, count: rows.length },
+    { ok: true, division, count: registration_ids.length },
     { status: 200, headers: { 'x-request-id': requestId } }
   );
 });
@@ -108,34 +112,30 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('bad_request', 'division must be one of: 1A, X, SBJ', requestId);
   }
 
-  const supabase = createAdminClient();
+  const db = getDb();
 
-  // Get all paid registrants in this division (for the "available to add" list)
-  const { data: allRegs, error: allRegsError } = await supabase
-    .from('vsyc_registrations')
-    .select('id, first_name, last_name, preferred_bracket_name, city, state, performance_time_pref, scheduling_notes, music_filename, paid')
-    .contains('divisions', [division])
-    .order('created_at', { ascending: true });
+  // All registrants in this division (for the "available to add" list)
+  const { results: allRegs } = await db
+    .prepare(
+      `SELECT id, divisions, paid, first_name, last_name, preferred_bracket_name, city, state,
+              performance_time_pref, scheduling_notes, music_filename
+       FROM vsyc_registrations
+       WHERE ${DIVISION_CONTAINS_SQL}
+       ORDER BY created_at ASC`
+    )
+    .bind(division)
+    .all<DivisionReg>();
 
-  if (allRegsError) {
-    return apiError('upstream_error', 'Failed to fetch registrations', requestId);
-  }
+  // Current run order
+  const { results: runOrder } = await db
+    .prepare('SELECT position, status, registration_id FROM vsyc_run_order WHERE division = ?1 ORDER BY position ASC')
+    .bind(division)
+    .all<{ position: number; status: string; registration_id: string }>();
 
-  // Get current run order
-  const { data: runOrder, error: roError } = await supabase
-    .from('vsyc_run_order')
-    .select('position, status, registration_id')
-    .eq('division', division)
-    .order('position', { ascending: true });
+  const orderedIds = new Set(runOrder.map((r) => r.registration_id));
+  const regMap = new Map(allRegs.map((r) => [r.id, r]));
 
-  if (roError) {
-    return apiError('upstream_error', 'Failed to fetch run order', requestId);
-  }
-
-  const orderedIds = new Set((runOrder ?? []).map((r) => r.registration_id));
-  const regMap = new Map((allRegs ?? []).map((r) => [r.id, r]));
-
-  const ordered = (runOrder ?? []).map((row) => {
+  const ordered = runOrder.map((row) => {
     const reg = regMap.get(row.registration_id);
     return {
       position: row.position,
@@ -147,11 +147,11 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       performance_time_pref: reg?.performance_time_pref ?? null,
       scheduling_notes: reg?.scheduling_notes ?? null,
       music_filename: reg?.music_filename ?? null,
-      paid: reg?.paid ?? false,
+      paid: Boolean(reg?.paid),
     };
   });
 
-  const unscheduled = (allRegs ?? [])
+  const unscheduled = allRegs
     .filter((r) => !orderedIds.has(r.id))
     .map((r) => ({
       registration_id: r.id,
@@ -161,7 +161,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       performance_time_pref: r.performance_time_pref ?? null,
       scheduling_notes: r.scheduling_notes ?? null,
       music_filename: r.music_filename ?? null,
-      paid: r.paid,
+      paid: Boolean(r.paid),
     }));
 
   return NextResponse.json(

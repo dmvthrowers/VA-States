@@ -1,11 +1,15 @@
-/** @type {import('next').NextConfig} */
+import { initOpenNextCloudflareForDev } from '@opennextjs/cloudflare';
+
+// Provides Cloudflare bindings (D1, R2) to `next dev`; no-op in `next build`.
+initOpenNextCloudflareForDev();
+
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com",
+  "img-src 'self' data: blob: https://dmvthrowers.club",
+  "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -21,10 +25,13 @@ const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
 ];
 
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
   images: {
+    // Workers deployment serves remote images directly (no Vercel optimizer)
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: 'dmvthrowers.club', pathname: '/assets/images/**' },
     ],
@@ -34,4 +41,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;

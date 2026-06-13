@@ -1,0 +1,5 @@
+# Local dev secrets for `next dev` / `wrangler dev` (copy to .dev.vars).
+# Production values are set with: npx wrangler secret put <NAME>
+RESEND_API_KEY=re_...
+ADMIN_PASSWORD=<generate-a-strong-password>
+JUDGE_PIN=<judge-pin>

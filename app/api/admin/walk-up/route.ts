@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getDb } from '@/lib/db';
 import { calculateFee } from '@/lib/pricing';
 import { generateToken } from '@/lib/tokens';
 import { logAudit } from '@/lib/audit';
@@ -38,7 +38,7 @@ const walkUpSchema = z.object({
 /**
  * POST /api/admin/walk-up
  *
- * Creates a walk-up registration. No rate limiting (admin-only endpoint).
+ * Creates a walk-up registration. Behind admin Basic Auth (middleware).
  * Automatically applies walk_up_surcharge (+$10).
  * Skips the online registration window check.
  */
@@ -54,7 +54,6 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   }
 
   const data = parsed.data;
-  const supabase = createAdminClient();
 
   // Calculate fee with walk_up source (auto-applies $10 surcharge)
   const feeResult = calculateFee(
@@ -68,56 +67,60 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   const musicUploadToken = generateToken(32);
   const musicDeadline = new Date(process.env.MUSIC_DEADLINE_ISO ?? '2026-09-12T23:59:59-04:00');
 
-  const { data: reg, error: insertError } = await supabase
-    .from('vsyc_registrations')
-    .insert({
-      first_name:               data.first_name,
-      last_name:                data.last_name,
-      preferred_bracket_name:   data.preferred_bracket_name || null,
-      age_on_event:             data.age_on_event,
-      pronouns:                 null,
-      email:                    data.email,
-      phone:                    data.phone || null,
-      city:                     data.city,
-      state:                    data.state,
-      club_affiliation:         null,
-      parent_name:              data.parent_name || null,
-      parent_email:             data.parent_email || null,
-      parent_consented:         data.parent_consented,
-      divisions:                data.divisions,
-      x_substyle:               data.x_substyle ?? null,
-      combo_applied:            feeResult.combo_applied,
-      comp_code:                null,
-      early_bird_applied:       feeResult.early_bird_applied,
-      walk_up_surcharge:        true,
-      fee_cents:                feeResult.fee_cents,
-      registration_source:      'walk_up',
-      music_upload_token:       musicUploadToken,
-      liability_waiver_accepted: data.liability_waiver_accepted,
-      photo_video_consent:       true,   // assumed at walk-up
-      code_of_conduct_accepted:  data.code_of_conduct_accepted,
-      emergency_contact_name:    null,
-      emergency_contact_phone:   null,
-      volunteer_interest:        false,
-      accessibility_needs:       null,
-      performance_time_pref:     null,
-      scheduling_notes:          null,
-      merch_order:               null,
-      merch_total_cents:         0,
-      paid:                      data.paid_at_table,
-      ip_address:                null,
-      user_agent:                'admin/walk-up',
-    })
-    .select('id')
-    .single();
-
-  if (insertError || !reg) {
+  const regId = crypto.randomUUID();
+  try {
+    await getDb()
+      .prepare(
+        `INSERT INTO vsyc_registrations (
+          id, first_name, last_name, preferred_bracket_name, age_on_event,
+          email, phone, city, state,
+          parent_name, parent_email, parent_consented,
+          divisions, x_substyle, combo_applied,
+          early_bird_applied, walk_up_surcharge, fee_cents, registration_source,
+          music_upload_token,
+          liability_waiver_accepted, photo_video_consent, code_of_conduct_accepted,
+          volunteer_interest, merch_total_cents, paid, paid_at, payment_method, user_agent
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      )
+      .bind(
+        regId,
+        data.first_name,
+        data.last_name,
+        data.preferred_bracket_name || null,
+        data.age_on_event,
+        data.email,
+        data.phone || null,
+        data.city,
+        data.state,
+        data.parent_name || null,
+        data.parent_email || null,
+        data.parent_consented ? 1 : 0,
+        JSON.stringify(data.divisions),
+        data.x_substyle ?? null,
+        feeResult.combo_applied ? 1 : 0,
+        feeResult.early_bird_applied ? 1 : 0,
+        1, // walk_up_surcharge
+        feeResult.fee_cents,
+        'walk_up',
+        musicUploadToken,
+        1, // liability_waiver_accepted
+        1, // photo_video_consent — assumed at walk-up
+        1, // code_of_conduct_accepted
+        0, // volunteer_interest
+        0, // merch_total_cents
+        data.paid_at_table ? 1 : 0,
+        data.paid_at_table ? new Date().toISOString() : null,
+        data.paid_at_table ? 'cash' : 'pending',
+        'admin/walk-up',
+      )
+      .run();
+  } catch (insertError) {
     console.error('[admin/walk-up] insert error:', insertError);
     return apiError('upstream_error', 'Failed to save walk-up registration', requestId);
   }
 
   await logAudit('created', {
-    registrationId: reg.id,
+    registrationId: regId,
     actor: 'admin/walk-up',
     details: {
       source: 'walk_up',
@@ -128,7 +131,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   });
 
   // Send confirmation email (best-effort — don't block on failure)
-  const confirmUrl = `${BASE_URL}/confirm?id=${reg.id}`;
+  const confirmUrl = `${BASE_URL}/confirm?id=${regId}`;
   const musicUploadUrl = `${BASE_URL}/upload?token=${musicUploadToken}`;
 
   try {
@@ -141,7 +144,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       isComp: feeResult.is_comp,
       confirmUrl,
       musicUploadUrl,
-      registrationId: reg.id,
+      registrationId: regId,
     });
   } catch (emailErr) {
     console.error('[admin/walk-up] email error (non-fatal):', emailErr);
@@ -149,7 +152,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
   return NextResponse.json(
     {
-      id: reg.id,
+      id: regId,
       registration_source: 'walk_up',
       fee_cents: feeResult.fee_cents,
       walk_up_surcharge: true,

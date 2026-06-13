@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getDb, parseDivisions } from '@/lib/db';
+import { safeCompare } from '@/lib/tokens';
 import { z } from 'zod';
 
 const VALID_DIVISIONS = ['1A', 'X', 'SBJ'] as const;
@@ -15,6 +16,28 @@ const scoreSubmitSchema = z.object({
   presentation:    z.number().min(0).max(100),
   notes:           z.string().trim().max(500).optional(),
 });
+
+function pinIsValid(pin: string): boolean {
+  const expected = process.env.JUDGE_PIN;
+  return Boolean(expected) && safeCompare(pin, expected as string);
+}
+
+interface ScoreRow {
+  id: string;
+  registration_id: string;
+  division: string;
+  judge_name: string;
+  execution: number;
+  difficulty: number;
+  presentation: number;
+  notes: string | null;
+  created_at: string;
+  first_name: string;
+  last_name: string;
+  preferred_bracket_name: string | null;
+  city: string | null;
+  state: string | null;
+}
 
 /**
  * GET /api/scores?division=1A
@@ -33,69 +56,41 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('bad_request', 'division must be one of: 1A, X, SBJ', requestId);
   }
 
-  const supabase = createAdminClient();
-
-  // If requesting judge-specific scores with PIN, validate pin
-  const isJudgeView = judgeFilter && pin;
-  if (isJudgeView) {
-    const expectedPin = process.env.JUDGE_PIN;
-    if (!expectedPin || pin !== expectedPin) {
-      return apiError('unauthorized', 'Invalid PIN', requestId);
-    }
+  const isJudgeView = Boolean(judgeFilter && pin);
+  if (isJudgeView && !pinIsValid(pin as string)) {
+    return apiError('unauthorized', 'Invalid PIN', requestId);
   }
 
-  // Fetch scores for this division
-  const query = supabase
-    .from('vsyc_scores')
-    .select(`
-      id,
-      registration_id,
-      division,
-      judge_name,
-      execution,
-      difficulty,
-      presentation,
-      notes,
-      created_at,
-      vsyc_registrations (
-        first_name,
-        last_name,
-        preferred_bracket_name,
-        city,
-        state
-      )
-    `)
-    .eq('division', division);
+  const db = getDb();
+  const baseSql = `
+    SELECT s.id, s.registration_id, s.division, s.judge_name,
+           s.execution, s.difficulty, s.presentation, s.notes, s.created_at,
+           r.first_name, r.last_name, r.preferred_bracket_name, r.city, r.state
+    FROM vsyc_scores s
+    JOIN vsyc_registrations r ON r.id = s.registration_id
+    WHERE s.division = ?1`;
 
-  if (isJudgeView) {
-    query.eq('judge_name', judgeFilter);
-  }
+  const stmt = isJudgeView
+    ? db.prepare(`${baseSql} AND s.judge_name = ?2 ORDER BY s.created_at ASC`).bind(division, judgeFilter)
+    : db.prepare(`${baseSql} ORDER BY s.created_at ASC`).bind(division);
 
-  const { data: scores, error } = await query.order('created_at', { ascending: true });
-
-  if (error) {
-    console.error('[scores] query error:', error);
-    return apiError('upstream_error', 'Failed to fetch scores', requestId);
-  }
+  const { results: scores } = await stmt.all<ScoreRow>();
 
   if (isJudgeView) {
     // Return full raw scores for this judge
-    const result = (scores ?? []).map((s) => {
-      const reg = Array.isArray(s.vsyc_registrations) ? s.vsyc_registrations[0] : s.vsyc_registrations;
-      return {
-        id: s.id,
-        registration_id: s.registration_id,
-        display_name: reg?.preferred_bracket_name ?? `${reg?.first_name} ${reg?.last_name}`,
-        city: reg?.city ?? null,
-        state: reg?.state ?? null,
-        execution: Number(s.execution),
-        difficulty: Number(s.difficulty),
-        presentation: Number(s.presentation),
-        total: Number(s.execution) + Number(s.difficulty) + Number(s.presentation),
-        notes: s.notes ?? null,
-        created_at: s.created_at,
-      };
-    });
+    const result = scores.map((s) => ({
+      id: s.id,
+      registration_id: s.registration_id,
+      display_name: s.preferred_bracket_name ?? `${s.first_name} ${s.last_name}`,
+      city: s.city ?? null,
+      state: s.state ?? null,
+      execution: Number(s.execution),
+      difficulty: Number(s.difficulty),
+      presentation: Number(s.presentation),
+      total: Number(s.execution) + Number(s.difficulty) + Number(s.presentation),
+      notes: s.notes ?? null,
+      created_at: s.created_at,
+    }));
     return NextResponse.json({ division, scores: result }, { headers: { 'x-request-id': requestId } });
   }
 
@@ -111,16 +106,15 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     presentation_sum: number;
   }>();
 
-  for (const s of scores ?? []) {
-    const reg = Array.isArray(s.vsyc_registrations) ? s.vsyc_registrations[0] : s.vsyc_registrations;
-    const displayName = reg?.preferred_bracket_name ?? `${reg?.first_name} ${reg?.last_name}`;
+  for (const s of scores) {
+    const displayName = s.preferred_bracket_name ?? `${s.first_name} ${s.last_name}`;
 
     if (!byReg.has(s.registration_id)) {
       byReg.set(s.registration_id, {
         registration_id: s.registration_id,
         display_name: displayName,
-        city: reg?.city ?? null,
-        state: reg?.state ?? null,
+        city: s.city ?? null,
+        state: s.state ?? null,
         judge_count: 0,
         execution_sum: 0,
         difficulty_sum: 0,
@@ -174,25 +168,22 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
   const { pin, judge_name, registration_id, division, execution, difficulty, presentation, notes } = parsed.data;
 
-  // PIN validation
-  const expectedPin = process.env.JUDGE_PIN;
-  if (!expectedPin || pin !== expectedPin) {
+  if (!pinIsValid(pin)) {
     return apiError('unauthorized', 'Invalid judge PIN', requestId);
   }
 
-  const supabase = createAdminClient();
+  const db = getDb();
 
   // Verify registration exists and is in this division
-  const { data: reg, error: regError } = await supabase
-    .from('vsyc_registrations')
-    .select('id, divisions, paid')
-    .eq('id', registration_id)
-    .single();
+  const reg = await db
+    .prepare('SELECT id, divisions, paid FROM vsyc_registrations WHERE id = ?1')
+    .bind(registration_id)
+    .first<{ id: string; divisions: string; paid: number }>();
 
-  if (regError || !reg) {
+  if (!reg) {
     return apiError('not_found', 'Registration not found', requestId);
   }
-  if (!(reg.divisions as string[]).includes(division)) {
+  if (!parseDivisions(reg.divisions).includes(division)) {
     return apiError('unprocessable', 'Competitor is not in this division', requestId);
   }
   if (!reg.paid) {
@@ -200,17 +191,21 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   }
 
   // Upsert score
-  const { data: score, error: upsertError } = await supabase
-    .from('vsyc_scores')
-    .upsert(
-      { registration_id, division, judge_name, execution, difficulty, presentation, notes: notes ?? null },
-      { onConflict: 'registration_id,division,judge_name' }
+  const score = await db
+    .prepare(
+      `INSERT INTO vsyc_scores (id, registration_id, division, judge_name, execution, difficulty, presentation, notes)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+       ON CONFLICT (registration_id, division, judge_name) DO UPDATE SET
+         execution = excluded.execution,
+         difficulty = excluded.difficulty,
+         presentation = excluded.presentation,
+         notes = excluded.notes
+       RETURNING id, execution, difficulty, presentation`
     )
-    .select('id, execution, difficulty, presentation')
-    .single();
+    .bind(crypto.randomUUID(), registration_id, division, judge_name, execution, difficulty, presentation, notes ?? null)
+    .first<{ id: string; execution: number; difficulty: number; presentation: number }>();
 
-  if (upsertError || !score) {
-    console.error('[scores] upsert error:', upsertError);
+  if (!score) {
     return apiError('upstream_error', 'Failed to save score', requestId);
   }
 
