@@ -29,7 +29,7 @@ function ConfirmContent() {
   useEffect(() => {
     if (!id) { setError('Missing registration ID.'); setLoading(false); return; }
     fetch(`/api/confirm?id=${encodeURIComponent(id)}`)
-      .then(r => r.ok ? r.json() : r.json().then((e: { message?: string }) => Promise.reject(e.message ?? 'Not found')))
+      .then(r => r.ok ? r.json() : r.json().then((e: { error?: { message?: string } }) => Promise.reject(e.error?.message ?? 'Not found')))
       .then((d: ConfirmData) => { setData(d); setLoading(false); })
       .catch((e: string) => { setError(e); setLoading(false); });
   }, [id]);

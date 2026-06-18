@@ -1,29 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { buildMusicFilename } from '@/lib/filename';
 import { logAudit } from '@/lib/audit';
 import { sendMusicReceivedEmail } from '@/lib/email';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getDb, getMusicBucket, parseDivisions } from '@/lib/db';
 
-const ALLOWED_MIMES = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
-const MAX_BYTES = 128 * 1024 * 1024; // 128 MB
+// Buffered in the Worker before the R2 put, so capped well under the
+// 128 MB isolate memory limit. Plenty for a freestyle track.
+const MAX_BYTES = 50 * 1024 * 1024;
 
+const CONTENT_TYPE_BY_EXT: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  m4a: 'audio/mp4',
+};
+
+interface RegRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  divisions: string;
+  email: string;
+}
+
+/**
+ * POST /api/upload?token=...
+ *
+ * Direct music upload: raw file body, original filename in the
+ * x-original-filename header (URI-encoded). The file is stored in R2 under
+ * the enforced DIVISION_Last_First.ext name derived from the registration.
+ */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   const token = req.nextUrl.searchParams.get('token');
   if (!token) return apiError('bad_request', 'Missing upload token', requestId);
 
-  const supabase = createAdminClient();
+  const ip = getClientIp(req.headers);
+  const allowed = await checkRateLimit(ip, 'upload', 20, 15);
+  if (!allowed) return apiError('rate_limited', 'Too many upload attempts. Try again later.', requestId);
 
   // 1. Look up registration by token
-  const { data: reg, error: lookupErr } = await supabase
-    .from('vsyc_registrations')
-    .select('id, first_name, last_name, divisions, email, music_uploaded_at')
-    .eq('music_upload_token', token)
-    .single();
+  const reg = await getDb()
+    .prepare(
+      `SELECT id, first_name, last_name, divisions, email
+       FROM vsyc_registrations WHERE music_upload_token = ?1`
+    )
+    .bind(token)
+    .first<RegRow>();
 
-  if (lookupErr || !reg) {
-    return apiError('not_found', 'Invalid or expired upload token', requestId);
-  }
+  if (!reg) return apiError('not_found', 'Invalid or expired upload token', requestId);
 
   // 2. Check music deadline
   const deadline = new Date(process.env.MUSIC_DEADLINE_ISO ?? '2026-09-12T23:59:59-04:00');
@@ -31,64 +56,59 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('unprocessable', 'Music upload deadline has passed (September 12, 2026)', requestId);
   }
 
-  // 3. Parse multipart form
-  let formData: FormData;
-  try { formData = await req.formData(); } catch {
-    return apiError('bad_request', 'Failed to parse upload — ensure multipart/form-data', requestId);
-  }
+  // 3. Enforced filename from the registration's own data
+  let originalName = '';
+  try { originalName = decodeURIComponent(req.headers.get('x-original-filename') ?? ''); } catch { /* keep '' */ }
+  if (!originalName) return apiError('bad_request', 'Missing x-original-filename header', requestId);
 
-  const file = formData.get('file');
-  if (!file || typeof file === 'string') {
-    return apiError('bad_request', 'No file provided in "file" field', requestId);
-  }
-
-  // 4. Validate MIME + size
-  if (!ALLOWED_MIMES.includes(file.type)) {
-    return apiError('unprocessable', `File type ${file.type} not accepted. Use MP3, WAV, or M4A.`, requestId);
-  }
-  if (file.size > MAX_BYTES) {
-    return apiError('unprocessable', 'File exceeds 128 MB limit', requestId);
-  }
-
-  // 5. Build enforced filename
-  const primaryDivision = reg.divisions[0] as string;
+  const divisions = parseDivisions(reg.divisions);
+  const primaryDivision = divisions[0] ?? '';
   const { filename, error: fnErr } = buildMusicFilename(
     primaryDivision,
     reg.last_name,
     reg.first_name,
-    file.name,
+    originalName,
   );
   if (fnErr) return apiError('unprocessable', fnErr, requestId);
 
-  // 6. Upload to Supabase Storage
-  const buffer = await file.arrayBuffer();
-  const { error: uploadErr } = await supabase.storage
-    .from('vsyc26-music')
-    .upload(filename, buffer, {
-      contentType: file.type,
-      upsert: true,
-    });
+  // 4. Size check, then read the body
+  const declaredSize = parseInt(req.headers.get('content-length') ?? '0', 10);
+  if (declaredSize > MAX_BYTES) {
+    return apiError('unprocessable', 'File exceeds 50 MB limit', requestId);
+  }
 
-  if (uploadErr) {
-    console.error('[upload] storage error:', uploadErr);
+  const buffer = await req.arrayBuffer();
+  if (buffer.byteLength === 0) return apiError('bad_request', 'Empty file', requestId);
+  if (buffer.byteLength > MAX_BYTES) {
+    return apiError('unprocessable', 'File exceeds 50 MB limit', requestId);
+  }
+
+  // 5. Store in R2 (overwrites any previous upload for this registrant)
+  const ext = filename.split('.').pop() as string;
+  try {
+    await getMusicBucket().put(filename, buffer, {
+      httpMetadata: { contentType: CONTENT_TYPE_BY_EXT[ext] ?? 'application/octet-stream' },
+    });
+  } catch (uploadErr) {
+    console.error('[upload] R2 error:', uploadErr);
     return apiError('upstream_error', 'File storage failed. Please try again.', requestId);
   }
 
-  // 7. Update registration record
-  await supabase
-    .from('vsyc_registrations')
-    .update({
-      music_path:        `vsyc26-music/${filename}`,
-      music_filename:    filename,
-      music_uploaded_at: new Date().toISOString(),
-    })
-    .eq('id', reg.id);
+  // 6. Update registration record
+  await getDb()
+    .prepare(
+      `UPDATE vsyc_registrations
+       SET music_path = ?1, music_filename = ?2, music_uploaded_at = ?3
+       WHERE id = ?4`
+    )
+    .bind(`vsyc26-music/${filename}`, filename, new Date().toISOString(), reg.id)
+    .run();
 
-  // 8. Audit + email
+  // 7. Audit + email
   await logAudit('music_received', {
     registrationId: reg.id,
     actor: 'system',
-    details: { filename, size_bytes: file.size },
+    details: { filename, size_bytes: buffer.byteLength },
   });
 
   await sendMusicReceivedEmail({

@@ -9,16 +9,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "db:migrate:local": "wrangler d1 migrations apply vsyc26 --local",
+    "db:migrate:remote": "wrangler d1 migrations apply vsyc26 --remote"
   },
   "dependencies": {
+    "@opennextjs/cloudflare": "^1.5.1",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-label": "^2.1.8",
-    "@supabase/supabase-js": "^2.105.2",
-    "@upstash/ratelimit": "^2.0.5",
-    "@vercel/analytics": "^1.3.1",
-    "@vercel/kv": "^3.0.0",
     "lucide-react": "^0.545.0",
     "next": "^15.2.3",
     "react": "^18.3.1",
@@ -28,6 +29,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250620.0",
     "@types/node": "^22",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
@@ -36,6 +38,7 @@
     "eslint-config-next": "15.0.3",
     "postcss": "^8.5.13",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wrangler": "^4.21.0"
   }
 }

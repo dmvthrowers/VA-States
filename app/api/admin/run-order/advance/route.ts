@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getDb } from '@/lib/db';
 import { z } from 'zod';
 
 const advanceSchema = z.object({
   division: z.enum(['1A', 'X', 'SBJ']),
 });
+
+interface RunRow {
+  id: string;
+  position: number;
+  status: string;
+  registration_id: string;
+}
 
 /**
  * POST /api/admin/run-order/advance
@@ -30,18 +37,12 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   }
 
   const { division } = parsed.data;
-  const supabase = createAdminClient();
+  const db = getDb();
 
-  // Fetch full run order for this division
-  const { data: runOrder, error: roError } = await supabase
-    .from('vsyc_run_order')
-    .select('id, position, status, registration_id')
-    .eq('division', division)
-    .order('position', { ascending: true });
-
-  if (roError || !runOrder) {
-    return apiError('upstream_error', 'Failed to fetch run order', requestId);
-  }
+  const { results: runOrder } = await db
+    .prepare('SELECT id, position, status, registration_id FROM vsyc_run_order WHERE division = ?1 ORDER BY position ASC')
+    .bind(division)
+    .all<RunRow>();
 
   if (runOrder.length === 0) {
     return apiError('not_found', 'No run order set for this division', requestId);
@@ -60,10 +61,10 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   // Start the division if nothing is performing yet
   if (!performing && upcoming.length > 0) {
     const first = upcoming[0];
-    await supabase
-      .from('vsyc_run_order')
-      .update({ status: 'performing' })
-      .eq('id', first.id);
+    await db
+      .prepare("UPDATE vsyc_run_order SET status = 'performing' WHERE id = ?1")
+      .bind(first.id)
+      .run();
 
     const nextUp = upcoming[1] ?? null;
     return NextResponse.json(
@@ -72,33 +73,27 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     );
   }
 
-  // Advance: mark current as done, promote next upcoming
-  if (performing) {
-    await supabase
-      .from('vsyc_run_order')
-      .update({ status: 'done' })
-      .eq('id', performing.id);
+  // Advance atomically: mark current as done, promote next upcoming
+  const next = upcoming[0] ?? null;
+  const statements = [
+    db.prepare("UPDATE vsyc_run_order SET status = 'done' WHERE id = ?1").bind(performing!.id),
+  ];
+  if (next) {
+    statements.push(
+      db.prepare("UPDATE vsyc_run_order SET status = 'performing' WHERE id = ?1").bind(next.id)
+    );
   }
-
-  let nowPerformingId: string | null = null;
-  if (upcoming.length > 0) {
-    const next = upcoming[0];
-    await supabase
-      .from('vsyc_run_order')
-      .update({ status: 'performing' })
-      .eq('id', next.id);
-    nowPerformingId = next.registration_id;
-  }
+  await db.batch(statements);
 
   const nextUp = upcoming[1] ?? null;
 
   return NextResponse.json(
     {
       division,
-      prev_performer: performing?.registration_id ?? null,
-      now_performing: nowPerformingId,
+      prev_performer: performing!.registration_id,
+      now_performing: next?.registration_id ?? null,
       next_up: nextUp?.registration_id ?? null,
-      division_complete: nowPerformingId === null,
+      division_complete: next === null,
     },
     { headers: { 'x-request-id': requestId } }
   );
@@ -124,14 +119,14 @@ export const DELETE = withErrorHandling(async (requestId, req: NextRequest) => {
   }
 
   const { division } = parsed.data;
-  const supabase = createAdminClient();
 
-  const { error } = await supabase
-    .from('vsyc_run_order')
-    .update({ status: 'upcoming' })
-    .eq('division', division);
-
-  if (error) {
+  try {
+    await getDb()
+      .prepare("UPDATE vsyc_run_order SET status = 'upcoming' WHERE division = ?1")
+      .bind(division)
+      .run();
+  } catch (e) {
+    console.error('[admin/run-order/advance] reset error:', e);
     return apiError('upstream_error', 'Failed to reset run order', requestId);
   }
 

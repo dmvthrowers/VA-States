@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getDb } from '@/lib/db';
 
 const DIVISIONS = ['1A', 'X', 'SBJ'] as const;
 type Division = typeof DIVISIONS[number];
@@ -32,13 +32,14 @@ interface Competitor {
 }
 
 async function getResults(): Promise<Record<Division, Competitor[]>> {
-  const supabase = createAdminClient();
-
-  const { data: scores, error } = await supabase
-    .from('vsyc_results')
-    .select('*');
-
-  if (error || !scores) return { '1A': [], X: [], SBJ: [] };
+  let scores: ScoreRow[];
+  try {
+    const { results } = await getDb().prepare('SELECT * FROM vsyc_results').all<ScoreRow>();
+    scores = results;
+  } catch (e) {
+    console.error('[admin/results] query error:', e);
+    return { '1A': [], X: [], SBJ: [] };
+  }
 
   const grouped: Record<Division, Map<string, Competitor>> = {
     '1A': new Map(),
@@ -93,7 +94,9 @@ async function getResults(): Promise<Record<Division, Competitor[]>> {
   return result;
 }
 
-export const revalidate = 10;
+// Render on demand — admin live-results must not be prerendered at build
+// (CI has no Supabase credentials) and should always show fresh scores.
+export const dynamic = 'force-dynamic';
 
 export default async function AdminResultsPage() {
   const results = await getResults();

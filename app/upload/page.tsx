@@ -5,8 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 
-const ACCEPTED = '.mp3,.wav,.aiff,.aif,.m4a,audio/mpeg,audio/wav,audio/aiff,audio/mp4';
-const MAX_MB = 128;
+const ACCEPTED = '.mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4';
+const MAX_MB = 50;
 
 type UploadState = 'idle' | 'uploading' | 'done' | 'error';
 
@@ -50,27 +50,26 @@ function UploadContent() {
     setState('uploading');
     setProgress(0);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('token', token);
-
     try {
-      // Use XHR for upload progress tracking
+      // Raw file body; the API derives the enforced filename from the
+      // registration and stores the file in R2.
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/upload');
+        xhr.open('POST', `/api/upload?token=${encodeURIComponent(token)}`);
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        xhr.setRequestHeader('x-original-filename', encodeURIComponent(file.name));
         xhr.upload.onprogress = (ev) => {
           if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 100));
         };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) resolve();
           else {
-            try { reject(JSON.parse(xhr.responseText).message ?? 'Upload failed'); }
+            try { reject(JSON.parse(xhr.responseText).error.message ?? 'Upload failed'); }
             catch { reject('Upload failed'); }
           }
         };
         xhr.onerror = () => reject('Network error');
-        xhr.send(formData);
+        xhr.send(file);
       });
 
       setState('done');
@@ -100,7 +99,7 @@ function UploadContent() {
           Music Upload
         </h1>
         <p style={{ color: 'var(--text-body)', marginTop: 0, marginBottom: '2rem' }}>
-          Upload your freestyle music. Accepted: MP3, WAV, AIFF, M4A · Max {MAX_MB} MB
+          Upload your freestyle music. Accepted: MP3, WAV, M4A · Max {MAX_MB} MB
         </p>
 
         {state === 'done' ? (

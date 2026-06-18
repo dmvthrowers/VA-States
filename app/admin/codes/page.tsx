@@ -1,7 +1,6 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getDb } from '@/lib/db';
 
 interface CodeRow {
-  id: string;
   code: string;
   description: string | null;
   max_uses: number;
@@ -14,12 +13,17 @@ interface CodeRow {
 export const dynamic = 'force-dynamic';
 
 export default async function CodesPage() {
-  const supabase = createAdminClient();
-  const { data: codes, error } = await supabase
-    .from('vsyc_comp_codes')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .returns<CodeRow[]>();
+  let codes: CodeRow[] | null = null;
+  let error: { message: string } | null = null;
+  try {
+    const { results } = await getDb()
+      .prepare('SELECT code, description, max_uses, uses_count, expires_at, active, created_at FROM vsyc_comp_codes ORDER BY created_at DESC')
+      .all<Omit<CodeRow, 'active'> & { active: number }>();
+    codes = results.map((r) => ({ ...r, active: Boolean(r.active) }));
+  } catch (e) {
+    console.error('[admin/codes] query error:', e);
+    error = { message: 'Database query failed' };
+  }
 
   return (
     <>
@@ -54,7 +58,7 @@ export default async function CodesPage() {
               const exhausted = row.uses_count >= row.max_uses;
               const expired = new Date(row.expires_at) < new Date();
               return (
-                <tr key={row.id} style={{ borderBottom: '1px solid var(--navy-border)', opacity: (!row.active || expired) ? 0.5 : 1 }}>
+                <tr key={row.code} style={{ borderBottom: '1px solid var(--navy-border)', opacity: (!row.active || expired) ? 0.5 : 1 }}>
                   <td style={{ padding: '0.6rem 0.75rem' }}>
                     <code style={{ color: 'var(--gold)', fontFamily: 'monospace', fontSize: '0.9rem' }}>{row.code}</code>
                   </td>
@@ -77,7 +81,7 @@ export default async function CodesPage() {
                   </td>
                   <td style={{ padding: '0.6rem 0.75rem' }}>
                     <form method="POST" action="/api/admin/toggle-code">
-                      <input type="hidden" name="id" value={row.id} />
+                      <input type="hidden" name="code" value={row.code} />
                       <input type="hidden" name="active" value={row.active ? '0' : '1'} />
                       <button
                         type="submit"
@@ -105,7 +109,7 @@ export default async function CodesPage() {
       </div>
 
       <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'var(--navy)', border: '1px solid var(--navy-border)', fontSize: '0.8rem', color: 'var(--text-body)' }}>
-        <strong style={{ color: '#fff' }}>Note:</strong> To add new codes, run a SQL migration or insert directly via the Supabase dashboard.
+        <strong style={{ color: '#fff' }}>Note:</strong> To add new codes, insert a row via `wrangler d1 execute` or the Cloudflare D1 console.
         Codes are validated at registration time — disabling a code prevents future use but does not affect existing registrations.
       </div>
     </>

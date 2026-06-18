@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getDb } from '@/lib/db';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase.from('vsyc_registrations').select('id').limit(1);
-    if (error) throw error;
+    await getDb().prepare('SELECT id FROM vsyc_registrations LIMIT 1').first();
     return NextResponse.json({ ok: true, db: 'connected', ts: new Date().toISOString() });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 503 });
+    console.error('[health] check failed:', e);
+    return NextResponse.json({ ok: false, error: 'database unavailable' }, { status: 503 });
   }
 }

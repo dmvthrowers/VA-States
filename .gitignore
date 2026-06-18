@@ -22,3 +22,8 @@ next-env.d.ts
 # OS
 .DS_Store
 Thumbs.db
+
+# cloudflare
+.open-next/
+.wrangler/
+.dev.vars

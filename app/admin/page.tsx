@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getDb, parseDivisions, DIVISION_CONTAINS_SQL } from '@/lib/db';
 import { formatCents } from '@/lib/pricing';
 
 interface RegRow {
@@ -25,21 +25,49 @@ export default async function AdminPage({
   searchParams: Promise<{ division?: string; paid?: string; music?: string; q?: string }>;
 }) {
   const sp = await searchParams;
-  const supabase = createAdminClient();
 
-  let query = supabase
-    .from('vsyc_registrations')
-    .select('id, created_at, first_name, last_name, email, divisions, fee_cents, paid, paid_at, music_uploaded_at, is_minor, comp_code, registration_source')
-    .order('created_at', { ascending: false });
+  const where: string[] = [];
+  const params: unknown[] = [];
 
-  if (sp.paid === '1') query = query.eq('paid', true);
-  if (sp.paid === '0') query = query.eq('paid', false);
-  if (sp.music === '1') query = query.not('music_uploaded_at', 'is', null);
-  if (sp.music === '0') query = query.is('music_uploaded_at', null);
-  if (sp.division) query = query.contains('divisions', [sp.division]);
-  if (sp.q) query = query.or(`first_name.ilike.%${sp.q}%,last_name.ilike.%${sp.q}%,email.ilike.%${sp.q}%`);
+  if (sp.paid === '1') where.push('paid = 1');
+  if (sp.paid === '0') where.push('paid = 0');
+  if (sp.music === '1') where.push('music_uploaded_at IS NOT NULL');
+  if (sp.music === '0') where.push('music_uploaded_at IS NULL');
+  if (sp.division) {
+    where.push(DIVISION_CONTAINS_SQL);
+    params.push(sp.division);
+  }
+  if (sp.q) {
+    const like = `%${sp.q.toLowerCase().replace(/[\\%_]/g, '\\$&')}%`;
+    where.push(
+      "(lower(first_name) LIKE ? ESCAPE '\\' OR lower(last_name) LIKE ? ESCAPE '\\' OR lower(email) LIKE ? ESCAPE '\\')"
+    );
+    params.push(like, like, like);
+  }
 
-  const { data: rows, error } = await query.returns<RegRow[]>();
+  let rows: RegRow[] | null = null;
+  let error: { message: string } | null = null;
+  try {
+    const { results } = await getDb()
+      .prepare(
+        `SELECT id, created_at, first_name, last_name, email, divisions, fee_cents, paid,
+                paid_at, music_uploaded_at, is_minor, comp_code, registration_source
+         FROM vsyc_registrations
+         ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+         ORDER BY created_at DESC`
+      )
+      .bind(...params)
+      .all<Omit<RegRow, 'divisions' | 'paid' | 'is_minor'> & { divisions: string; paid: number; is_minor: number }>();
+    rows = results.map((r) => ({
+      ...r,
+      divisions: parseDivisions(r.divisions),
+      paid: Boolean(r.paid),
+      is_minor: Boolean(r.is_minor),
+    }));
+  } catch (e) {
+    console.error('[admin] query error:', e);
+    error = { message: 'Database query failed' };
+  }
 
   const totalFee = (rows ?? []).reduce((s, r) => s + r.fee_cents, 0);
   const paidCount = (rows ?? []).filter(r => r.paid).length;
@@ -115,7 +143,7 @@ export default async function AdminPage({
         {pill('Has music', sp.music === '1', filterLink({ music: '1' }))}
         {pill('No music', sp.music === '0', filterLink({ music: '0' }))}
         <span style={{ width: 1, background: 'var(--navy-border)', height: 20, display: 'inline-block', margin: '0 4px' }} />
-        {['1A', '2A', '3A', '4A', '5A', 'X', 'Fixed Axle', 'Beginner', 'Junior'].map(d =>
+        {['1A', 'X', 'SBJ'].map(d =>
           pill(d, sp.division === d, filterLink({ division: sp.division === d ? '' : d }))
         )}
       </div>
