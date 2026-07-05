@@ -16,7 +16,13 @@ const DIVISIONS: { code: string; label: string }[] = [
 ];
 
 async function getCompetitors(): Promise<Record<string, Competitor[]>> {
-  const supabase = createAdminClient();
+  // Don't crash env-less builds (CI/local) — render an empty list instead.
+  let supabase: ReturnType<typeof createAdminClient>;
+  try {
+    supabase = createAdminClient();
+  } catch {
+    return {};
+  }
 
   const { data, error } = await supabase
     .from('vsyc_registrations')

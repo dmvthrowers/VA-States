@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 // Body: { registration_id: string, filename: string }
 // Returns: { upload_url: string, path: string, token: string }
 //
-// Supabase Storage bucket "vsyc-music" must exist (create in dashboard, set private).
+// Uses the "vsyc26-music" bucket created by 0002_storage_buckets.sql (private).
 // Client uploads directly to the signed URL via PUT, then this record is done.
 
 export const POST = withErrorHandling(async (requestId: string, req: NextRequest) => {
@@ -25,14 +25,14 @@ export const POST = withErrorHandling(async (requestId: string, req: NextRequest
   const supabase = createAdminClient();
 
   const { data, error } = await supabase.storage
-    .from('vsyc-music')
+    .from('vsyc26-music')
     .createSignedUploadUrl(path);
 
   if (error || !data) {
     console.error('[music-upload] storage error:', error);
     return apiError(
       'upstream_error',
-      error?.message ?? 'Could not generate upload URL. Ensure the vsyc-music bucket exists.',
+      error?.message ?? 'Could not generate upload URL. Ensure the vsyc26-music bucket exists.',
       requestId,
     );
   }

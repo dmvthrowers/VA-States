@@ -1,5 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 
+// Live admin data — never prerender at build time.
+export const dynamic = 'force-dynamic';
+
 const DIVISIONS = ['1A', 'X', 'SBJ'] as const;
 type Division = typeof DIVISIONS[number];
 

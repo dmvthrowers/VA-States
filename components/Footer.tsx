@@ -1,3 +1,5 @@
+'use client';
+
 /** VSYC-26 Footer — matches ui_kits/vsyc26/index.html footer pattern */
 
 import Image from 'next/image';

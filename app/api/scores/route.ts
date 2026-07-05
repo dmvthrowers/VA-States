@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { safeCompare } from '@/lib/tokens';
 import { z } from 'zod';
 
 const VALID_DIVISIONS = ['1A', 'X', 'SBJ'] as const;
@@ -38,8 +40,16 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   // If requesting judge-specific scores with PIN, validate pin
   const isJudgeView = judgeFilter && pin;
   if (isJudgeView) {
+    // Rate limit PIN attempts — 60 per IP per 15 minutes (brute-force guard)
+    const ip = getClientIp(req.headers);
+    const allowed = await checkRateLimit(ip, 'judge-pin', 60, 15);
+    if (!allowed) {
+      return apiError('rate_limited', 'Too many PIN attempts. Try again later.', requestId, {
+        'Retry-After': '900',
+      });
+    }
     const expectedPin = process.env.JUDGE_PIN;
-    if (!expectedPin || pin !== expectedPin) {
+    if (!expectedPin || !safeCompare(pin, expectedPin)) {
       return apiError('unauthorized', 'Invalid PIN', requestId);
     }
   }
@@ -174,9 +184,18 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
   const { pin, judge_name, registration_id, division, execution, difficulty, presentation, notes } = parsed.data;
 
-  // PIN validation
+  // Rate limit PIN attempts — 60 per IP per 15 minutes (brute-force guard)
+  const ip = getClientIp(req.headers);
+  const pinAllowed = await checkRateLimit(ip, 'judge-pin', 60, 15);
+  if (!pinAllowed) {
+    return apiError('rate_limited', 'Too many PIN attempts. Try again later.', requestId, {
+      'Retry-After': '900',
+    });
+  }
+
+  // PIN validation (constant-time)
   const expectedPin = process.env.JUDGE_PIN;
-  if (!expectedPin || pin !== expectedPin) {
+  if (!expectedPin || !safeCompare(pin, expectedPin)) {
     return apiError('unauthorized', 'Invalid judge PIN', requestId);
   }
 
