@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { buildVsyc26Ics } from './ics';
 
 function getResend() {
   const key = process.env.RESEND_API_KEY;
@@ -10,6 +11,16 @@ const FROM = `${process.env.RESEND_FROM_NAME ?? 'VSYC-26 Registration'} <${proce
 const REPLY_TO = process.env.RESEND_REPLY_TO ?? 'dmvthrowers@gmail.com';
 
 export type EmailResult = { ok: true } | { ok: false; error: string };
+
+/** Escape registrant-supplied values before interpolating into email HTML. */
+function esc(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 interface ConfirmationParams {
   to: string;
@@ -27,12 +38,19 @@ export async function sendConfirmationEmail(p: ConfirmationParams): Promise<Emai
   try {
     const resend = getResend();
     const fee = p.isComp ? 'FREE (comp pass)' : `$${(p.feeCents / 100).toFixed(2)}`;
+    const ics = buildVsyc26Ics({
+      uid: `competitor-${p.registrationId}`,
+      summary: 'VSYC-26 — You are competing!',
+    });
     const { error } = await resend.emails.send({
       from: FROM,
       to: p.to,
       replyTo: REPLY_TO,
       subject: `VSYC-26 Registration Received — ${p.firstName}, here's what's next`,
       html: buildConfirmationHtml(p, fee),
+      attachments: [
+        { filename: 'VSYC-26.ics', content: Buffer.from(ics, 'utf-8').toString('base64') },
+      ],
     });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
@@ -89,6 +107,37 @@ export async function sendPaymentReminderEmail(p: PaymentReminderParams): Promis
   }
 }
 
+interface SpectatorConfirmationParams {
+  to: string;
+  firstName: string;
+  spectatorId: string;
+  isPublic: boolean;
+}
+
+export async function sendSpectatorConfirmationEmail(p: SpectatorConfirmationParams): Promise<EmailResult> {
+  try {
+    const resend = getResend();
+    const ics = buildVsyc26Ics({
+      uid: `spectator-${p.spectatorId}`,
+      summary: 'VSYC-26 — Virginia State Yo-Yo Contest (Spectator RSVP)',
+    });
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to: p.to,
+      replyTo: REPLY_TO,
+      subject: `You're on the list for VSYC-26, ${p.firstName}!`,
+      html: buildSpectatorConfirmationHtml(p),
+      attachments: [
+        { filename: 'VSYC-26.ics', content: Buffer.from(ics, 'utf-8').toString('base64') },
+      ],
+    });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 // ─── HTML builders ───────────────────────────────────────────────────────────
 
 function emailWrap(body: string): string {
@@ -109,11 +158,11 @@ function emailWrap(body: string): string {
 function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
   return emailWrap(`
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Registration Received</h1>
-    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${p.firstName} — you're in. Here's everything you need.</p>
+    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${esc(p.firstName)} — you're in. Here's everything you need.</p>
     <div style="background:#0d1428;padding:20px;margin-bottom:16px;">
       <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">YOUR REGISTRATION</div>
-      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Name:</strong> ${p.firstName} ${p.lastName}</div>
-      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Division(s):</strong> ${p.divisions.join(', ')}</div>
+      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Name:</strong> ${esc(p.firstName)} ${esc(p.lastName)}</div>
+      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Division(s):</strong> ${esc(p.divisions.join(', '))}</div>
       <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Entry fee:</strong> ${fee}</div>
       <div style="font-size:0.85rem;"><strong style="color:#fff;">ID:</strong> ${p.registrationId.slice(0, 8).toUpperCase()}</div>
     </div>
@@ -131,6 +180,7 @@ function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
       <a href="${p.musicUploadUrl}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:12px 24px;text-decoration:none;">UPLOAD MUSIC →</a>
       <p style="font-size:0.75rem;margin:12px 0 0;color:#6a7a9a;">Format: DIVISION_LastName_FirstName.mp3 — the system will rename it automatically.</p>
     </div>
+    <p style="font-size:0.78rem;color:#6a7a9a;margin:0 0 16px;">📅 A calendar invite (VSYC-26.ics) is attached — add it to your calendar so you don't miss the day.</p>
     <a href="${p.confirmUrl}" style="display:inline-block;background:#1a2744;border:1px solid #2a3a5a;color:#C9A84C;font-size:0.78rem;font-weight:700;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;margin-top:4px;">VIEW YOUR REGISTRATION →</a>
   `);
 }
@@ -138,10 +188,10 @@ function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
 function buildMusicReceivedHtml(p: MusicReceivedParams): string {
   return emailWrap(`
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Music Received</h1>
-    <p style="font-size:0.9rem;margin:0 0 24px;">Got it, ${p.firstName}. Your music is in.</p>
+    <p style="font-size:0.9rem;margin:0 0 24px;">Got it, ${esc(p.firstName)}. Your music is in.</p>
     <div style="background:#0d1428;padding:20px;margin-bottom:16px;">
-      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Division:</strong> ${p.division}</div>
-      <div style="font-size:0.85rem;"><strong style="color:#fff;">File saved as:</strong> <span style="font-family:monospace;color:#C9A84C;">${p.filename}</span></div>
+      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Division:</strong> ${esc(p.division)}</div>
+      <div style="font-size:0.85rem;"><strong style="color:#fff;">File saved as:</strong> <span style="font-family:monospace;color:#C9A84C;">${esc(p.filename)}</span></div>
     </div>
     <p style="font-size:0.82rem;color:#6a7a9a;">Music deadline was September 12, 2026. You're all set. See you at Dulles Town Center on September 19.</p>
   `);
@@ -151,7 +201,7 @@ function buildPaymentReminderHtml(p: PaymentReminderParams): string {
   const fee = `$${(p.feeCents / 100).toFixed(2)}`;
   return emailWrap(`
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Payment Reminder</h1>
-    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${p.firstName} — we haven't received your VSYC-26 entry payment yet.</p>
+    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${esc(p.firstName)} — we haven't received your VSYC-26 entry payment yet.</p>
     <div style="background:#0d1428;border-left:4px solid #C8102E;padding:20px;margin-bottom:16px;">
       <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Amount due:</strong> ${fee}</div>
       <div style="font-size:0.85rem;margin-bottom:4px;">💸 <strong style="color:#fff;">Venmo:</strong> @DMVThrow</div>
@@ -159,5 +209,19 @@ function buildPaymentReminderHtml(p: PaymentReminderParams): string {
       <div style="font-size:0.85rem;">📬 <strong style="color:#fff;">Check:</strong> DMV Throwers</div>
     </div>
     <p style="font-size:0.82rem;color:#6a7a9a;">Registration closes September 13. Unpaid registrations may be released after that date. Questions? Reply to this email.</p>
+  `);
+}
+
+function buildSpectatorConfirmationHtml(p: SpectatorConfirmationParams): string {
+  return emailWrap(`
+    <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">You're on the list!</h1>
+    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${esc(p.firstName)} — see you at VSYC-26. Spectating is always free, all ages.</p>
+    <div style="background:#0d1428;padding:20px;margin-bottom:16px;">
+      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Where:</strong> Dulles Town Center, Sterling, VA</div>
+      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">When:</strong> September 19, 2026</div>
+      <div style="font-size:0.85rem;"><strong style="color:#fff;">Listed publicly:</strong> ${p.isPublic ? 'Yes — your profile will show on the site' : 'No — you\'re registered privately'}</div>
+    </div>
+    <p style="font-size:0.78rem;color:#6a7a9a;margin:0 0 16px;">📅 A calendar invite (VSYC-26.ics) is attached — add it to your calendar so you don't miss the day.</p>
+    <p style="font-size:0.82rem;color:#6a7a9a;">Full event details and schedule: <a href="https://dmvthrowers.club/vsyc26-schedule.html" style="color:#C9A84C;">dmvthrowers.club/vsyc26-schedule.html</a></p>
   `);
 }

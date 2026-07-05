@@ -73,3 +73,38 @@ export const registrationSchema = z.object({
 });
 
 export type RegistrationInput = z.infer<typeof registrationSchema>;
+
+// ─── Spectator RSVP (free) ─────────────────────────────────────────────────
+
+const socialsSchema = z.object({
+  instagram: z.string().trim().max(100).optional().or(z.literal('')),
+  tiktok:    z.string().trim().max(100).optional().or(z.literal('')),
+  youtube:   z.string().trim().max(100).optional().or(z.literal('')),
+  other:     z.string().trim().max(200).optional().or(z.literal('')),
+}).partial();
+
+export const spectatorSchema = z.object({
+  first_name: nameSchema,
+  last_name:  nameSchema,
+  nickname:   z.string().trim().max(50).optional().or(z.literal('')),
+  email:      emailSchema,
+  state:      stateSchema,
+
+  photo_url:     z.string().trim().url().max(500).optional().or(z.literal('')),
+  bio:           z.string().trim().max(1000).optional().or(z.literal('')),
+  team:          z.string().trim().max(100).optional().or(z.literal('')),
+  club:          z.string().trim().max(100).optional().or(z.literal('')),
+  yoyo:          z.string().trim().max(100).optional().or(z.literal('')),
+  string:        z.string().trim().max(100).optional().or(z.literal('')),
+  counterweight: z.string().trim().max(100).optional().or(z.literal('')),
+  socials:       socialsSchema.optional(),
+
+  is_public: z.boolean().optional().default(false),
+
+  liability_accepted:       z.literal(true, { errorMap: () => ({ message: 'Please acknowledge you are responsible for yourself at the event' }) }),
+  code_of_conduct_accepted: z.literal(true, { errorMap: () => ({ message: 'Code of Conduct agreement is required' }) }),
+
+  _hp: honeypotSchema,
+});
+
+export type SpectatorInput = z.infer<typeof spectatorSchema>;
