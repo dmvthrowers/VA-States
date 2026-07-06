@@ -156,8 +156,6 @@ function emailWrap(body: string): string {
 }
 
 function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
-  const musicHref = p.musicUploadUrl ?? p.confirmUrl;
-  const musicCta = p.musicUploadUrl ? 'UPLOAD MUSIC' : 'VIEW PAYMENT STATUS';
   return emailWrap(`
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Registration Received</h1>
     <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${esc(p.firstName)} — you're in. Here's everything you need.</p>
@@ -175,12 +173,19 @@ function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
       <a href="${p.confirmUrl}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:12px 24px;text-decoration:none;">COMPLETE PAYMENT →</a>
       <p style="font-size:0.75rem;margin:12px 0 0;color:#6a7a9a;">Day-of alternatives may be available at the registration desk.</p>
     </div>` : ''}
+    ${p.musicUploadUrl ? `
     <div style="background:#0d1428;border-left:4px solid #C9A84C;padding:20px;margin-bottom:16px;">
       <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">MUSIC UPLOAD</div>
       <p style="font-size:0.85rem;margin:0 0 12px;">Upload your music using the secure link below. <strong style="color:#fff;">Deadline: September 12, 2026.</strong></p>
       <a href="${p.musicUploadUrl}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:12px 24px;text-decoration:none;">UPLOAD MUSIC →</a>
       <p style="font-size:0.75rem;margin:12px 0 0;color:#6a7a9a;">Format: DIVISION_LastName_FirstName.mp3 — the system will rename it automatically.</p>
     </div>
+    ` : `
+    <div style="background:#0d1428;border-left:4px solid #C9A84C;padding:20px;margin-bottom:16px;">
+      <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">MUSIC UPLOAD</div>
+      <p style="font-size:0.85rem;margin:0;">Music upload unlocks in your registration portal after payment is received. <strong style="color:#fff;">Deadline: September 12, 2026.</strong></p>
+    </div>
+    `}
     <p style="font-size:0.78rem;color:#6a7a9a;margin:0 0 16px;">📅 A calendar invite (VSYC-26.ics) is attached — add it to your calendar so you don't miss the day.</p>
     <a href="${p.confirmUrl}" style="display:inline-block;background:#1a2744;border:1px solid #2a3a5a;color:#C9A84C;font-size:0.78rem;font-weight:700;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;margin-top:4px;">VIEW YOUR REGISTRATION →</a>
   `);

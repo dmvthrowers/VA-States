@@ -185,7 +185,7 @@ function ConfirmContent() {
                   Use the secure link below — it&apos;s unique to your registration.
                 </p>
                 <a
-                  href={data.music_upload_url}
+                  href={data.music_upload_url!}
                   style={{
                     display: 'inline-block',
                     background: 'var(--gold)',

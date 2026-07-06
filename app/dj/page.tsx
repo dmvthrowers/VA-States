@@ -163,7 +163,6 @@ export default function DJPage() {
   const performers = data?.performers ?? [];
   const nowPerforming = performers.find((p) => p.status === 'performing');
   const upcoming = performers.filter((p) => p.status === 'upcoming');
-  const done = performers.filter((p) => p.status === 'done');
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--navy-deep)', padding: '0' }}>

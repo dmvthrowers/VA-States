@@ -36,12 +36,12 @@ const BLANK: FormState = {
 const DIVISION_PRICES: Record<Division, number> = { '1A': 25, 'X': 20, 'SBJ': 15 };
 const WALK_UP_SURCHARGE = 10;
 
-function estimateFee(divisions: Division[], paid_at_table: boolean): number {
+function estimateFee(divisions: Division[]): number {
   if (divisions.length === 0) return 0;
   const has1A = divisions.includes('1A');
   const hasX  = divisions.includes('X');
   const hasSBJ = divisions.includes('SBJ');
-  let fee = (has1A && hasX) ? 40 + (hasSBJ ? 15 : 0) : divisions.reduce((s, d) => s + DIVISION_PRICES[d], 0);
+  const fee = (has1A && hasX) ? 40 + (hasSBJ ? 15 : 0) : divisions.reduce((s, d) => s + DIVISION_PRICES[d], 0);
   return fee + WALK_UP_SURCHARGE;
 }
 
@@ -71,7 +71,7 @@ export default function WalkUpPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; data?: unknown; error?: string } | null>(null);
 
-  const estimatedFee = estimateFee(form.divisions, form.paid_at_table);
+  const estimatedFee = estimateFee(form.divisions);
   const isMinor = parseInt(form.age_on_event, 10) < 18;
 
   function toggle(div: Division) {

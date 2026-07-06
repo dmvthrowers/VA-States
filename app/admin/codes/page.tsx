@@ -1,7 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 
 interface CodeRow {
-  id: string;
   code: string;
   description: string | null;
   max_uses: number;
@@ -54,7 +53,7 @@ export default async function CodesPage() {
               const exhausted = row.uses_count >= row.max_uses;
               const expired = new Date(row.expires_at) < new Date();
               return (
-                <tr key={row.id} style={{ borderBottom: '1px solid var(--navy-border)', opacity: (!row.active || expired) ? 0.5 : 1 }}>
+                <tr key={row.code} style={{ borderBottom: '1px solid var(--navy-border)', opacity: (!row.active || expired) ? 0.5 : 1 }}>
                   <td style={{ padding: '0.6rem 0.75rem' }}>
                     <code style={{ color: 'var(--gold)', fontFamily: 'monospace', fontSize: '0.9rem' }}>{row.code}</code>
                   </td>
@@ -77,7 +76,7 @@ export default async function CodesPage() {
                   </td>
                   <td style={{ padding: '0.6rem 0.75rem' }}>
                     <form method="POST" action="/api/admin/toggle-code">
-                      <input type="hidden" name="id" value={row.id} />
+                      <input type="hidden" name="code" value={row.code} />
                       <input type="hidden" name="active" value={row.active ? '0' : '1'} />
                       <button
                         type="submit"
