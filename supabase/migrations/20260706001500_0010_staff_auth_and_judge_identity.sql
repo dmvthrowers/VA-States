@@ -46,7 +46,8 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_vsyc_scores_div_judge_user
   ON vsyc_scores (division, judge_user_id);
 
-CREATE OR REPLACE VIEW vsyc_results AS
+DROP VIEW IF EXISTS vsyc_results;
+CREATE VIEW vsyc_results AS
 SELECT
   s.division,
   COALESCE(s.judge_display_name, s.judge_name) AS judge_name,
