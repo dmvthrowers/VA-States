@@ -55,12 +55,15 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   // Look up registration by token
   const { data: reg, error: lookupErr } = await supabase
     .from('vsyc_registrations')
-    .select('id, first_name, last_name, divisions, email, music_uploaded_at')
+    .select('id, first_name, last_name, divisions, email, fee_cents, paid, music_uploaded_at')
     .eq('music_upload_token', token)
     .single();
 
   if (lookupErr || !reg) {
     return apiError('not_found', 'Invalid or expired upload token', requestId);
+  }
+  if (!reg.paid && reg.fee_cents > 0) {
+    return apiError('forbidden', 'Music upload unlocks after payment is received.', requestId);
   }
 
   // Check music deadline

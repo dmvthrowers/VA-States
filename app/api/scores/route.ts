@@ -35,11 +35,12 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('bad_request', 'division must be one of: 1A, X, SBJ', requestId);
   }
 
-  const supabase = createAdminClient();
-
   // If requesting judge-specific scores with PIN, validate pin
-  const isJudgeView = judgeFilter && pin;
+  const isJudgeView = Boolean(judgeFilter || pin);
   if (isJudgeView) {
+    if (!judgeFilter || !pin) {
+      return apiError('bad_request', 'judge and pin are both required for judge score view', requestId);
+    }
     // Rate limit PIN attempts — 60 per IP per 15 minutes (brute-force guard)
     const ip = getClientIp(req.headers);
     const allowed = await checkRateLimit(ip, 'judge-pin', 60, 15);
@@ -52,7 +53,14 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     if (!expectedPin || !safeCompare(pin, expectedPin)) {
       return apiError('unauthorized', 'Invalid PIN', requestId);
     }
+  } else if (process.env.RESULTS_PUBLISHED !== 'true') {
+    return NextResponse.json(
+      { division, published: false, standings: [] },
+      { headers: { 'x-request-id': requestId } }
+    );
   }
+
+  const supabase = createAdminClient();
 
   // Fetch scores for this division
   const query = supabase

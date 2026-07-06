@@ -30,7 +30,7 @@ interface ConfirmationParams {
   feeCents: number;
   isComp: boolean;
   confirmUrl: string;
-  musicUploadUrl: string;
+  musicUploadUrl?: string;
   registrationId: string;
 }
 
@@ -156,6 +156,8 @@ function emailWrap(body: string): string {
 }
 
 function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
+  const musicHref = p.musicUploadUrl ?? p.confirmUrl;
+  const musicCta = p.musicUploadUrl ? 'UPLOAD MUSIC' : 'VIEW PAYMENT STATUS';
   return emailWrap(`
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Registration Received</h1>
     <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${esc(p.firstName)} — you're in. Here's everything you need.</p>
@@ -169,10 +171,9 @@ function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
     ${!p.isComp ? `
     <div style="background:#0d1428;border-left:4px solid #C8102E;padding:20px;margin-bottom:16px;">
       <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C8102E;font-weight:800;margin-bottom:12px;">PAYMENT REQUIRED</div>
-      <p style="font-size:0.85rem;margin:0 0 12px;">Send <strong style="color:#fff;">${fee}</strong> to one of the following. Include your name and "VSYC26" in the note.</p>
-      <div style="font-size:0.85rem;margin-bottom:4px;">💸 <strong style="color:#fff;">Venmo:</strong> @DMVThrow</div>
-      <div style="font-size:0.85rem;margin-bottom:4px;">💳 <strong style="color:#fff;">PayPal:</strong> paypal.biz/Dmvthrowers</div>
-      <div style="font-size:0.85rem;">📬 <strong style="color:#fff;">Check payable to:</strong> DMV Throwers</div>
+      <p style="font-size:0.85rem;margin:0 0 12px;">Complete your secure Stripe checkout for <strong style="color:#fff;">${fee}</strong> in your registration portal.</p>
+      <a href="${p.confirmUrl}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:12px 24px;text-decoration:none;">COMPLETE PAYMENT →</a>
+      <p style="font-size:0.75rem;margin:12px 0 0;color:#6a7a9a;">Day-of alternatives may be available at the registration desk.</p>
     </div>` : ''}
     <div style="background:#0d1428;border-left:4px solid #C9A84C;padding:20px;margin-bottom:16px;">
       <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">MUSIC UPLOAD</div>
@@ -204,9 +205,9 @@ function buildPaymentReminderHtml(p: PaymentReminderParams): string {
     <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${esc(p.firstName)} — we haven't received your VSYC-26 entry payment yet.</p>
     <div style="background:#0d1428;border-left:4px solid #C8102E;padding:20px;margin-bottom:16px;">
       <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Amount due:</strong> ${fee}</div>
-      <div style="font-size:0.85rem;margin-bottom:4px;">💸 <strong style="color:#fff;">Venmo:</strong> @DMVThrow</div>
-      <div style="font-size:0.85rem;margin-bottom:4px;">💳 <strong style="color:#fff;">PayPal:</strong> paypal.biz/Dmvthrowers</div>
-      <div style="font-size:0.85rem;">📬 <strong style="color:#fff;">Check:</strong> DMV Throwers</div>
+      <div style="font-size:0.85rem;margin-bottom:4px;">Complete secure payment in your registration portal (Stripe).</div>
+      <a href="${p.confirmUrl}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;margin-top:6px;">PAY NOW →</a>
+      <p style="font-size:0.75rem;margin:10px 0 0;color:#6a7a9a;">Day-of alternatives may be available at the registration desk.</p>
     </div>
     <p style="font-size:0.82rem;color:#6a7a9a;">Registration closes September 13. Unpaid registrations may be released after that date. Questions? Reply to this email.</p>
   `);

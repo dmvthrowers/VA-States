@@ -315,16 +315,24 @@ export default function RegisterPage() {
             {showXSubstyle && (
               <div className="mt-4 p-4 bg-navy border border-gold/30">
                 <label className="block text-xs font-black tracking-caps text-gold mb-3">X DIVISION STYLE *</label>
-                <div className="flex gap-3 flex-wrap">
-                  {(['2A', '3A', '4A', '5A'] as const).map(style => (
-                    <label key={style} className="flex items-center gap-2 cursor-pointer">
+                <div className="space-y-2">
+                  {([
+                    { code: '2A', desc: 'Looping - two looping yo-yos focused on rhythm and control.' },
+                    { code: '3A', desc: 'Two-Handed String - two string-trick yo-yos, one in each hand.' },
+                    { code: '4A', desc: 'Offstring - yo-yo is not attached to the string during play.' },
+                    { code: '5A', desc: 'Freehand - counterweight style with no finger loop.' },
+                  ] as const).map(({ code, desc }) => (
+                    <label key={code} className="flex items-start gap-2 cursor-pointer">
                       <input
                         {...register('x_substyle', { required: showXSubstyle ? 'Select a sub-style' : false })}
                         type="radio"
-                        value={style}
-                        className="w-4 h-4 accent-gold"
+                        value={code}
+                        className="w-4 h-4 accent-gold mt-0.5"
                       />
-                      <span className="text-sm font-semibold text-white">{style}</span>
+                      <span>
+                        <span className="text-sm font-semibold text-white">{code}</span>
+                        <span className="text-xs text-text-body ml-2">{desc}</span>
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -551,7 +559,7 @@ export default function RegisterPage() {
               {submitting ? 'SUBMITTING...' : 'SUBMIT REGISTRATION →'}
             </button>
             <p className="text-xs text-text-body mt-3 text-center">
-              You will receive a confirmation email with payment instructions and a music upload link.
+              Payment and music upload are handled in this registration portal after you submit.
             </p>
           </div>
         </form>
@@ -608,17 +616,13 @@ export default function RegisterPage() {
 
             <div className="mt-5 pt-4 border-t border-navy-border">
               <div className="text-xs font-black tracking-caps text-gold mb-2">PAYMENT</div>
-              <p className="text-xs text-text-body mb-2">Pay after submitting via:</p>
-              <div className="text-xs text-white space-y-1">
-                <div>💸 Venmo: <span className="text-gold font-semibold">@DMVThrow</span></div>
-                <div>💳 PayPal: <span className="text-gold font-semibold">paypal.biz/Dmvthrowers</span></div>
-                <div>📬 Check to: <span className="text-gold font-semibold">DMV Throwers</span></div>
-              </div>
+              <p className="text-xs text-text-body mb-2">Online registration payments are processed securely by Stripe at checkout.</p>
+              <p className="text-xs text-text-body">Day-of payment options may be available at check-in. See the registration desk for details.</p>
             </div>
 
             <div className="mt-4 pt-4 border-t border-navy-border">
               <div className="text-xs font-black tracking-caps text-gold mb-2">MUSIC DEADLINE</div>
-              <p className="text-xs text-text-body">Upload link sent after registration. <strong className="text-white">Deadline: Sept 12, 2026.</strong></p>
+              <p className="text-xs text-text-body">Upload your music in this registration app after payment. <strong className="text-white">Deadline: Sept 12, 2026.</strong></p>
             </div>
 
             <div className="mt-4 pt-4 border-t border-navy-border">
@@ -626,8 +630,8 @@ export default function RegisterPage() {
               <ol className="space-y-2.5">
                 {[
                   { n: '1', label: 'Submit this form', sub: 'You\'re in the queue' },
-                  { n: '2', label: 'Pay within 72 hours', sub: 'Venmo, PayPal, or check' },
-                  { n: '3', label: 'Upload your music', sub: 'Link emailed · due Sept 12' },
+                  { n: '2', label: 'Complete Stripe checkout', sub: 'Secure online payment in portal' },
+                  { n: '3', label: 'Upload your music', sub: 'In-app upload · due Sept 12' },
                   { n: '4', label: 'Show up Sept 19', sub: 'Dulles Town Center, Sterling VA' },
                 ].map(({ n, label, sub }) => (
                   <li key={n} className="flex items-start gap-2.5">

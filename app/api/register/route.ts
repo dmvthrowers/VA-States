@@ -177,10 +177,9 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       fee_cents: feeResult.fee_cents,
       is_comp: feeResult.is_comp,
       payment_instructions: {
-        venmo: '@DMVThrow',
-        paypal: 'paypal.biz/Dmvthrowers',
-        check_payable_to: 'DMV Throwers',
-        note_format: `VSYC26-${data.last_name}-${data.first_name}`,
+        online_processor: 'Stripe',
+        payment_portal: baseUrl,
+        day_of_info: 'See registration desk for available day-of alternatives.',
       },
       music_upload_url: musicUploadUrl,
       music_deadline: musicDeadline.toISOString(),

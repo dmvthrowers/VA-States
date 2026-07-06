@@ -223,7 +223,10 @@ export default function WalkUpPage() {
               style={{ ...inputStyle, marginTop: '0.5rem' }}
             >
               <option value="">X sub-style…</option>
-              {['2A', '3A', '4A', '5A'].map((s) => <option key={s}>{s}</option>)}
+              <option value="2A">2A - Looping</option>
+              <option value="3A">3A - Two-Handed String</option>
+              <option value="4A">4A - Offstring</option>
+              <option value="5A">5A - Freehand</option>
             </select>
           )}
         </Field>

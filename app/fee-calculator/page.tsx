@@ -31,7 +31,7 @@ const DIVISIONS: DivisionInfo[] = [
   {
     id: 'X',
     name: 'X Division',
-    desc: 'Experimental / Innovative — anything that doesn\'t fit another division.',
+    desc: 'Multi-style division: 2A looping, 3A two-handed string, 4A offstring, 5A freehand.',
     baseCents: 2000,
     badge: 'Open',
   },
@@ -494,11 +494,8 @@ export default function FeeCalculatorPage() {
                       Payment
                     </div>
                     <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                      Pay via{' '}
-                      <strong style={{ color: '#fff' }}>Venmo @DMVThrow</strong>{' '}
-                      or{' '}
-                      <strong style={{ color: '#fff' }}>PayPal paypal.biz/Dmvthrowers</strong>{' '}
-                      after registering. Include your name in the note.
+                      Online registration payments are processed securely by <strong style={{ color: '#fff' }}>Stripe</strong> in the registration portal.
+                      Day-of alternatives may be available at the registration desk.
                     </div>
                   </div>
                 )}

@@ -13,7 +13,7 @@ interface ConfirmData {
   email: string;
   divisions: string[];
   fee_cents: number;
-  music_upload_url: string;
+  music_upload_url: string | null;
   music_deadline: string;
   paid: boolean;
 }
@@ -44,9 +44,9 @@ function ConfirmContent() {
         window.location.href = json.url;
         return;
       }
-      setPayError(json.error?.message ?? 'Could not start card payment. Use an option below instead.');
+      setPayError(json.error?.message ?? 'Could not start secure payment. Please try again.');
     } catch {
-      setPayError('Network error starting payment. Use an option below instead.');
+      setPayError('Network error starting payment. Please try again.');
     } finally {
       setPaying(false);
     }
@@ -61,6 +61,7 @@ function ConfirmContent() {
   }, [id]);
 
   const musicNeedsUpload = data && data.divisions.some(d => ['1A', '2A', '3A', '4A', '5A'].includes(d));
+  const canUploadMusic = Boolean(data?.music_upload_url);
   const deadlineLabel = data?.music_deadline
     ? new Date(data.music_deadline).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : '';
@@ -97,8 +98,8 @@ function ConfirmContent() {
               <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {[
                   { done: true,  label: 'Registered',       sub: `Confirmation #${data.id.slice(0, 8).toUpperCase()}` },
-                  { done: data.paid || data.fee_cents === 0, label: data.fee_cents === 0 ? 'Payment — comp pass (FREE)' : `Pay entry fee ($${formatCents(data.fee_cents)})`, sub: data.paid ? 'Received' : data.fee_cents === 0 ? 'No payment needed' : 'Within 72 hours · Venmo @DMVThrow · PayPal paypal.biz/Dmvthrowers' },
-                  { done: false, label: 'Upload your music', sub: `Deadline: ${deadlineLabel} · link in your email` },
+                  { done: data.paid || data.fee_cents === 0, label: data.fee_cents === 0 ? 'Payment — comp pass (FREE)' : `Pay entry fee ($${formatCents(data.fee_cents)})`, sub: data.paid ? 'Received' : data.fee_cents === 0 ? 'No payment needed' : 'Complete secure Stripe checkout in portal' },
+                  { done: false, label: 'Upload your music', sub: `Deadline: ${deadlineLabel} · upload in portal` },
                   { done: false, label: 'See you Sept 19',   sub: 'Dulles Town Center · Sterling, VA · doors open 10am' },
                 ].map(({ done, label, sub }, i) => (
                   <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
@@ -157,17 +158,11 @@ function ConfirmContent() {
                 )}
 
                 <p style={{ color: 'var(--text-body)', marginTop: 0 }}>
-                  Prefer to pay another way? Your spot is held for <strong style={{ color: '#fff' }}>72 hours</strong>. Send{' '}
-                  <strong style={{ color: 'var(--gold)' }}>${formatCents(data.fee_cents)}</strong> via one of the options below and include the note:
+                  Online payments are processed in this portal via Stripe. Your spot is held for <strong style={{ color: '#fff' }}>72 hours</strong> while payment is pending.
                 </p>
-                <code style={{ display: 'block', background: '#0d1428', padding: '0.75rem 1rem', color: 'var(--gold-light)', fontFamily: 'monospace', marginBottom: '1.5rem', letterSpacing: '0.05em' }}>
-                  VSYC26-{data.last_name.toUpperCase()}-{data.first_name.toUpperCase()}
-                </code>
-                <ul style={{ color: 'var(--text-body)', paddingLeft: '1.25rem', margin: 0, lineHeight: 2 }}>
-                  <li><strong style={{ color: '#fff' }}>Venmo:</strong> @DMVThrow</li>
-                  <li><strong style={{ color: '#fff' }}>PayPal:</strong> paypal.biz/Dmvthrowers</li>
-                  <li><strong style={{ color: '#fff' }}>Check:</strong> payable to <em>DMV Throwers</em></li>
-                </ul>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 0 }}>
+                  Day-of alternatives may be available at the registration desk on event day.
+                </p>
               </section>
             )}
 
@@ -180,7 +175,7 @@ function ConfirmContent() {
             )}
 
             {/* Music upload block */}
-            {musicNeedsUpload && (
+            {musicNeedsUpload && canUploadMusic && (
               <section aria-labelledby="music-heading" style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '2rem', marginBottom: '2rem' }}>
                 <h2 id="music-heading" style={{ color: '#fff', fontFamily: "'Playfair Display', serif", margin: '0 0 1rem', fontSize: '1.3rem' }}>
                   Step 2 — Upload your music
@@ -207,6 +202,17 @@ function ConfirmContent() {
                 </a>
                 <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', marginTop: '1rem', marginBottom: 0 }}>
                   Accepted formats: MP3, WAV, AIFF, M4A · Max 128 MB
+                </p>
+              </section>
+            )}
+
+            {musicNeedsUpload && !canUploadMusic && (
+              <section aria-labelledby="music-heading" style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '2rem', marginBottom: '2rem' }}>
+                <h2 id="music-heading" style={{ color: '#fff', fontFamily: "'Playfair Display', serif", margin: '0 0 1rem', fontSize: '1.3rem' }}>
+                  Step 2 - Upload your music
+                </h2>
+                <p style={{ color: 'var(--text-body)', margin: 0 }}>
+                  Music upload unlocks in this portal after payment is received. Deadline: <strong style={{ color: '#fff' }}>{deadlineLabel}</strong>.
                 </p>
               </section>
             )}

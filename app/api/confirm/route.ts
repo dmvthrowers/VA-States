@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
 
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
   const musicDeadline = new Date(process.env.MUSIC_DEADLINE_ISO ?? '2026-09-12T23:59:59-04:00');
+  const canUploadMusic = data.paid || data.fee_cents === 0;
 
   return NextResponse.json({
     id: data.id,
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     divisions: data.divisions,
     fee_cents: data.fee_cents,
     paid: data.paid,
-    music_upload_url: `${BASE_URL}/upload?token=${data.music_upload_token}`,
+    music_upload_url: canUploadMusic ? `${BASE_URL}/upload?token=${data.music_upload_token}` : null,
     music_deadline: musicDeadline.toISOString(),
   });
 }
