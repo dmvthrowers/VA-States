@@ -115,7 +115,7 @@ export default async function AdminPage({
         {pill('Has music', sp.music === '1', filterLink({ music: '1' }))}
         {pill('No music', sp.music === '0', filterLink({ music: '0' }))}
         <span style={{ width: 1, background: 'var(--navy-border)', height: 20, display: 'inline-block', margin: '0 4px' }} />
-        {['1A', '2A', '3A', '4A', '5A', 'X', 'Fixed Axle', 'Beginner', 'Junior'].map(d =>
+        {['1A', '2A', '3A', '4A', '5A', 'X', 'Beginner', 'Junior'].map(d =>
           pill(d, sp.division === d, filterLink({ division: sp.division === d ? '' : d }))
         )}
       </div>
