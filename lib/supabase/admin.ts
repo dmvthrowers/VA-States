@@ -1,6 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-let adminClient: ReturnType<typeof createClient> | null = null;
+let adminClient: SupabaseClient<any, 'public', any> | null = null;
 
 export function hasAdminCredentials() {
   return Boolean(
