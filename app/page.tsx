@@ -44,6 +44,7 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
   const [cocOpen, setCocOpen] = useState(false);
+  const [liabilityScrolled, setLiabilityScrolled] = useState(false);
   const [codeStatus, setCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [codeApplied, setCodeApplied] = useState(false);
 
@@ -516,16 +517,41 @@ export default function RegisterPage() {
             </div>
 
             {/* Liability */}
-            <label className="flex gap-3 items-start cursor-pointer mb-4">
-              <input
-                {...register('liability_waiver_accepted', { required: 'Required' })}
-                type="checkbox"
-                className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0"
-              />
-              <span className="text-sm text-text-body">
-                <strong className="text-white">Liability Release:</strong> I release DMV Throwers, its officers, volunteers, and the venue from liability for any injury or damage arising from my participation in VSYC-26. I understand yo-yo competitions involve physical activity and I participate at my own risk.
-              </span>
-            </label>
+            <div className="border border-navy-border mb-4">
+              <div className="p-4 border-b border-navy-border">
+                <div className="text-xs font-black tracking-caps text-gold mb-2">LIABILITY RELEASE (REQUIRED)</div>
+                <p className="text-xs text-text-body mb-3">Scroll to the end of this section to enable the checkbox.</p>
+                <div
+                  className="max-h-44 overflow-y-auto bg-navy-deep border border-navy-border p-3 text-sm text-text-body space-y-2"
+                  onScroll={(e) => {
+                    const el = e.currentTarget;
+                    const reachedBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+                    if (reachedBottom) setLiabilityScrolled(true);
+                  }}
+                >
+                  <p><strong className="text-white">Assumption of Risk:</strong> I understand that participation in a yo-yo contest includes physical movement, crowded public spaces, equipment handling, and other event-related risks.</p>
+                  <p><strong className="text-white">Release:</strong> I release and hold harmless DMV Throwers, event staff, volunteers, sponsors, and Dulles Town Center from claims, liabilities, damages, or expenses arising out of participation in VSYC-26, except where prohibited by law.</p>
+                  <p><strong className="text-white">Personal Responsibility:</strong> I am responsible for my own safety, property, and conduct while at the event and will follow venue and event rules.</p>
+                  <p><strong className="text-white">Medical:</strong> I authorize emergency care if needed and understand all costs are my responsibility.</p>
+                  <p><strong className="text-white">Acknowledgment:</strong> By checking the box below, I confirm I have read this release and agree to participate at my own risk.</p>
+                  <p className="text-gold text-xs font-semibold pt-1">End of liability release.</p>
+                </div>
+              </div>
+              <div className="p-4">
+                <label className="flex gap-3 items-start cursor-pointer">
+                  <input
+                    {...register('liability_waiver_accepted', { required: 'Required' })}
+                    type="checkbox"
+                    disabled={!liabilityScrolled}
+                    className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0 disabled:opacity-50"
+                  />
+                  <span className="text-sm text-text-body">
+                    I have read and agree to the VSYC-26 Liability Release.
+                    {!liabilityScrolled && <span className="text-gold"> (Scroll to the end to unlock)</span>}
+                  </span>
+                </label>
+              </div>
+            </div>
             {errors.liability_waiver_accepted && <p className="text-red text-xs mb-3">{errors.liability_waiver_accepted.message}</p>}
 
             {/* Photo/video */}

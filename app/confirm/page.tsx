@@ -223,6 +223,22 @@ function ConfirmContent() {
                 A confirmation email has been sent to <strong style={{ color: '#fff' }}>{data.email}</strong>.
                 Check your spam folder if you don&apos;t see it within a few minutes.
               </p>
+              <a
+                href="/player"
+                style={{
+                  display: 'inline-block',
+                  marginTop: '0.85rem',
+                  fontFamily: 'var(--font-condensed)',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase' as const,
+                  color: 'var(--gold)',
+                  textDecoration: 'none',
+                }}
+              >
+                Manage registration in competitor portal →
+              </a>
             </section>
 
             {/* Event details */}

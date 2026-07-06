@@ -88,6 +88,7 @@ interface PaymentReminderParams {
   firstName: string;
   feeCents: number;
   registrationId: string;
+  confirmUrl: string;
 }
 
 export async function sendPaymentReminderEmail(p: PaymentReminderParams): Promise<EmailResult> {
