@@ -6,6 +6,10 @@ const phoneSchema = z.string().trim().min(7).max(20).regex(/^[\d\s\-+().]+$/, 'I
 const stateSchema = z.string().trim().length(2).toUpperCase();
 const honeypotSchema = z.string().max(0, 'Bot detected').optional();
 
+const photoUrlSchema = z.string().trim().url().max(500)
+  .refine((url) => /^https:\/\//i.test(url), { message: 'Photo URL must start with https://' })
+  .optional().or(z.literal(''));
+
 const socialsSchema = z.object({
   instagram: z.string().trim().max(100).optional().or(z.literal('')),
   tiktok:    z.string().trim().max(100).optional().or(z.literal('')),
@@ -50,7 +54,7 @@ export const registrationSchema = z.object({
 
   // Optional profile + setup
   nickname:      z.string().trim().max(50).optional().or(z.literal('')),
-  photo_url:     z.string().trim().url().max(500).optional().or(z.literal('')),
+  photo_url:     photoUrlSchema,
   bio:           z.string().trim().max(1000).optional().or(z.literal('')),
   team:          z.string().trim().max(100).optional().or(z.literal('')),
   yoyo:          z.string().trim().max(100).optional().or(z.literal('')),
@@ -126,7 +130,7 @@ export const spectatorSchema = z.object({
   email:      emailSchema,
   state:      stateSchema,
 
-  photo_url:     z.string().trim().url().max(500).optional().or(z.literal('')),
+  photo_url:     photoUrlSchema,
   bio:           z.string().trim().max(1000).optional().or(z.literal('')),
   team:          z.string().trim().max(100).optional().or(z.literal('')),
   club:          z.string().trim().max(100).optional().or(z.literal('')),

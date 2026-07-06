@@ -133,7 +133,7 @@ export default function SpectatePage() {
 
           <section>
             <SectionHeader tag="STEP 1" title="Your Info" />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="First Name *" error={errors.first_name?.message}>
                 <input {...register('first_name', { required: 'Required' })} className={inputCls(!!errors.first_name)} placeholder="Alex" />
               </Field>
@@ -141,7 +141,7 @@ export default function SpectatePage() {
                 <input {...register('last_name', { required: 'Required' })} className={inputCls(!!errors.last_name)} placeholder="Kim" />
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <Field label="Nickname / Screenname" hint="Shown instead of your full name if you go public">
                 <input {...register('nickname')} className={inputCls(false)} placeholder="AKtheStringSlinger" />
               </Field>
@@ -179,7 +179,7 @@ export default function SpectatePage() {
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <Field label="Team">
                 <input {...register('team')} className={inputCls(false)} placeholder="Team YoYoFactory" />
               </Field>
@@ -195,7 +195,7 @@ export default function SpectatePage() {
             </div>
 
             <div className="mt-4 space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Field label="Yo-Yo">
                   <input {...register('yoyo')} className={inputCls(false)} placeholder="Duncan Freehand" />
                 </Field>
@@ -206,7 +206,7 @@ export default function SpectatePage() {
                   <input {...register('counterweight')} className={inputCls(false)} placeholder="—" />
                 </Field>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Field label="Instagram">
                   <input {...register('instagram')} className={inputCls(false)} placeholder="@handle" />
                 </Field>

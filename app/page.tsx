@@ -648,9 +648,12 @@ export default function RegisterPage() {
             <div className="border border-navy-border mb-4">
               <div className="p-4 border-b border-navy-border">
                 <div className="text-xs font-black tracking-caps text-gold mb-2">LIABILITY RELEASE (REQUIRED)</div>
-                <p className="text-xs text-text-body mb-3">Scroll to the end of this section to enable the checkbox.</p>
+                <p className="text-xs text-text-body mb-3">Please read the full release below before agreeing.</p>
                 <div
-                  className="max-h-44 overflow-y-auto bg-navy-deep border border-navy-border p-3 text-sm text-text-body space-y-2"
+                  tabIndex={0}
+                  role="region"
+                  aria-label="Liability Release text — scroll to read in full"
+                  className="max-h-44 overflow-y-auto bg-navy-deep border border-navy-border p-3 text-sm text-text-body space-y-2 focus:outline-none focus:border-gold"
                   onScroll={(e) => {
                     const el = e.currentTarget;
                     const reachedBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
@@ -670,12 +673,11 @@ export default function RegisterPage() {
                   <input
                     {...register('liability_waiver_accepted', { required: 'Required' })}
                     type="checkbox"
-                    disabled={!liabilityScrolled}
-                    className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0 disabled:opacity-50"
+                    className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0"
                   />
                   <span className="text-sm text-text-body">
                     I have read and agree to the VSYC-26 Liability Release.
-                    {!liabilityScrolled && <span className="text-gold"> (Scroll to the end to unlock)</span>}
+                    {!liabilityScrolled && <span className="text-gold/70"> (Please scroll through the release above.)</span>}
                   </span>
                 </label>
               </div>
