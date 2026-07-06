@@ -16,6 +16,7 @@ function UploadContent() {
 
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [rulesAccepted, setRulesAccepted] = useState(false);
   const [state, setState] = useState<UploadState>('idle');
   const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
@@ -45,7 +46,7 @@ function UploadContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !token) return;
+    if (!file || !token || !rulesAccepted) return;
 
     setState('uploading');
     setProgress(0);
@@ -126,6 +127,34 @@ function UploadContent() {
           Upload your freestyle music. Accepted: MP3, WAV, M4A · Max {MAX_MB} MB
         </p>
 
+        {/* Music selection rules */}
+        <div style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', borderLeft: '4px solid var(--gold)', padding: '1.5rem', marginBottom: '2rem' }}>
+          <div style={{ fontSize: '0.65rem', letterSpacing: '0.16em', color: 'var(--gold)', fontWeight: 800, marginBottom: '0.75rem' }}>
+            MUSIC SELECTION RULES
+          </div>
+          <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: '0 0 0.75rem' }}>
+            Players are expected to select music for their routines and perform to it. You may choose
+            any music you like as long as it is appropriate for all audiences.
+            {' '}<strong style={{ color: '#fff' }}>Inappropriate music will result in disqualification.</strong>{' '}
+            All decisions are made by the contest head judge and are final.
+          </p>
+          <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>
+            Examples of inappropriate music — this is <em>not</em> a comprehensive list:
+          </p>
+          <ul style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: '0 0 0.75rem', paddingLeft: '1.25rem', lineHeight: 1.6 }}>
+            <li>Music containing inappropriate language (curse words, derogatory slurs)</li>
+            <li>Music addressing inappropriate themes (violence, rape, self-harm, sexual content)</li>
+            <li>Music glorifying — including but not limited to — violence, rape, suicide, killing, murder, genocide, or war</li>
+            <li>Music that explicitly implies sexual activity (heavy breathing, ecstatic noises or screams)</li>
+            <li>Music that discriminates against anyone — yo-yo is an inclusive sport, and discrimination of any kind is not tolerated at VSYC-26</li>
+          </ul>
+          <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: 0 }}>
+            If you have any doubt about your selection, email{' '}
+            <a href="mailto:dmvthrowers@gmail.com" style={{ color: 'var(--gold)' }}>dmvthrowers@gmail.com</a>{' '}
+            for a judgment before the upload deadline.
+          </p>
+        </div>
+
         {state === 'done' ? (
           <div style={{ background: '#0d2a1a', border: '1px solid #2a7a4a', padding: '2rem', textAlign: 'center' }}>
             <p style={{ color: '#7fff7f', fontSize: '1.1rem', margin: '0 0 0.5rem', fontWeight: 700 }}>
@@ -189,6 +218,21 @@ function UploadContent() {
               style={{ display: 'none' }}
             />
 
+            {/* Rules acknowledgment */}
+            <label style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', cursor: 'pointer', marginBottom: '1.5rem' }}>
+              <input
+                type="checkbox"
+                checked={rulesAccepted}
+                onChange={(e) => setRulesAccepted(e.target.checked)}
+                style={{ marginTop: '0.2rem', width: 16, height: 16, accentColor: 'var(--gold)', flexShrink: 0 }}
+              />
+              <span style={{ color: 'var(--text-body)', fontSize: '0.85rem' }}>
+                My music selection follows the Music Selection Rules above and is appropriate for all
+                audiences. I understand that inappropriate music results in disqualification and that
+                the head judge&rsquo;s decision is final.
+              </span>
+            </label>
+
             {errorMsg && (
               <p role="alert" style={{ color: '#ff6b6b', margin: '0 0 1rem', fontSize: '0.9rem' }}>
                 {errorMsg}
@@ -210,17 +254,17 @@ function UploadContent() {
 
             <button
               type="submit"
-              disabled={!file || state === 'uploading'}
+              disabled={!file || !rulesAccepted || state === 'uploading'}
               style={{
-                background: file && state !== 'uploading' ? 'var(--gold)' : 'var(--navy-border)',
-                color: file && state !== 'uploading' ? 'var(--navy-deep)' : 'var(--text-body)',
+                background: file && rulesAccepted && state !== 'uploading' ? 'var(--gold)' : 'var(--navy-border)',
+                color: file && rulesAccepted && state !== 'uploading' ? 'var(--navy-deep)' : 'var(--text-body)',
                 border: 'none',
                 padding: '0.875rem 2rem',
                 fontWeight: 800,
                 fontSize: '0.9rem',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
-                cursor: file && state !== 'uploading' ? 'pointer' : 'not-allowed',
+                cursor: file && rulesAccepted && state !== 'uploading' ? 'pointer' : 'not-allowed',
                 width: '100%',
               }}
             >
