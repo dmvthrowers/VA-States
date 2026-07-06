@@ -83,6 +83,11 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   const musicUploadToken = generateToken(32);
   const musicDeadline = new Date(process.env.MUSIC_DEADLINE_ISO ?? '2026-09-12T23:59:59-04:00');
 
+  // Minors are private-by-default and don't get public-profile fields stored,
+  // regardless of what the client sent — enforced server-side so it can't be
+  // bypassed by a hand-crafted request.
+  const isMinor = data.age_on_event < 18;
+
   // 8. Insert registration
   const { data: reg, error: insertError } = await supabase
     .from('vsyc_registrations')
@@ -109,14 +114,14 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       fee_cents:                feeResult.fee_cents,
       registration_source:      source,
       music_upload_token:       musicUploadToken,
-      nickname:                 data.nickname || null,
-      photo_url:                data.photo_url || null,
-      bio:                      data.bio || null,
-      team:                     data.team || null,
+      nickname:                 isMinor ? null : (data.nickname || null),
+      photo_url:                isMinor ? null : (data.photo_url || null),
+      bio:                      isMinor ? null : (data.bio || null),
+      team:                     isMinor ? null : (data.team || null),
       yoyo:                     data.yoyo || null,
       string:                   data.string || null,
       counterweight:            data.counterweight || null,
-      socials:                  data.socials ?? {},
+      socials:                  isMinor ? {} : (data.socials ?? {}),
       is_public:                data.is_public ?? true,
       liability_waiver_accepted: data.liability_waiver_accepted,
       photo_video_consent:       data.photo_video_consent,
