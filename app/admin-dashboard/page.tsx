@@ -712,6 +712,143 @@ export default function AdminDashboardPage() {
             </section>
 
             <section className="border border-navy-border bg-navy p-4 mb-8">
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                <div>
+                  <div className="text-xs text-gold font-black tracking-caps mb-1">Comp Codes</div>
+                  <h2 className="font-display text-2xl text-white font-bold">Create and manage code access</h2>
+                  <p className="text-xs text-text-body mt-1">Issue free/discount registrations and toggle codes without database access.</p>
+                </div>
+              </div>
+
+              <form onSubmit={createCompCode} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <label className="block">
+                  <span className="block text-xs uppercase tracking-wide text-text-muted mb-1">Code</span>
+                  <input
+                    type="text"
+                    value={compCodeValue}
+                    onChange={(e) => setCompCodeValue(e.target.value.toUpperCase())}
+                    className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                    placeholder="SPONSOR100"
+                    required
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-xs uppercase tracking-wide text-text-muted mb-1">Description</span>
+                  <input
+                    type="text"
+                    value={compCodeDescription}
+                    onChange={(e) => setCompCodeDescription(e.target.value)}
+                    className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                    placeholder="Sponsor allocation"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-xs uppercase tracking-wide text-text-muted mb-1">Max Uses</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={compCodeMaxUses}
+                    onChange={(e) => setCompCodeMaxUses(e.target.value)}
+                    className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                    required
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-xs uppercase tracking-wide text-text-muted mb-1">Discount Percent</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={compCodeDiscountPercent}
+                    onChange={(e) => setCompCodeDiscountPercent(e.target.value)}
+                    className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                    required
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-xs uppercase tracking-wide text-text-muted mb-1">Expires (YYYY-MM-DD)</span>
+                  <input
+                    type="date"
+                    value={compCodeExpiresAt}
+                    onChange={(e) => setCompCodeExpiresAt(e.target.value)}
+                    className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                    required
+                  />
+                </label>
+
+                <label className="flex items-center gap-2 text-xs text-text-body mt-6">
+                  <input
+                    type="checkbox"
+                    checked={compCodeActive}
+                    onChange={(e) => setCompCodeActive(e.target.checked)}
+                    className="w-4 h-4 accent-gold"
+                  />
+                  Active on creation
+                </label>
+
+                <div className="md:col-span-3">
+                  <button
+                    type="submit"
+                    disabled={saving === 'code:create'}
+                    className="bg-gold text-navy-deep font-black tracking-caps px-4 py-2.5 text-xs disabled:opacity-60"
+                  >
+                    {saving === 'code:create' ? 'Creating...' : 'Create Comp Code'}
+                  </button>
+                </div>
+              </form>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-navy-border text-left text-xs uppercase tracking-wide text-text-muted">
+                      <th className="py-2 pr-3">Code</th>
+                      <th className="py-2 pr-3">Discount</th>
+                      <th className="py-2 pr-3">Uses</th>
+                      <th className="py-2 pr-3">Expires</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {compCodes.map((code) => (
+                      <tr key={code.code} className="border-b border-navy-border align-top">
+                        <td className="py-2 pr-3">
+                          <div className="text-white font-semibold">{code.code}</div>
+                          {code.description && <div className="text-xs text-text-muted">{code.description}</div>}
+                        </td>
+                        <td className="py-2 pr-3 text-text-body">{code.discount_percent}%</td>
+                        <td className="py-2 pr-3 text-text-body">{code.uses_count} / {code.max_uses}</td>
+                        <td className="py-2 pr-3 text-text-body">{new Date(code.expires_at).toLocaleDateString()}</td>
+                        <td className="py-2 pr-3">
+                          <span className={code.active ? 'text-green-300' : 'text-text-muted'}>{code.active ? 'Active' : 'Disabled'}</span>
+                        </td>
+                        <td className="py-2 pr-3">
+                          <button
+                            type="button"
+                            onClick={() => toggleCompCode(code.code, !code.active)}
+                            disabled={saving === `code:${code.code}`}
+                            className="border border-navy-border px-3 py-2 text-xs text-text-body hover:text-white disabled:opacity-50"
+                          >
+                            {saving === `code:${code.code}` ? 'Saving...' : (code.active ? 'Disable' : 'Enable')}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {compCodes.length === 0 && (
+                      <tr>
+                        <td className="py-3 text-text-muted" colSpan={6}>No comp codes found.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="border border-navy-border bg-navy p-4 mb-8">
               <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
                 <h2 className="font-display text-2xl text-white font-bold">Contestants</h2>
                 <input

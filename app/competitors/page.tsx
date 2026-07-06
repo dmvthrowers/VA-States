@@ -50,7 +50,7 @@ async function getCompetitors(): Promise<Record<string, Competitor[]>> {
   return grouped;
 }
 
-export const revalidate = 60; // ISR — refresh at most once per minute
+export const revalidate = 300; // ISR — refresh at most once per 5 minutes
 
 export default async function CompetitorsPage() {
   const byDivision = await getCompetitors();

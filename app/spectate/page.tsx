@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
@@ -112,12 +113,12 @@ export default function SpectatePage() {
           <h1 className="font-display font-black text-4xl text-gold mb-2">RSVP to Spectate</h1>
           <p className="text-xs tracking-widest text-white/70 font-semibold uppercase">Free · All Ages · September 19, 2026 · Sterling, VA</p>
           <p className="text-sm text-text-body mt-3">Spectator RSVP is separate from competitor registration: no divisions, no emergency contact, quick check-in flow.</p>
-          <a
+          <Link
             href="/portal"
             className="inline-block mt-4 text-xs font-black tracking-caps text-gold hover:text-gold-light"
           >
             → Portal Access (Manage RSVP, Judge, DJ)
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -128,7 +129,7 @@ export default function SpectatePage() {
           <section className="border border-gold/40 bg-navy p-4">
             <div className="text-xs font-black tracking-caps text-gold mb-2">YOU ARE ON THE SPECTATOR FLOW</div>
             <p className="text-sm text-text-body mb-3">This RSVP is for non-competitors. Want to compete instead?</p>
-            <a href="/" className="inline-block border border-navy-border text-gold font-black tracking-caps px-3 py-2 text-xs hover:border-gold">GO TO COMPETITOR REGISTRATION →</a>
+            <Link href="/" className="inline-block border border-navy-border text-gold font-black tracking-caps px-3 py-2 text-xs hover:border-gold">GO TO COMPETITOR REGISTRATION →</Link>
           </section>
 
           <section>

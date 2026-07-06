@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { apiError } from '@/lib/api-error';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 

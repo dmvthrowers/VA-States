@@ -53,9 +53,14 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     revenue_cents: registrations.reduce((sum, r) => sum + Number(r.fee_cents ?? 0), 0),
   };
 
+  const [resultsPublished, onlineRegistrationOpen] = await Promise.all([
+    getEventFlagBoolean('results_published', process.env.RESULTS_PUBLISHED === 'true'),
+    getEventFlagBoolean('online_registration_open', true),
+  ]);
+
   const eventFlags = {
-    results_published: await getEventFlagBoolean('results_published', process.env.RESULTS_PUBLISHED === 'true'),
-    online_registration_open: await getEventFlagBoolean('online_registration_open', true),
+    results_published: resultsPublished,
+    online_registration_open: onlineRegistrationOpen,
   };
 
   return NextResponse.json(

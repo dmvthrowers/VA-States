@@ -2,13 +2,17 @@ import type { Metadata } from 'next';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 
+const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: 'Register · VSYC-26 · Virginia State Yo-Yo Contest 2026',
   description: 'Competitor registration for VSYC-26 — September 19, 2026 · Dulles Town Center · Sterling, VA. 1A: $25, X Division: $20, Sport/Beginner/Junior: $15.',
+  alternates: { canonical: '/' },
   openGraph: {
     title: 'Register · VSYC-26',
     description: 'Competitor registration — September 19, 2026 · Dulles Town Center · Sterling, VA',
-    url: 'https://register.dmvthrowers.club',
+    url: SITE_URL,
     siteName: 'DMV Throwers',
     images: [{ url: 'https://dmvthrowers.club/assets/images/vsyc26-va-logo-512.png', alt: 'VA State Yo-Yo Competition logo' }],
     type: 'website',

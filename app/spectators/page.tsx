@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { createAdminClient, hasAdminCredentials } from '@/lib/supabase/admin';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
@@ -36,7 +37,7 @@ async function getPublicProfiles(): Promise<PublicProfile[]> {
   return data as PublicProfile[];
 }
 
-export const revalidate = 60;
+export const revalidate = 300;
 
 export default async function SpectatorsPage() {
   const profiles = await getPublicProfiles();
@@ -93,7 +94,7 @@ export default async function SpectatorsPage() {
         <footer style={{ borderTop: '1px solid var(--navy-border)', paddingTop: '1.5rem', marginTop: '2.5rem' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
             List shows public profiles only — competitors, spectators, judges, and staff can opt in. Free to attend, all ages.{' '}
-            <a href="/spectate" style={{ color: 'var(--gold-light)' }}>RSVP now →</a>
+            <Link href="/spectate" style={{ color: 'var(--gold-light)' }}>RSVP now →</Link>
           </p>
         </footer>
       </main>

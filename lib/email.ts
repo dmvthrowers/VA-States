@@ -1,10 +1,17 @@
 import { Resend } from 'resend';
 import { buildVsyc26Ics } from './ics';
 
+let resendClient: Resend | null = null;
+
+function canSendEmail(): boolean {
+  return Boolean(process.env.RESEND_API_KEY);
+}
+
 function getResend() {
   const key = process.env.RESEND_API_KEY;
   if (!key) throw new Error('RESEND_API_KEY not set');
-  return new Resend(key);
+  if (!resendClient) resendClient = new Resend(key);
+  return resendClient;
 }
 
 const FROM = `${process.env.RESEND_FROM_NAME ?? 'VSYC-26 Registration'} <${process.env.RESEND_FROM_EMAIL ?? 'vastateyoyocontest@dmvthrowers.club'}>`;
@@ -35,6 +42,7 @@ interface ConfirmationParams {
 }
 
 export async function sendConfirmationEmail(p: ConfirmationParams): Promise<EmailResult> {
+  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
   try {
     const resend = getResend();
     const fee = p.isComp ? 'FREE (comp pass)' : `$${(p.feeCents / 100).toFixed(2)}`;
@@ -67,6 +75,7 @@ interface MusicReceivedParams {
 }
 
 export async function sendMusicReceivedEmail(p: MusicReceivedParams): Promise<EmailResult> {
+  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
   try {
     const resend = getResend();
     const { error } = await resend.emails.send({
@@ -92,6 +101,7 @@ interface PaymentReminderParams {
 }
 
 export async function sendPaymentReminderEmail(p: PaymentReminderParams): Promise<EmailResult> {
+  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
   try {
     const resend = getResend();
     const { error } = await resend.emails.send({
@@ -117,6 +127,7 @@ interface SpectatorConfirmationParams {
 }
 
 export async function sendSpectatorConfirmationEmail(p: SpectatorConfirmationParams): Promise<EmailResult> {
+  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
   try {
     const resend = getResend();
     const ics = buildVsyc26Ics({

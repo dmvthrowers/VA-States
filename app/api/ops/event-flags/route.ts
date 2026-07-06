@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
-import { getEventFlagBoolean } from '@/lib/event-flags';
+import { clearEventFlagCache, getEventFlagBoolean } from '@/lib/event-flags';
 import { z } from 'zod';
 
 const eventFlagsPatchSchema = z.object({
@@ -75,6 +75,8 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest) => {
   if (error) {
     return apiError('upstream_error', 'Failed to update event flags', requestId);
   }
+
+  clearEventFlagCache(Object.keys(patch) as Array<'results_published' | 'online_registration_open'>);
 
   return NextResponse.json({ ok: true }, { headers: { 'x-request-id': requestId } });
 });

@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
+let adminClient: ReturnType<typeof createClient> | null = null;
+
 export function hasAdminCredentials() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -16,9 +18,14 @@ export function createAdminClient() {
   if (!hasAdminCredentials()) {
     throw new Error('Supabase admin credentials not configured');
   }
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
+
+  if (!adminClient) {
+    adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+  }
+
+  return adminClient;
 }

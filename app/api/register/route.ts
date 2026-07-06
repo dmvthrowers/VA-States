@@ -13,6 +13,13 @@ import type { Division, RegistrationSource } from '@/lib/pricing';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
 
+async function awaitWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  return await Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ]);
+}
+
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   // 1. Rate limit — 3 registrations per IP per hour
   const ip = getClientIp(req.headers);
@@ -169,26 +176,14 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     details: { source, fee_cents: feeResult.fee_cents, divisions: data.divisions, comp_code: compCodeValid ? data.comp_code : null },
   });
 
-  // 11. Send confirmation email
+  // 11. Send confirmation email (bounded wait so email provider issues do not
+  // extend request duration and consume serverless execution budget).
   const confirmUrl = `${BASE_URL}/confirm?id=${reg.id}`;
   const musicUploadUrl = `${BASE_URL}/upload?token=${musicUploadToken}`;
 
-  await sendConfirmationEmail({
-    to: data.email,
-    firstName: data.first_name,
-    lastName: data.last_name,
-    divisions: data.divisions,
-    feeCents: feeResult.fee_cents,
-    isComp: feeResult.is_comp,
-    confirmUrl,
-    musicUploadUrl,
-    registrationId: reg.id,
-  });
-
-  // BCC parent if minor
-  if (data.age_on_event < 18 && data.parent_email) {
-    await sendConfirmationEmail({
-      to: data.parent_email,
+  const emailJobs: Array<Promise<unknown>> = [
+    sendConfirmationEmail({
+      to: data.email,
       firstName: data.first_name,
       lastName: data.last_name,
       divisions: data.divisions,
@@ -197,8 +192,27 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       confirmUrl,
       musicUploadUrl,
       registrationId: reg.id,
-    });
+    }),
+  ];
+
+  // BCC parent if minor
+  if (data.age_on_event < 18 && data.parent_email) {
+    emailJobs.push(
+      sendConfirmationEmail({
+        to: data.parent_email,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        divisions: data.divisions,
+        feeCents: feeResult.fee_cents,
+        isComp: feeResult.is_comp,
+        confirmUrl,
+        musicUploadUrl,
+        registrationId: reg.id,
+      })
+    );
   }
+
+  await awaitWithTimeout(Promise.allSettled(emailJobs), 2500);
 
   return NextResponse.json(
     {
