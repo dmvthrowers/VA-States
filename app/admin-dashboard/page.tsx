@@ -14,6 +14,19 @@ interface StaffMe {
   is_active: boolean;
 }
 
+type StaffRole = StaffMe['role'];
+
+interface CompCodeRow {
+  code: string;
+  description: string | null;
+  max_uses: number;
+  uses_count: number;
+  expires_at: string;
+  active: boolean;
+  discount_percent: number;
+  created_at: string;
+}
+
 interface Contestant {
   id: string;
   created_at: string;
@@ -91,6 +104,19 @@ export default function AdminDashboardPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
+  const [staffEmail, setStaffEmail] = useState('');
+  const [staffDisplayName, setStaffDisplayName] = useState('');
+  const [staffRole, setStaffRole] = useState<StaffRole>('judge');
+  const [staffPassword, setStaffPassword] = useState('');
+
+  const [compCodes, setCompCodes] = useState<CompCodeRow[]>([]);
+  const [compCodeValue, setCompCodeValue] = useState('');
+  const [compCodeDescription, setCompCodeDescription] = useState('');
+  const [compCodeMaxUses, setCompCodeMaxUses] = useState('1');
+  const [compCodeDiscountPercent, setCompCodeDiscountPercent] = useState('100');
+  const [compCodeExpiresAt, setCompCodeExpiresAt] = useState('2026-09-12');
+  const [compCodeActive, setCompCodeActive] = useState(true);
+
   const [contestantQuery, setContestantQuery] = useState('');
   const [spectatorQuery, setSpectatorQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'run-order'>('overview');
@@ -120,6 +146,13 @@ export default function AdminDashboardPage() {
       }
       const json = await res.json() as DashboardData;
       setData(json);
+      const codeRes = await fetch('/api/admin/comp-codes', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (codeRes.ok) {
+        const codeJson = await codeRes.json() as { ok?: boolean; codes?: CompCodeRow[] };
+        setCompCodes(codeJson.codes ?? []);
+      }
       setStatusMsg(null);
     } catch (err) {
       setStatusMsg(err instanceof Error ? err.message : 'Failed to load dashboard data.');
@@ -140,6 +173,7 @@ export default function AdminDashboardPage() {
       setToken(accessToken);
       if (!accessToken) {
         setLoading(false);
+        setCompCodes([]);
         return;
       }
 
@@ -149,6 +183,7 @@ export default function AdminDashboardPage() {
         await supabase.auth.signOut();
         setToken(null);
         setStaff(null);
+        setCompCodes([]);
         setLoading(false);
         return;
       }
@@ -164,6 +199,7 @@ export default function AdminDashboardPage() {
       if (!accessToken) {
         setStaff(null);
         setData(null);
+        setCompCodes([]);
         return;
       }
 
@@ -174,6 +210,7 @@ export default function AdminDashboardPage() {
         setToken(null);
         setStaff(null);
         setData(null);
+        setCompCodes([]);
         return;
       }
 
@@ -329,11 +366,142 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const createStaffAccount = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+
+    setSaving('staff:create');
+    setStatusMsg(null);
+
+    try {
+      const res = await fetch('/api/admin/staff', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: staffEmail,
+          display_name: staffDisplayName,
+          role: staffRole,
+          password: staffPassword,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({})) as {
+        ok?: boolean;
+        temporary_password?: string;
+        error?: { message?: string };
+      };
+
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error?.message ?? 'Failed to create staff account.');
+      }
+
+      const createdName = staffDisplayName.trim();
+      const tempPassword = json.temporary_password ? ` Temporary password: ${json.temporary_password}` : '';
+      setStaffEmail('');
+      setStaffDisplayName('');
+      setStaffRole('judge');
+      setStaffPassword('');
+      setStatusMsg(`Created ${staffRole.toUpperCase()} account for ${createdName}.${tempPassword}`);
+    } catch (err) {
+      setStatusMsg(err instanceof Error ? err.message : 'Failed to create staff account.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const createCompCode = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+
+    setSaving('code:create');
+    setStatusMsg(null);
+
+    try {
+      const res = await fetch('/api/admin/comp-codes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          code: compCodeValue,
+          description: compCodeDescription,
+          max_uses: Number(compCodeMaxUses),
+          discount_percent: Number(compCodeDiscountPercent),
+          expires_at: compCodeExpiresAt,
+          active: compCodeActive,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({})) as {
+        ok?: boolean;
+        code?: CompCodeRow;
+        error?: { message?: string };
+      };
+
+      if (!res.ok || !json.ok || !json.code) {
+        throw new Error(json.error?.message ?? 'Failed to create comp code.');
+      }
+
+      setCompCodes((current) => [json.code!, ...current.filter((row) => row.code !== json.code!.code)]);
+      setCompCodeValue('');
+      setCompCodeDescription('');
+      setCompCodeMaxUses('1');
+      setCompCodeDiscountPercent('100');
+      setCompCodeExpiresAt('2026-09-12');
+      setCompCodeActive(true);
+      setStatusMsg(`Created comp code ${json.code.code} at ${json.code.discount_percent}% off.`);
+    } catch (err) {
+      setStatusMsg(err instanceof Error ? err.message : 'Failed to create comp code.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const toggleCompCode = async (code: string, active: boolean) => {
+    if (!token) return;
+
+    setSaving(`code:${code}`);
+    setStatusMsg(null);
+
+    try {
+      const res = await fetch('/api/admin/comp-codes', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code, active }),
+      });
+
+      const json = await res.json().catch(() => ({})) as {
+        ok?: boolean;
+        code?: CompCodeRow;
+        error?: { message?: string };
+      };
+
+      if (!res.ok || !json.ok || !json.code) {
+        throw new Error(json.error?.message ?? 'Failed to update comp code.');
+      }
+
+      setCompCodes((current) => current.map((row) => (row.code === json.code!.code ? json.code! : row)));
+      setStatusMsg(`${json.code.code} is now ${json.code.active ? 'active' : 'disabled'}.`);
+    } catch (err) {
+      setStatusMsg(err instanceof Error ? err.message : 'Failed to update comp code.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setToken(null);
     setStaff(null);
     setData(null);
+    setCompCodes([]);
     setStatusMsg('Signed out.');
   };
 
@@ -469,6 +637,78 @@ export default function AdminDashboardPage() {
                   </button>
                 </div>
               </div>
+            </section>
+
+            <section className="border border-navy-border bg-navy p-4 mb-8">
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                <div>
+                  <div className="text-xs text-gold font-black tracking-caps mb-1">Staff Accounts</div>
+                  <h2 className="font-display text-2xl text-white font-bold">Add staff member</h2>
+                  <p className="text-xs text-text-body mt-1">Create a DJ, judge, audio tech, or admin login tied to the staff profile table.</p>
+                </div>
+              </div>
+
+              <form onSubmit={createStaffAccount} className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl">
+                <label className="block">
+                  <span className="block text-xs uppercase tracking-wide text-text-muted mb-1">Email</span>
+                  <input
+                    type="email"
+                    value={staffEmail}
+                    onChange={(e) => setStaffEmail(e.target.value)}
+                    className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                    placeholder="staff@example.com"
+                    required
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-xs uppercase tracking-wide text-text-muted mb-1">Display Name</span>
+                  <input
+                    type="text"
+                    value={staffDisplayName}
+                    onChange={(e) => setStaffDisplayName(e.target.value)}
+                    className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                    placeholder="DJ Spinmaster"
+                    required
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-xs uppercase tracking-wide text-text-muted mb-1">Role</span>
+                  <select
+                    value={staffRole}
+                    onChange={(e) => setStaffRole(e.target.value as StaffRole)}
+                    className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                  >
+                    <option value="judge">Judge</option>
+                    <option value="dj">DJ</option>
+                    <option value="audio_tech">Audio Tech</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="block text-xs uppercase tracking-wide text-text-muted mb-1">Temporary Password</span>
+                  <input
+                    type="text"
+                    value={staffPassword}
+                    onChange={(e) => setStaffPassword(e.target.value)}
+                    className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                    placeholder="Leave blank to auto-generate"
+                  />
+                </label>
+
+                <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={saving === 'staff:create'}
+                    className="bg-gold text-navy-deep font-black tracking-caps px-4 py-2.5 text-xs disabled:opacity-60"
+                  >
+                    {saving === 'staff:create' ? 'Creating...' : 'Create Staff Account'}
+                  </button>
+                  <span className="text-xs text-text-body">If the password is blank, the server generates a temporary one and returns it in the status message.</span>
+                </div>
+              </form>
             </section>
 
             <section className="border border-navy-border bg-navy p-4 mb-8">

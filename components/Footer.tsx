@@ -12,6 +12,7 @@ const FOOTER_LINKS = [
   { label: 'Schedule',    href: 'https://dmvthrowers.club/vsyc26-schedule.html' },
   { label: 'Sponsors',    href: 'https://dmvthrowers.club/vsyc26-sponsors.html' },
   { label: 'Venue',       href: 'https://dmvthrowers.club/vsyc26-venue.html' },
+  { label: 'Policies',    href: '/policies' },
 ];
 
 export default function Footer() {

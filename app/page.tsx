@@ -58,6 +58,7 @@ export default function RegisterPage() {
   const [liabilityScrolled, setLiabilityScrolled] = useState(false);
   const [codeStatus, setCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [codeApplied, setCodeApplied] = useState(false);
+  const [compDiscountPercent, setCompDiscountPercent] = useState(0);
 
   const {
     register,
@@ -95,7 +96,7 @@ export default function RegisterPage() {
 
   const feePreview = calculateFeePreview(
     watchedDivisions,
-    codeApplied,
+    compDiscountPercent,
     new Date(),
     'online',
     EARLY_BIRD_CUTOFF,
@@ -122,6 +123,7 @@ export default function RegisterPage() {
       setValue('x_substyles', [], { shouldValidate: true });
     }
     setCodeApplied(false);
+    setCompDiscountPercent(0);
     setCodeStatus('idle');
   };
 
@@ -146,22 +148,29 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
       });
-      const json = await res.json() as { valid: boolean };
+      const json = await res.json() as { valid: boolean; discount_percent?: number };
       if (json.valid) {
         setCodeStatus('valid');
         setCodeApplied(true);
+        setCompDiscountPercent(json.discount_percent ?? 0);
       } else {
         setCodeStatus('invalid');
         setCodeApplied(false);
+        setCompDiscountPercent(0);
       }
     } catch {
       setCodeStatus('invalid');
       setCodeApplied(false);
+      setCompDiscountPercent(0);
     }
   }, [watchedCompCode]);
 
   const onSubmit = async (values: FormValues) => {
     if (values._hp) return;
+    if (!liabilityScrolled) {
+      setServerError('Please scroll through the full liability release before agreeing.');
+      return;
+    }
     setSubmitting(true);
     setServerError('');
 
@@ -445,7 +454,7 @@ export default function RegisterPage() {
                   {...register('comp_code')}
                   className={`flex-1 bg-navy-deep border px-3 py-2 text-sm text-white font-mono uppercase ${codeStatus === 'valid' ? 'border-green-500' : codeStatus === 'invalid' ? 'border-red' : 'border-navy-border'} focus:outline-none focus:border-gold`}
                   placeholder="VOLUNTEER26"
-                  onChange={() => { setCodeStatus('idle'); setCodeApplied(false); }}
+                  onChange={() => { setCodeStatus('idle'); setCodeApplied(false); setCompDiscountPercent(0); }}
                 />
                 <button
                   type="button"
@@ -456,7 +465,11 @@ export default function RegisterPage() {
                   {codeStatus === 'checking' ? '...' : 'APPLY'}
                 </button>
               </div>
-              {codeStatus === 'valid' && <p className="text-green-400 text-xs mt-1 font-semibold">✓ Valid — entry fee waived</p>}
+              {codeStatus === 'valid' && (
+                <p className="text-green-400 text-xs mt-1 font-semibold">
+                  ✓ Valid — {compDiscountPercent === 100 ? 'entry fee waived' : `${compDiscountPercent}% off applied`}
+                </p>
+              )}
               {codeStatus === 'invalid' && <p className="text-red text-xs mt-1">✗ Invalid or expired code</p>}
             </div>
           </section>
@@ -691,6 +704,7 @@ export default function RegisterPage() {
                   <input
                     {...register('liability_waiver_accepted', { required: 'Required' })}
                     type="checkbox"
+                    disabled={!liabilityScrolled}
                     className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0"
                   />
                   <span className="text-sm text-text-body">
@@ -698,6 +712,9 @@ export default function RegisterPage() {
                     {!liabilityScrolled && <span className="text-gold/70"> (Please scroll through the release above.)</span>}
                   </span>
                 </label>
+                {!liabilityScrolled && (
+                  <p className="text-xs text-gold/70 mt-2">Scroll to the end of the release to enable this checkbox.</p>
+                )}
               </div>
             </div>
             {errors.liability_waiver_accepted && <p className="text-red text-xs mb-3">{errors.liability_waiver_accepted.message}</p>}
@@ -735,6 +752,11 @@ export default function RegisterPage() {
             <p className="text-xs text-text-body mt-3 text-center">
               Payment and music upload are handled in this registration portal after you submit.
             </p>
+            <p className="text-xs text-text-body mt-2 text-center">
+              Review our{' '}
+              <a href="/policies" className="text-gold hover:text-gold-light">Policies &amp; Event Terms</a>{' '}
+              before submitting.
+            </p>
           </div>
         </form>
 
@@ -768,10 +790,10 @@ export default function RegisterPage() {
                     <span>−$5.00</span>
                   </div>
                 )}
-                {feePreview.is_comp && (
+                {feePreview.comp_discount_percent > 0 && (
                   <div className="flex justify-between text-sm text-green-400 mb-2">
-                    <span>Comp code applied</span>
-                    <span>−100%</span>
+                    <span>Comp code discount ({feePreview.comp_discount_percent}%)</span>
+                    <span>−{formatCents(feePreview.comp_base_fee_cents - feePreview.fee_cents)}</span>
                   </div>
                 )}
 
@@ -782,7 +804,7 @@ export default function RegisterPage() {
                   </span>
                 </div>
 
-                {isEarlyBirdWindow && !feePreview.early_bird_applied && !feePreview.is_comp && (
+                {isEarlyBirdWindow && !feePreview.early_bird_applied && feePreview.comp_discount_percent === 0 && !feePreview.is_comp && (
                   <p className="text-xs text-gold/70 mt-3">★ Early bird ends June 1 — register now and save $5</p>
                 )}
               </>

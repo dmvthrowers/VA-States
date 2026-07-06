@@ -63,7 +63,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   // Calculate fee with walk_up source (auto-applies $10 surcharge)
   const feeResult = calculateFee(
     data.divisions as Division[],
-    false, // no comp codes for walk-ups
+    0, // no comp codes for walk-ups
     new Date(),
     'walk_up'
   );

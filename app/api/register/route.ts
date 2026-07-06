@@ -54,7 +54,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   const supabase = createAdminClient();
 
   // 5. Comp code validation
-  let compCodeValid = false;
+  let compDiscountPercent = 0;
   if (data.comp_code) {
     if (await isCodeLocked(data.comp_code)) {
       return apiError('unprocessable', 'Comp code is invalid, expired, or has reached its usage limit.', requestId);
@@ -62,7 +62,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
     const { data: code, error } = await supabase
       .from('vsyc_comp_codes')
-      .select('uses_count, max_uses, expires_at, active')
+      .select('uses_count, max_uses, expires_at, active, discount_percent')
       .eq('code', data.comp_code)
       .single();
 
@@ -71,12 +71,12 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       await logAudit('comp_code_invalid_attempt', { actor: 'anonymous', details: { ip, code: data.comp_code, via: 'register' } });
       return apiError('unprocessable', 'Comp code is invalid, expired, or has reached its usage limit.', requestId);
     }
-    compCodeValid = true;
+    compDiscountPercent = code.discount_percent;
   }
 
   // 6. Calculate fee
   const source: RegistrationSource = 'online';
-  const feeResult = calculateFee(data.divisions as Division[], compCodeValid, now, source);
+  const feeResult = calculateFee(data.divisions as Division[], compDiscountPercent, now, source);
   const xSubstyles = data.x_substyles?.length ? data.x_substyles.join(', ') : null;
 
   // 7. Generate music upload token (expires Sept 12 23:59 ET)
@@ -147,6 +147,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   }
 
   // 9. Increment comp code usage (read-then-write; races are acceptable given small caps)
+  const compCodeValid = compDiscountPercent > 0;
   if (data.comp_code && compCodeValid) {
     const { data: currentCode } = await supabase
       .from('vsyc_comp_codes')

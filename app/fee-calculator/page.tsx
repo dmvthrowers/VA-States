@@ -62,6 +62,7 @@ export default function FeeCalculatorPage() {
   const [selected, setSelected] = useState<Set<Division>>(new Set());
   const [compCode, setCompCode] = useState('');
   const [compApplied, setCompApplied] = useState(false);
+  const [compDiscountPercent, setCompDiscountPercent] = useState(0);
   const [codeError, setCodeError] = useState('');
   const [codeLoading, setCodeLoading] = useState(false);
 
@@ -79,16 +80,16 @@ export default function FeeCalculatorPage() {
       return next;
     });
     // Clear applied comp code if selections change
-    if (compApplied) { setCompApplied(false); setCodeError(''); }
+    if (compApplied) { setCompApplied(false); setCompDiscountPercent(0); setCodeError(''); }
   };
 
   const result = useMemo(() => calculateFeePreview(
     Array.from(selected),
-    compApplied,
+    compDiscountPercent,
     new Date(),
     'online',
     EARLY_BIRD_CUTOFF,
-  ), [selected, compApplied]);
+  ), [selected, compDiscountPercent]);
 
   const applyCode = async () => {
     if (!compCode.trim()) return;
@@ -96,14 +97,19 @@ export default function FeeCalculatorPage() {
     setCodeError('');
     try {
       const r = await fetch(`/api/validate-code?code=${encodeURIComponent(compCode.trim())}`);
-      const json = await r.json() as { valid?: boolean; message?: string };
+      const json = await r.json() as { valid?: boolean; discount_percent?: number; message?: string };
       if (json.valid) {
         setCompApplied(true);
+        setCompDiscountPercent(json.discount_percent ?? 0);
         setCodeError('');
       } else {
+        setCompApplied(false);
+        setCompDiscountPercent(0);
         setCodeError(json.message ?? 'Invalid code');
       }
     } catch {
+      setCompApplied(false);
+      setCompDiscountPercent(0);
       setCodeError('Could not verify code. Try again.');
     } finally {
       setCodeLoading(false);
@@ -115,7 +121,7 @@ export default function FeeCalculatorPage() {
   // Line items for breakdown
   const lineItems: Array<{ label: string; cents: number; strike?: boolean; green?: boolean }> = [];
 
-  if (selected.size > 0 && !compApplied) {
+  if (selected.size > 0) {
     const has1A = selected.has('1A');
     const hasX  = selected.has('X');
 
@@ -134,6 +140,14 @@ export default function FeeCalculatorPage() {
 
     if (result.early_bird_applied) {
       lineItems.push({ label: 'Early Bird Discount', cents: -500, green: true });
+    }
+
+    if (compApplied && result.comp_discount_percent > 0) {
+      lineItems.push({
+        label: `Comp Code Discount (${result.comp_discount_percent}%)`,
+        cents: -(result.comp_base_fee_cents - result.fee_cents),
+        green: true,
+      });
     }
   }
 
@@ -362,7 +376,7 @@ export default function FeeCalculatorPage() {
                     <input
                       type="text"
                       value={compCode}
-                      onChange={e => { setCompCode(e.target.value.toUpperCase()); setCompApplied(false); setCodeError(''); }}
+                      onChange={e => { setCompCode(e.target.value.toUpperCase()); setCompApplied(false); setCompDiscountPercent(0); setCodeError(''); }}
                       placeholder="e.g. VOLUNTEER26"
                       disabled={compApplied}
                       style={{
@@ -389,9 +403,9 @@ export default function FeeCalculatorPage() {
                   {codeError && (
                     <p style={{ color: 'var(--red)', fontSize: '0.78rem', marginTop: 6 }}>{codeError}</p>
                   )}
-                  {compApplied && (
+                  {compApplied && result.comp_discount_percent > 0 && (
                     <p style={{ color: '#6adb8a', fontSize: '0.78rem', marginTop: 6 }}>
-                      ✓ Comp code applied — your registration is free.
+                      ✓ Comp code applied — {result.comp_discount_percent === 100 ? 'your registration is free.' : `${result.comp_discount_percent}% off your registration.`}
                     </p>
                   )}
                 </div>
@@ -419,14 +433,21 @@ export default function FeeCalculatorPage() {
                     </p>
                   )}
 
-                  {compApplied && (
+                  {compApplied && result.comp_discount_percent > 0 && (
+                    <div className="ds-price-row">
+                      <span className="ds-price-div">Comp code discount ({result.comp_discount_percent}%)</span>
+                      <span className="ds-price-val ds-price-free">−{fmt(result.comp_base_fee_cents - result.fee_cents)}</span>
+                    </div>
+                  )}
+
+                  {compApplied && result.is_comp && (
                     <div className="ds-price-row">
                       <span className="ds-price-div">Comp code applied</span>
                       <span className="ds-price-val ds-price-free">FREE</span>
                     </div>
                   )}
 
-                  {!compApplied && lineItems.map((item, i) => (
+                  {lineItems.map((item, i) => (
                     <div key={i} className="ds-price-row">
                       <span className={`ds-price-div${item.strike ? ' ds-price-strike' : ''}`}>
                         {item.label}
@@ -464,17 +485,17 @@ export default function FeeCalculatorPage() {
                         fontFamily: 'var(--font-display)',
                         fontWeight: 900,
                         fontSize: '2rem',
-                        color: compApplied || subtotal === 0 ? '#6adb8a' : 'var(--gold)',
+                        color: result.is_comp || subtotal === 0 ? '#6adb8a' : 'var(--gold)',
                         lineHeight: 1,
                       }}>
-                        {compApplied ? 'FREE' : subtotal === 0 && hasSelections ? '$0.00' : fmt(subtotal)}
+                        {result.is_comp ? 'FREE' : subtotal === 0 && hasSelections ? '$0.00' : fmt(subtotal)}
                       </span>
                     </div>
                   )}
                 </div>
 
                 {/* Payment note */}
-                {hasSelections && !compApplied && (
+                {hasSelections && !result.is_comp && (
                   <div style={{
                     background: 'var(--navy-deep)',
                     border: '1px solid var(--navy-border)',
