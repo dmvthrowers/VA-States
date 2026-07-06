@@ -68,7 +68,7 @@ export const registrationSchema = z.object({
   accessibility_needs:     z.string().trim().max(500).optional().or(z.literal('')),
 
   // Scheduling — used by organizers to build the run order / draw
-  performance_time_pref: z.enum(['no_pref', 'early', 'late', 'conflict']).optional(),
+  performance_time_pref: z.enum(['no_pref', 'early', 'late', 'conflict']).optional().or(z.literal('')),
   scheduling_notes:      z.string().trim().max(300).optional().or(z.literal('')),
 
   merch_order:             z.array(z.object({
