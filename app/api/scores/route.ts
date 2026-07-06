@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
-import { safeCompare } from '@/lib/tokens';
+import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { z } from 'zod';
 
 const VALID_DIVISIONS = ['1A', 'X', 'SBJ'] as const;
 
 const scoreSubmitSchema = z.object({
-  pin:             z.string().min(1),
-  judge_name:      z.string().trim().min(1).max(100),
   registration_id: z.string().uuid(),
   division:        z.enum(['1A', 'X', 'SBJ']),
   execution:       z.number().min(0).max(100),
@@ -21,43 +18,35 @@ const scoreSubmitSchema = z.object({
 /**
  * GET /api/scores?division=1A
  *
- * Public endpoint — returns aggregated scores for a division.
- * Strips judge_name from the public view; averages across all judges.
- *
- * For the judge portal's own view: add ?judge=JudgeName&pin=XXXX to see raw scores.
+ * Public endpoint (default) — returns aggregated standings for a division.
+ * Staff endpoint (?mine=1 + Authorization: Bearer <token>) returns this judge's raw scores.
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   const division = req.nextUrl.searchParams.get('division');
-  const judgeFilter = req.nextUrl.searchParams.get('judge');
-  const pin = req.nextUrl.searchParams.get('pin');
+  const mine = req.nextUrl.searchParams.get('mine') === '1';
 
   if (!division || !VALID_DIVISIONS.includes(division as typeof VALID_DIVISIONS[number])) {
     return apiError('bad_request', 'division must be one of: 1A, X, SBJ', requestId);
   }
 
-  // If requesting judge-specific scores with PIN, validate pin
-  const isJudgeView = Boolean(judgeFilter || pin);
-  if (isJudgeView) {
-    if (!judgeFilter || !pin) {
-      return apiError('bad_request', 'judge and pin are both required for judge score view', requestId);
-    }
-    // Rate limit PIN attempts — 60 per IP per 15 minutes (brute-force guard)
-    const ip = getClientIp(req.headers);
-    const allowed = await checkRateLimit(ip, 'judge-pin', 60, 15);
-    if (!allowed) {
-      return apiError('rate_limited', 'Too many PIN attempts. Try again later.', requestId, {
-        'Retry-After': '900',
-      });
-    }
-    const expectedPin = process.env.JUDGE_PIN;
-    if (!expectedPin || !safeCompare(pin, expectedPin)) {
-      return apiError('unauthorized', 'Invalid PIN', requestId);
-    }
-  } else if (process.env.RESULTS_PUBLISHED !== 'true') {
+  if (!mine && process.env.RESULTS_PUBLISHED !== 'true') {
     return NextResponse.json(
       { division, published: false, standings: [] },
       { headers: { 'x-request-id': requestId } }
     );
+  }
+
+  let judgeIdentity: { authUserId: string; displayName: string } | null = null;
+  if (mine) {
+    const token = getBearerToken(req);
+    if (!token) {
+      return apiError('unauthorized', 'Missing bearer token', requestId);
+    }
+    const identity = await getStaffIdentityFromToken(token);
+    if (!identity || !identity.isActive || identity.role !== 'judge') {
+      return apiError('forbidden', 'Judge access required', requestId);
+    }
+    judgeIdentity = { authUserId: identity.authUserId, displayName: identity.displayName };
   }
 
   const supabase = createAdminClient();
@@ -69,6 +58,8 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       id,
       registration_id,
       division,
+      judge_user_id,
+      judge_display_name,
       judge_name,
       execution,
       difficulty,
@@ -85,8 +76,8 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     `)
     .eq('division', division);
 
-  if (isJudgeView) {
-    query.eq('judge_name', judgeFilter);
+  if (mine && judgeIdentity) {
+    query.eq('judge_user_id', judgeIdentity.authUserId);
   }
 
   const { data: scores, error } = await query.order('created_at', { ascending: true });
@@ -96,8 +87,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('upstream_error', 'Failed to fetch scores', requestId);
   }
 
-  if (isJudgeView) {
-    // Return full raw scores for this judge
+  if (mine) {
     const result = (scores ?? []).map((s) => {
       const reg = Array.isArray(s.vsyc_registrations) ? s.vsyc_registrations[0] : s.vsyc_registrations;
       return {
@@ -114,16 +104,16 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
         created_at: s.created_at,
       };
     });
-    return NextResponse.json({ division, scores: result }, { headers: { 'x-request-id': requestId } });
+    return NextResponse.json({ division, judge: judgeIdentity?.displayName, scores: result }, { headers: { 'x-request-id': requestId } });
   }
 
-  // Public aggregated view — average by registration_id, sorted by average total desc
+  // Public aggregated standings — average by competitor.
   const byReg = new Map<string, {
     registration_id: string;
     display_name: string;
     city: string | null;
     state: string | null;
-    judge_count: number;
+    judge_ids: Set<string>;
     execution_sum: number;
     difficulty_sum: number;
     presentation_sum: number;
@@ -139,31 +129,35 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
         display_name: displayName,
         city: reg?.city ?? null,
         state: reg?.state ?? null,
-        judge_count: 0,
+        judge_ids: new Set<string>(),
         execution_sum: 0,
         difficulty_sum: 0,
         presentation_sum: 0,
       });
     }
     const entry = byReg.get(s.registration_id)!;
-    entry.judge_count += 1;
+    const judgeKey = s.judge_user_id ?? `legacy:${s.judge_name}`;
+    entry.judge_ids.add(judgeKey);
     entry.execution_sum += Number(s.execution);
     entry.difficulty_sum += Number(s.difficulty);
     entry.presentation_sum += Number(s.presentation);
   }
 
   const standings = Array.from(byReg.values())
-    .map((entry) => ({
+    .map((entry) => {
+      const judgeCount = entry.judge_ids.size || 1;
+      return {
       registration_id: entry.registration_id,
       display_name: entry.display_name,
       city: entry.city,
       state: entry.state,
-      judge_count: entry.judge_count,
-      avg_execution: Math.round((entry.execution_sum / entry.judge_count) * 100) / 100,
-      avg_difficulty: Math.round((entry.difficulty_sum / entry.judge_count) * 100) / 100,
-      avg_presentation: Math.round((entry.presentation_sum / entry.judge_count) * 100) / 100,
-      avg_total: Math.round(((entry.execution_sum + entry.difficulty_sum + entry.presentation_sum) / entry.judge_count) * 100) / 100,
-    }))
+      judge_count: judgeCount,
+      avg_execution: Math.round((entry.execution_sum / judgeCount) * 100) / 100,
+      avg_difficulty: Math.round((entry.difficulty_sum / judgeCount) * 100) / 100,
+      avg_presentation: Math.round((entry.presentation_sum / judgeCount) * 100) / 100,
+      avg_total: Math.round(((entry.execution_sum + entry.difficulty_sum + entry.presentation_sum) / judgeCount) * 100) / 100,
+      };
+    })
     .sort((a, b) => b.avg_total - a.avg_total);
 
   return NextResponse.json(
@@ -175,9 +169,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 /**
  * POST /api/scores
  *
- * Submit or update a score. PIN-gated. Upserts by (registration_id, division, judge_name).
- *
- * Body: { pin, judge_name, registration_id, division, execution, difficulty, presentation, notes? }
+ * Judge-only score submit/update. Uses authenticated judge identity.
  */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   let body: unknown;
@@ -190,22 +182,16 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('bad_request', parsed.error.issues[0]?.message ?? 'Validation failed', requestId);
   }
 
-  const { pin, judge_name, registration_id, division, execution, difficulty, presentation, notes } = parsed.data;
-
-  // Rate limit PIN attempts — 60 per IP per 15 minutes (brute-force guard)
-  const ip = getClientIp(req.headers);
-  const pinAllowed = await checkRateLimit(ip, 'judge-pin', 60, 15);
-  if (!pinAllowed) {
-    return apiError('rate_limited', 'Too many PIN attempts. Try again later.', requestId, {
-      'Retry-After': '900',
-    });
+  const token = getBearerToken(req);
+  if (!token) {
+    return apiError('unauthorized', 'Missing bearer token', requestId);
+  }
+  const identity = await getStaffIdentityFromToken(token);
+  if (!identity || !identity.isActive || identity.role !== 'judge') {
+    return apiError('forbidden', 'Judge access required', requestId);
   }
 
-  // PIN validation (constant-time)
-  const expectedPin = process.env.JUDGE_PIN;
-  if (!expectedPin || !safeCompare(pin, expectedPin)) {
-    return apiError('unauthorized', 'Invalid judge PIN', requestId);
-  }
+  const { registration_id, division, execution, difficulty, presentation, notes } = parsed.data;
 
   const supabase = createAdminClient();
 
@@ -226,14 +212,24 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('unprocessable', 'Competitor has not paid', requestId);
   }
 
-  // Upsert score
+  // Upsert score by authenticated judge account.
   const { data: score, error: upsertError } = await supabase
     .from('vsyc_scores')
     .upsert(
-      { registration_id, division, judge_name, execution, difficulty, presentation, notes: notes ?? null },
-      { onConflict: 'registration_id,division,judge_name' }
+      {
+        registration_id,
+        division,
+        judge_user_id: identity.authUserId,
+        judge_name: identity.displayName,
+        judge_display_name: identity.displayName,
+        execution,
+        difficulty,
+        presentation,
+        notes: notes ?? null,
+      },
+      { onConflict: 'registration_id,division,judge_user_id' }
     )
-    .select('id, execution, difficulty, presentation')
+    .select('id, execution, difficulty, presentation, judge_display_name')
     .single();
 
   if (upsertError || !score) {
@@ -244,7 +240,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   return NextResponse.json(
     {
       id: score.id,
-      judge_name,
+      judge_name: score.judge_display_name ?? identity.displayName,
       registration_id,
       division,
       execution: Number(score.execution),

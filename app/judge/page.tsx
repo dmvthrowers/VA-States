@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { createBrowserClient } from '@/lib/supabase/client';
 
 const DIVISIONS = ['1A', 'X', 'SBJ'] as const;
 type Division = typeof DIVISIONS[number];
-
-const AUTH_KEY = 'vsyc26_judge_auth';
 
 interface Performer {
   position: number;
@@ -17,6 +16,7 @@ interface Performer {
 }
 
 interface ScoreEntry {
+  id: string;
   registration_id: string;
   display_name: string;
   city: string | null;
@@ -28,13 +28,21 @@ interface ScoreEntry {
   notes: string | null;
 }
 
-interface AuthState {
-  judge_name: string;
-  pin: string;
+interface StaffMe {
+  auth_user_id: string;
+  email: string;
+  role: 'judge' | 'dj' | 'audio_tech' | 'admin';
+  display_name: string;
+  is_active: boolean;
 }
 
+const supabase = createBrowserClient();
+
 function ScoreInput({
-  label, value, onChange, disabled,
+  label,
+  value,
+  onChange,
+  disabled,
 }: {
   label: string;
   value: number | '';
@@ -74,10 +82,11 @@ function ScoreInput({
 }
 
 export default function JudgePage() {
-  const [auth, setAuth] = useState<AuthState | null>(null);
-  const [judgeInput, setJudgeInput] = useState('');
-  const [pinInput, setPinInput] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
+  const [staff, setStaff] = useState<StaffMe | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   const [division, setDivision] = useState<Division>('1A');
   const [runOrder, setRunOrder] = useState<Performer[]>([]);
@@ -92,52 +101,104 @@ export default function JudgePage() {
 
   const [myScores, setMyScores] = useState<ScoreEntry[]>([]);
 
-  // Restore auth from sessionStorage
-  useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem(AUTH_KEY);
-      if (stored) setAuth(JSON.parse(stored));
-    } catch {}
+  const fetchStaffMe = useCallback(async (accessToken: string): Promise<StaffMe | null> => {
+    const res = await fetch('/api/staff/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
+    return await res.json() as StaffMe;
   }, []);
 
   const fetchRunOrder = useCallback(async (div: Division) => {
     try {
       const res = await fetch(`/api/run-order?division=${div}`);
       if (res.ok) {
-        const json = await res.json();
+        const json = await res.json() as { performers?: Performer[] };
         setRunOrder(json.performers ?? []);
       }
-    } catch {}
+    } catch {
+      // Keep existing UI state on transient failures.
+    }
   }, []);
 
-  const fetchMyScores = useCallback(async (div: Division, a: AuthState) => {
+  const fetchMyScores = useCallback(async (div: Division, accessToken: string) => {
     try {
-      const res = await fetch(`/api/scores?division=${div}&judge=${encodeURIComponent(a.judge_name)}&pin=${encodeURIComponent(a.pin)}`);
+      const res = await fetch(`/api/scores?division=${div}&mine=1`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       if (res.ok) {
-        const json = await res.json();
+        const json = await res.json() as { scores?: ScoreEntry[] };
         setMyScores(json.scores ?? []);
       }
-    } catch {}
+    } catch {
+      // Keep existing UI state on transient failures.
+    }
   }, []);
 
   useEffect(() => {
-    if (!auth) return;
+    let active = true;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token ?? null;
+      if (!active) return;
+      setToken(accessToken);
+      if (!accessToken) return;
+
+      const me = await fetchStaffMe(accessToken);
+      if (!me || !me.is_active || me.role !== 'judge') {
+        setAuthError('This account is not authorized for judge access.');
+        await supabase.auth.signOut();
+        setToken(null);
+        setStaff(null);
+        return;
+      }
+      setStaff(me);
+      setEmail(me.email);
+    })();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const accessToken = session?.access_token ?? null;
+      setToken(accessToken);
+      if (!accessToken) {
+        setStaff(null);
+        return;
+      }
+
+      const me = await fetchStaffMe(accessToken);
+      if (!me || !me.is_active || me.role !== 'judge') {
+        setAuthError('This account is not authorized for judge access.');
+        await supabase.auth.signOut();
+        setToken(null);
+        setStaff(null);
+        return;
+      }
+      setStaff(me);
+      setEmail(me.email);
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, [fetchStaffMe]);
+
+  useEffect(() => {
+    if (!staff || !token) return;
     fetchRunOrder(division);
-    fetchMyScores(division, auth);
+    fetchMyScores(division, token);
     const interval = setInterval(() => {
       fetchRunOrder(division);
-      fetchMyScores(division, auth);
-    }, 20_000);
+      fetchMyScores(division, token);
+    }, 20000);
     return () => clearInterval(interval);
-  }, [auth, division, fetchRunOrder, fetchMyScores]);
+  }, [staff, token, division, fetchRunOrder, fetchMyScores]);
 
-  // Auto-select the currently performing competitor
   useEffect(() => {
     const performing = runOrder.find((p) => p.status === 'performing');
     if (performing) setSelectedId(performing.registration_id);
   }, [runOrder]);
 
-  // Pre-fill scores if already scored this competitor
   useEffect(() => {
     if (!selectedId) return;
     const existing = myScores.find((s) => s.registration_id === selectedId);
@@ -155,25 +216,35 @@ export default function JudgePage() {
     setSubmitMsg(null);
   }, [selectedId, myScores]);
 
-  function handleAuthSubmit(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (judgeInput.trim().length < 2) {
-      setAuthError('Enter your full name.');
-      return;
-    }
-    if (pinInput.trim().length < 3) {
-      setAuthError('Enter the judge PIN.');
-      return;
-    }
-    const a: AuthState = { judge_name: judgeInput.trim(), pin: pinInput.trim() };
-    sessionStorage.setItem(AUTH_KEY, JSON.stringify(a));
-    setAuth(a);
     setAuthError('');
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+
+    if (error || !data.session?.access_token) {
+      setAuthError(error?.message ?? 'Invalid credentials.');
+      return;
+    }
+
+    const me = await fetchStaffMe(data.session.access_token);
+    if (!me || !me.is_active || me.role !== 'judge') {
+      setAuthError('This account is not authorized for judge access.');
+      await supabase.auth.signOut();
+      return;
+    }
+
+    setStaff(me);
+    setToken(data.session.access_token);
+    setPassword('');
   }
 
   async function handleSubmitScore(e: React.FormEvent) {
     e.preventDefault();
-    if (!auth || !selectedId) return;
+    if (!token || !selectedId) return;
     if (execution === '' || difficulty === '' || presentation === '') {
       setSubmitMsg({ ok: false, text: 'All three scores are required.' });
       return;
@@ -185,10 +256,11 @@ export default function JudgePage() {
     try {
       const res = await fetch('/api/scores', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
-          pin: auth.pin,
-          judge_name: auth.judge_name,
           registration_id: selectedId,
           division,
           execution: Number(execution),
@@ -198,22 +270,21 @@ export default function JudgePage() {
         }),
       });
 
-      const json = await res.json();
+      const json = await res.json() as { total?: number; error?: { message?: string } };
       if (res.ok) {
-        setSubmitMsg({ ok: true, text: `Saved — total ${json.total.toFixed(1)}` });
-        fetchMyScores(division, auth);
+        setSubmitMsg({ ok: true, text: `Saved - total ${(json.total ?? 0).toFixed(1)}` });
+        await fetchMyScores(division, token);
       } else {
         setSubmitMsg({ ok: false, text: json.error?.message ?? 'Error saving score.' });
       }
     } catch {
-      setSubmitMsg({ ok: false, text: 'Network error — try again.' });
+      setSubmitMsg({ ok: false, text: 'Network error - try again.' });
     } finally {
       setSubmitting(false);
     }
   }
 
-  // Auth gate
-  if (!auth) {
+  if (!staff || !token) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--navy-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
         <div style={{ width: '100%', maxWidth: 400 }}>
@@ -222,33 +293,32 @@ export default function JudgePage() {
               Judge Portal
             </div>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.4rem', letterSpacing: '0.1em' }}>
-              VSYC-26 · SEPT 19, 2026
+              VSYC-26 - Staff Login
             </div>
           </div>
-          <form onSubmit={handleAuthSubmit} style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+          <form onSubmit={handleLogin} style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.6rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.4rem' }}>
-                YOUR NAME
+                STAFF EMAIL
               </label>
               <input
-                type="text"
-                value={judgeInput}
-                onChange={(e) => setJudgeInput(e.target.value)}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 autoFocus
-                placeholder="First Last"
                 style={{ width: '100%', padding: '0.7rem', background: '#0d1428', border: '1px solid var(--navy-border)', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' }}
               />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.6rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.4rem' }}>
-                JUDGE PIN
+                PASSWORD
               </label>
               <input
                 type="password"
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
-                placeholder="Enter PIN"
-                style={{ width: '100%', padding: '0.7rem', background: '#0d1428', border: '1px solid var(--navy-border)', color: '#fff', fontSize: '1rem', fontFamily: 'monospace', letterSpacing: '0.2em', boxSizing: 'border-box' }}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ width: '100%', padding: '0.7rem', background: '#0d1428', border: '1px solid var(--navy-border)', color: '#fff', fontSize: '1rem', boxSizing: 'border-box' }}
               />
             </div>
             {authError && <p style={{ color: '#ff6b6b', fontSize: '0.8rem', margin: 0 }}>{authError}</p>}
@@ -256,7 +326,7 @@ export default function JudgePage() {
               type="submit"
               style={{ background: 'var(--gold)', color: 'var(--navy-deep)', border: 'none', padding: '0.75rem', fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}
             >
-              Enter Portal
+              Sign In
             </button>
           </form>
         </div>
@@ -270,7 +340,6 @@ export default function JudgePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--navy-deep)' }}>
-      {/* Header */}
       <header style={{ background: 'var(--navy)', borderBottom: '2px solid var(--red)', padding: '0 1.5rem' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
@@ -281,7 +350,12 @@ export default function JudgePage() {
               {DIVISIONS.map((div) => (
                 <button
                   key={div}
-                  onClick={() => { setDivision(div); setSelectedId(null); setRunOrder([]); setMyScores([]); }}
+                  onClick={() => {
+                    setDivision(div);
+                    setSelectedId(null);
+                    setRunOrder([]);
+                    setMyScores([]);
+                  }}
                   style={{
                     background: division === div ? 'var(--red)' : 'transparent',
                     color: '#fff',
@@ -299,12 +373,15 @@ export default function JudgePage() {
               ))}
             </nav>
           </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-              {auth.judge_name}
-            </span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{staff.display_name}</span>
             <button
-              onClick={() => { sessionStorage.removeItem(AUTH_KEY); setAuth(null); }}
+              onClick={async () => {
+                await supabase.auth.signOut();
+                setToken(null);
+                setStaff(null);
+              }}
               style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '0.7rem', cursor: 'pointer', letterSpacing: '0.05em' }}
             >
               LOGOUT
@@ -314,158 +391,142 @@ export default function JudgePage() {
       </header>
 
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem', display: 'grid', gridTemplateColumns: '1fr 320px', gap: '2rem', alignItems: 'start' }}>
-        {/* Left: score form */}
         <div>
-          {/* Competitor selector */}
-          <section style={{ marginBottom: '2rem' }}>
-            <div style={{ fontSize: '0.6rem', letterSpacing: '0.18em', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-              SELECT COMPETITOR — {division}
+          <section style={{ marginBottom: '1.5rem' }}>
+            <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.5rem' }}>
+              CURRENT DIVISION ORDER
             </div>
-            <div style={{ border: '1px solid var(--navy-border)', maxHeight: 280, overflowY: 'auto' }}>
+            <div style={{ border: '1px solid var(--navy-border)' }}>
               {runOrder.length === 0 ? (
-                <div style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  Run order not set. Showing all paid registrants…
+                <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', background: 'var(--navy)' }}>
+                  No run order yet.
                 </div>
               ) : (
-                runOrder.map((p) => {
-                  const scored = myScores.find((s) => s.registration_id === p.registration_id);
-                  const isSelected = p.registration_id === selectedId;
-                  const isNow = p.status === 'performing';
-                  return (
-                    <button
-                      key={p.registration_id}
-                      onClick={() => setSelectedId(p.registration_id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        width: '100%',
-                        padding: '0.65rem 1rem',
-                        background: isSelected ? '#1a1400' : isNow ? '#0d1428' : 'var(--navy)',
-                        border: 'none',
-                        borderBottom: '1px solid var(--navy-border)',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        color: '#fff',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', width: '1.2rem', textAlign: 'right', flexShrink: 0 }}>
-                          {p.position}
-                        </span>
-                        <span style={{ fontWeight: isNow || isSelected ? 700 : 400, color: isNow ? 'var(--gold)' : '#fff', fontSize: '0.9rem' }}>
-                          {p.display_name}
-                          {isNow && <span style={{ marginLeft: '0.4rem', fontSize: '0.6rem', color: 'var(--gold)' }}>▶ NOW</span>}
-                        </span>
-                      </div>
-                      {scored && (
-                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#7fff7f' }}>
-                          ✓ {scored.total.toFixed(1)}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })
+                runOrder.map((p) => (
+                  <button
+                    key={p.registration_id}
+                    type="button"
+                    onClick={() => setSelectedId(p.registration_id)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      background: selectedId === p.registration_id ? '#1a1400' : p.status === 'performing' ? '#0f1d39' : 'var(--navy)',
+                      border: 'none',
+                      borderBottom: '1px solid var(--navy-border)',
+                      padding: '0.65rem 0.9rem',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      display: 'grid',
+                      gridTemplateColumns: '2.2rem 1fr auto',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                    }}
+                  >
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>{p.position}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                      {p.display_name}
+                    </span>
+                    <span style={{ fontSize: '0.65rem', color: p.status === 'performing' ? 'var(--gold)' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      {p.status}
+                    </span>
+                  </button>
+                ))
               )}
             </div>
           </section>
 
-          {/* Score form */}
-          {selectedId && (
-            <section>
-              <div style={{ fontSize: '0.6rem', letterSpacing: '0.18em', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                SCORING — {selectedPerformer?.display_name ?? selectedId.slice(0, 8)}
-                {alreadyScored && <span style={{ marginLeft: '0.5rem', color: '#7fff7f' }}>· previously scored</span>}
+          <section style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--gold)' }}>
+                SCORE ENTRY
               </div>
-              <form onSubmit={handleSubmitScore} style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <ScoreInput label="EXECUTION" value={execution} onChange={setExecution} />
-                  <ScoreInput label="DIFFICULTY" value={difficulty} onChange={setDifficulty} />
-                  <ScoreInput label="PRESENTATION" value={presentation} onChange={setPresentation} />
+              <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 700, marginTop: '0.25rem' }}>
+                {selectedPerformer ? selectedPerformer.display_name : 'Select a competitor'}
+              </div>
+              {selectedPerformer && (selectedPerformer.city || selectedPerformer.state) && (
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{[selectedPerformer.city, selectedPerformer.state].filter(Boolean).join(', ')}</div>
+              )}
+            </div>
+
+            <form onSubmit={handleSubmitScore}>
+              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
+                <ScoreInput label="EXECUTION" value={execution} onChange={setExecution} disabled={!selectedId || submitting} />
+                <ScoreInput label="DIFFICULTY" value={difficulty} onChange={setDifficulty} disabled={!selectedId || submitting} />
+                <ScoreInput label="PRESENTATION" value={presentation} onChange={setPresentation} disabled={!selectedId || submitting} />
+              </div>
+
+              <div style={{ marginBottom: '0.8rem' }}>
+                <label style={{ display: 'block', fontSize: '0.6rem', letterSpacing: '0.14em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.3rem' }}>
+                  NOTES (OPTIONAL)
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  maxLength={500}
+                  disabled={!selectedId || submitting}
+                  rows={3}
+                  style={{ width: '100%', background: '#0d1428', border: '1px solid var(--navy-border)', color: '#fff', padding: '0.6rem', resize: 'vertical', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.8rem' }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                  Live total: <span style={{ color: 'var(--gold)', fontFamily: 'monospace', fontWeight: 800 }}>{total.toFixed(1)}</span>
                 </div>
+                {alreadyScored && <div style={{ color: '#7fff7f', fontSize: '0.75rem' }}>Existing score will be updated</div>}
+              </div>
 
-                <div style={{ background: '#0d1428', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.65rem', letterSpacing: '0.12em', fontWeight: 800, color: 'var(--text-muted)' }}>TOTAL</span>
-                  <span style={{ fontFamily: "'Playfair Display', serif", color: 'var(--gold)', fontSize: '2rem', fontWeight: 700 }}>
-                    {total.toFixed(1)}
-                  </span>
-                </div>
+              {submitMsg && (
+                <p style={{ color: submitMsg.ok ? '#7fff7f' : '#ff6b6b', fontSize: '0.8rem', margin: '0 0 0.8rem' }}>{submitMsg.text}</p>
+              )}
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.6rem', letterSpacing: '0.14em', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
-                    NOTES (optional)
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    maxLength={500}
-                    rows={2}
-                    placeholder="Optional judge notes…"
-                    style={{ width: '100%', padding: '0.6rem', background: '#0d1428', border: '1px solid var(--navy-border)', color: '#fff', fontSize: '0.85rem', resize: 'vertical', boxSizing: 'border-box' }}
-                  />
-                </div>
-
-                {submitMsg && (
-                  <p style={{ color: submitMsg.ok ? '#7fff7f' : '#ff6b6b', fontSize: '0.85rem', margin: 0, fontWeight: 700 }}>
-                    {submitMsg.text}
-                  </p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  style={{
-                    background: submitting ? 'var(--navy-border)' : 'var(--gold)',
-                    color: submitting ? 'var(--text-muted)' : 'var(--navy-deep)',
-                    border: 'none',
-                    padding: '0.8rem',
-                    fontWeight: 800,
-                    fontSize: '0.85rem',
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {submitting ? 'Saving…' : alreadyScored ? 'Update Score' : 'Submit Score'}
-                </button>
-              </form>
-            </section>
-          )}
+              <button
+                type="submit"
+                disabled={!selectedId || submitting}
+                style={{
+                  width: '100%',
+                  background: !selectedId || submitting ? 'var(--navy-border)' : 'var(--red)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '0.75rem 1rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  cursor: !selectedId || submitting ? 'not-allowed' : 'pointer',
+                  textTransform: 'uppercase',
+                  fontSize: '0.8rem',
+                }}
+              >
+                {submitting ? 'Saving...' : 'Save score'}
+              </button>
+            </form>
+          </section>
         </div>
 
-        {/* Right: my scores sidebar */}
         <aside>
-          <div style={{ fontSize: '0.6rem', letterSpacing: '0.18em', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-            MY SCORES — {division}
-          </div>
-          {myScores.length === 0 ? (
-            <div style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-              No scores submitted yet.
+          <section style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1rem' }}>
+            <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.75rem' }}>
+              MY SCORES ({division})
             </div>
-          ) : (
-            <div style={{ border: '1px solid var(--navy-border)' }}>
-              {[...myScores]
-                .sort((a, b) => b.total - a.total)
-                .map((s, i) => (
-                  <div
-                    key={s.registration_id}
-                    style={{
-                      padding: '0.65rem 0.75rem',
-                      borderBottom: i < myScores.length - 1 ? '1px solid var(--navy-border)' : 'none',
-                      background: 'var(--navy)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>{s.display_name}</span>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--gold)' }}>{s.total.toFixed(1)}</span>
+            {myScores.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>No scores submitted yet.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {myScores.map((s) => (
+                  <div key={s.id} style={{ border: '1px solid var(--navy-border)', padding: '0.55rem 0.6rem', background: '#0f1a33' }}>
+                    <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.display_name}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                      E:{s.execution} · D:{s.difficulty} · P:{s.presentation}
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginBottom: '0.2rem' }}>
+                      E {s.execution.toFixed(1)} | D {s.difficulty.toFixed(1)} | P {s.presentation.toFixed(1)}
+                    </div>
+                    <div style={{ color: 'var(--gold)', fontFamily: 'monospace', fontWeight: 800, fontSize: '0.92rem' }}>
+                      {s.total.toFixed(1)}
                     </div>
                   </div>
                 ))}
-            </div>
-          )}
+              </div>
+            )}
+          </section>
         </aside>
       </main>
     </div>

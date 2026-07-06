@@ -65,6 +65,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   // 6. Calculate fee
   const source: RegistrationSource = 'online';
   const feeResult = calculateFee(data.divisions as Division[], compCodeValid, now, source);
+  const xSubstyles = data.x_substyles?.length ? data.x_substyles.join(', ') : null;
 
   // 7. Generate music upload token (expires Sept 12 23:59 ET)
   const musicUploadToken = generateToken(32);
@@ -88,7 +89,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       parent_email:             data.parent_email || null,
       parent_consented:         data.parent_consented ?? false,
       divisions:                data.divisions,
-      x_substyle:               data.x_substyle ?? null,
+      x_substyle:               xSubstyles,
       combo_applied:            feeResult.combo_applied,
       comp_code:                data.comp_code || null,
       early_bird_applied:       feeResult.early_bird_applied,
@@ -96,6 +97,15 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       fee_cents:                feeResult.fee_cents,
       registration_source:      source,
       music_upload_token:       musicUploadToken,
+      nickname:                 data.nickname || null,
+      photo_url:                data.photo_url || null,
+      bio:                      data.bio || null,
+      team:                     data.team || null,
+      yoyo:                     data.yoyo || null,
+      string:                   data.string || null,
+      counterweight:            data.counterweight || null,
+      socials:                  data.socials ?? {},
+      is_public:                data.is_public ?? true,
       liability_waiver_accepted: data.liability_waiver_accepted,
       photo_video_consent:       data.photo_video_consent,
       code_of_conduct_accepted:  data.code_of_conduct_accepted,

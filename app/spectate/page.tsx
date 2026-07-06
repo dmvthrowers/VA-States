@@ -12,6 +12,7 @@ type FormValues = {
   nickname: string;
   email: string;
   state: string;
+  photo_url: string;
   bio: string;
   team: string;
   club: string;
@@ -32,7 +33,6 @@ export default function SpectatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
   const [cocOpen, setCocOpen] = useState(false);
-  const [showSetup, setShowSetup] = useState(false);
 
   const {
     register,
@@ -62,6 +62,7 @@ export default function SpectatePage() {
         bio: values.bio,
         team: values.team,
         club: values.club,
+        photo_url: values.photo_url,
         yoyo: values.yoyo,
         string: values.string,
         counterweight: values.counterweight,
@@ -105,12 +106,25 @@ export default function SpectatePage() {
           <span className="inline-block bg-gold text-navy-deep text-xs font-black tracking-widest px-3 py-1 mb-3">VSYC-26</span>
           <h1 className="font-display font-black text-4xl text-gold mb-2">RSVP to Spectate</h1>
           <p className="text-xs tracking-widest text-white/70 font-semibold uppercase">Free · All Ages · September 19, 2026 · Sterling, VA</p>
+          <p className="text-sm text-text-body mt-3">Spectator RSVP is separate from competitor registration: no divisions, no emergency contact, quick check-in flow.</p>
+          <a
+            href="/portal"
+            className="inline-block mt-4 text-xs font-black tracking-caps text-gold hover:text-gold-light"
+          >
+            → Portal Access (Manage RSVP, Judge, DJ)
+          </a>
         </div>
       </div>
 
       <main id="main-content" className="max-w-3xl mx-auto px-4 py-10">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-10" noValidate>
           <input {...register('_hp')} type="text" name="_hp" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
+
+          <section className="border border-gold/40 bg-navy p-4">
+            <div className="text-xs font-black tracking-caps text-gold mb-2">YOU ARE ON THE SPECTATOR FLOW</div>
+            <p className="text-sm text-text-body mb-3">This RSVP is for non-competitors. Want to compete instead?</p>
+            <a href="/" className="inline-block border border-navy-border text-gold font-black tracking-caps px-3 py-2 text-xs hover:border-gold">GO TO COMPETITOR REGISTRATION →</a>
+          </section>
 
           <section>
             <SectionHeader tag="STEP 1" title="Your Info" />
@@ -163,40 +177,36 @@ export default function SpectatePage() {
               </Field>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowSetup(o => !o)}
-              className="mt-4 text-xs font-bold text-gold hover:text-gold-light flex items-center gap-1"
-            >
-              {showSetup ? '▲' : '▾'} {showSetup ? 'Hide setup & socials' : 'Add my setup & socials'}
-            </button>
+            <div className="mt-4">
+              <Field label="Profile Photo URL" hint="Optional image link (https://...)" error={errors.photo_url?.message}>
+                <input {...register('photo_url')} className={inputCls(!!errors.photo_url)} placeholder="https://example.com/profile.jpg" />
+              </Field>
+            </div>
 
-            {showSetup && (
-              <div className="mt-4 space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <Field label="Yo-Yo">
-                    <input {...register('yoyo')} className={inputCls(false)} placeholder="Duncan Freehand" />
-                  </Field>
-                  <Field label="String">
-                    <input {...register('string')} className={inputCls(false)} placeholder="100% Poly" />
-                  </Field>
-                  <Field label="Counterweight">
-                    <input {...register('counterweight')} className={inputCls(false)} placeholder="—" />
-                  </Field>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <Field label="Instagram">
-                    <input {...register('instagram')} className={inputCls(false)} placeholder="@handle" />
-                  </Field>
-                  <Field label="TikTok">
-                    <input {...register('tiktok')} className={inputCls(false)} placeholder="@handle" />
-                  </Field>
-                  <Field label="YouTube">
-                    <input {...register('youtube')} className={inputCls(false)} placeholder="@handle" />
-                  </Field>
-                </div>
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <Field label="Yo-Yo">
+                  <input {...register('yoyo')} className={inputCls(false)} placeholder="Duncan Freehand" />
+                </Field>
+                <Field label="String">
+                  <input {...register('string')} className={inputCls(false)} placeholder="100% Poly" />
+                </Field>
+                <Field label="Counterweight">
+                  <input {...register('counterweight')} className={inputCls(false)} placeholder="—" />
+                </Field>
               </div>
-            )}
+              <div className="grid grid-cols-3 gap-4">
+                <Field label="Instagram">
+                  <input {...register('instagram')} className={inputCls(false)} placeholder="@handle" />
+                </Field>
+                <Field label="TikTok">
+                  <input {...register('tiktok')} className={inputCls(false)} placeholder="@handle" />
+                </Field>
+                <Field label="YouTube">
+                  <input {...register('youtube')} className={inputCls(false)} placeholder="@handle" />
+                </Field>
+              </div>
+            </div>
           </section>
 
           <section>

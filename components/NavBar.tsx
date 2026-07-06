@@ -134,6 +134,41 @@ export default function NavBar({ activePage }: NavBarProps) {
               ← EVENT INFO
             </a>
 
+            <a
+              href="/portal"
+              style={{
+                background: 'transparent',
+                color: 'var(--gold)',
+                border: '1px solid var(--gold)',
+                fontFamily: 'var(--font-condensed)',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase' as const,
+                textDecoration: 'none',
+                padding: '6px 12px',
+              }}
+            >
+              Portal Access
+            </a>
+
+            <a
+              href="/player"
+              style={{
+                background: 'var(--red)',
+                color: '#fff',
+                fontFamily: 'var(--font-condensed)',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase' as const,
+                textDecoration: 'none',
+                padding: '6px 12px',
+              }}
+            >
+              Music Upload
+            </a>
+
             {NAV_LINKS.filter(l => l.label !== 'Register').map(link => (
               <a
                 key={link.label}

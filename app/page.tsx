@@ -23,13 +23,24 @@ type FormValues = {
   parent_email: string;
   parent_consented: boolean;
   divisions: Division[];
-  x_substyle: string;
+  x_substyles: Array<'2A' | '3A' | '4A' | '5A'>;
   comp_code: string;
   liability_waiver_accepted: boolean;
   photo_video_consent: boolean;
   code_of_conduct_accepted: boolean;
   emergency_contact_name: string;
   emergency_contact_phone: string;
+  nickname: string;
+  photo_url: string;
+  bio: string;
+  team: string;
+  yoyo: string;
+  string: string;
+  counterweight: string;
+  instagram: string;
+  tiktok: string;
+  youtube: string;
+  is_public: boolean;
   volunteer_interest: boolean;
   accessibility_needs: string;
   performance_time_pref: 'no_pref' | 'early' | 'late' | 'conflict' | '';
@@ -58,15 +69,18 @@ export default function RegisterPage() {
     mode: 'onChange',
     defaultValues: {
       divisions: [],
+      x_substyles: [],
       liability_waiver_accepted: false,
       photo_video_consent: false,
       code_of_conduct_accepted: false,
       parent_consented: false,
+      is_public: false,
       volunteer_interest: false,
     },
   });
 
   const watchedDivisions = watch('divisions') as Division[];
+  const watchedXSubstyles = watch('x_substyles') as Array<'2A' | '3A' | '4A' | '5A'>;
   const watchedAge = parseInt(watch('age_on_event') || '0', 10);
   const watchedCompCode = watch('comp_code');
   const isMinor = watchedAge > 0 && watchedAge < 18;
@@ -84,12 +98,32 @@ export default function RegisterPage() {
 
   const handleDivisionToggle = (div: Division) => {
     const current = watchedDivisions;
-    const next = current.includes(div)
-      ? current.filter(d => d !== div)
-      : [...current, div];
+
+    let next: Division[];
+    if (current.includes(div)) {
+      next = current.filter(d => d !== div);
+    } else if (div === 'SBJ') {
+      // SBJ cannot be combined with pro divisions.
+      next = ['SBJ'];
+    } else {
+      // Picking 1A/X removes SBJ automatically.
+      next = [...current.filter(d => d !== 'SBJ'), div];
+    }
+
     setValue('divisions', next, { shouldValidate: true });
+    if (!next.includes('X')) {
+      setValue('x_substyles', [], { shouldValidate: true });
+    }
     setCodeApplied(false);
     setCodeStatus('idle');
+  };
+
+  const handleXSubstyleToggle = (substyle: '2A' | '3A' | '4A' | '5A') => {
+    const current = watchedXSubstyles ?? [];
+    const next = current.includes(substyle)
+      ? current.filter(s => s !== substyle)
+      : [...current, substyle];
+    setValue('x_substyles', next, { shouldValidate: true });
   };
 
   const handleValidateCode = useCallback(async () => {
@@ -122,8 +156,15 @@ export default function RegisterPage() {
     setServerError('');
 
     try {
+      const { instagram, tiktok, youtube, ...rest } = values;
       const payload = {
-        ...values,
+        ...rest,
+        x_substyles: values.x_substyles ?? [],
+        socials: {
+          instagram,
+          tiktok,
+          youtube,
+        },
         age_on_event: parseInt(values.age_on_event, 10),
         comp_code: codeApplied ? values.comp_code?.trim().toUpperCase() : undefined,
       };
@@ -183,6 +224,18 @@ export default function RegisterPage() {
           <span className="inline-block bg-gold text-navy-deep text-xs font-black tracking-widest px-3 py-1 mb-3">VSYC-26</span>
           <h1 className="font-display font-black text-4xl text-gold mb-2">Register to Compete</h1>
           <p className="text-xs tracking-widest text-white/70 font-semibold uppercase">Virginia State Yo-Yo Contest · September 19, 2026 · Sterling, VA</p>
+          <a
+            href="/spectate"
+            className="inline-block mt-4 mr-3 border border-gold text-gold text-xs font-black tracking-caps px-3 py-2 hover:bg-gold hover:text-navy-deep transition-colors"
+          >
+            I AM SPECTATING →
+          </a>
+          <a
+            href="/portal"
+            className="inline-block mt-4 text-xs font-black tracking-caps text-gold hover:text-gold-light"
+          >
+            → Portal Access (Contestants, Spectators, Judge, DJ)
+          </a>
         </div>
       </div>
 
@@ -193,6 +246,15 @@ export default function RegisterPage() {
           className="lg:col-span-2 space-y-10"
           noValidate
         >
+          <section className="border border-gold/40 bg-navy p-4">
+            <div className="text-xs font-black tracking-caps text-gold mb-2">CHOOSE YOUR PATH</div>
+            <p className="text-sm text-text-body mb-3">This page is for competitors. Spectators use a separate RSVP with a simpler flow.</p>
+            <div className="flex flex-wrap gap-3">
+              <span className="bg-gold text-navy-deep font-black tracking-caps px-3 py-2 text-xs">COMPETITOR REGISTRATION</span>
+              <a href="/spectate" className="border border-navy-border text-gold font-black tracking-caps px-3 py-2 text-xs hover:border-gold">SPECTATOR RSVP (FREE) →</a>
+            </div>
+          </section>
+
           {/* Honeypot */}
           <input {...register('_hp')} type="text" name="_hp" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
 
@@ -255,7 +317,7 @@ export default function RegisterPage() {
           {/* ── SECTION 2: Divisions ── */}
           <section>
             <SectionHeader tag="STEP 2" title="Division Selection" />
-            <p className="text-sm text-text-body mb-4">Select the division(s) you want to compete in. Competing in 1A + X Division together saves $5.</p>
+            <p className="text-sm text-text-body mb-4">Select your competition division(s). 1A + X can be combined. Sport / Beginner / Junior (SBJ) cannot be combined with 1A or X.</p>
 
             {errors.divisions && (
               <p className="text-red text-sm mb-3">{errors.divisions.message}</p>
@@ -315,7 +377,7 @@ export default function RegisterPage() {
             {/* X substyle */}
             {showXSubstyle && (
               <div className="mt-4 p-4 bg-navy border border-gold/30">
-                <label className="block text-xs font-black tracking-caps text-gold mb-3">X DIVISION STYLE *</label>
+                <label className="block text-xs font-black tracking-caps text-gold mb-3">X DIVISION SUB-STYLES *</label>
                 <div className="space-y-2">
                   {([
                     { code: '2A', desc: 'Looping - two looping yo-yos focused on rhythm and control.' },
@@ -325,9 +387,9 @@ export default function RegisterPage() {
                   ] as const).map(({ code, desc }) => (
                     <label key={code} className="flex items-start gap-2 cursor-pointer">
                       <input
-                        {...register('x_substyle', { required: showXSubstyle ? 'Select a sub-style' : false })}
-                        type="radio"
-                        value={code}
+                        type="checkbox"
+                        checked={watchedXSubstyles.includes(code)}
+                        onChange={() => handleXSubstyleToggle(code)}
                         className="w-4 h-4 accent-gold mt-0.5"
                       />
                       <span>
@@ -337,7 +399,7 @@ export default function RegisterPage() {
                     </label>
                   ))}
                 </div>
-                {errors.x_substyle && <p className="text-red text-sm mt-2">{errors.x_substyle.message}</p>}
+                {errors.x_substyles && <p className="text-red text-sm mt-2">{errors.x_substyles.message}</p>}
               </div>
             )}
 
@@ -408,21 +470,78 @@ export default function RegisterPage() {
             </section>
           )}
 
-          {/* ── SECTION 4: Optional ── */}
+          {/* ── SECTION 3: Safety + Optional Info ── */}
           <section>
-            <SectionHeader tag="OPTIONAL" title="Additional Information" />
+            <SectionHeader tag="STEP 3" title="Safety + Additional Information" />
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Emergency Contact Name">
-                <input {...register('emergency_contact_name')} className={inputCls(false)} placeholder="Jane Rogers" />
+              <Field label="Emergency Contact Name *" error={errors.emergency_contact_name?.message}>
+                <input {...register('emergency_contact_name', { required: 'Required for competitors' })} className={inputCls(!!errors.emergency_contact_name)} placeholder="Jane Rogers" />
               </Field>
-              <Field label="Emergency Contact Phone">
-                <input {...register('emergency_contact_phone')} className={inputCls(false)} placeholder="(555) 555-5555" />
+              <Field label="Emergency Contact Phone *" error={errors.emergency_contact_phone?.message}>
+                <input {...register('emergency_contact_phone', { required: 'Required for competitors' })} className={inputCls(!!errors.emergency_contact_phone)} placeholder="(555) 555-5555" />
               </Field>
             </div>
+            <p className="text-xs text-text-body mt-2">Emergency contact is required for competitors. Spectator RSVP does not require emergency contact.</p>
+
             <div className="mt-4">
               <Field label="Accessibility Needs" hint="Anything we should know for day-of accommodation">
                 <textarea {...register('accessibility_needs')} className={`${inputCls(false)} resize-none`} rows={2} />
               </Field>
+            </div>
+
+            <div className="mt-6 p-4 border border-navy-border bg-navy-deep">
+              <div className="text-xs font-black tracking-caps text-gold mb-1">OPTIONAL PUBLIC PROFILE + SETUP</div>
+              <p className="text-xs text-text-body mb-4">If you want to appear in the public participant directory, add whatever you want shared.</p>
+
+              <label className="flex gap-3 items-start cursor-pointer mb-4">
+                <input {...register('is_public')} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
+                <span className="text-sm text-text-body"><strong className="text-white">List me publicly.</strong> If unchecked, your registration stays private.</span>
+              </label>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Nickname / Screenname">
+                  <input {...register('nickname')} className={inputCls(false)} placeholder="Brandito" />
+                </Field>
+                <Field label="Team">
+                  <input {...register('team')} className={inputCls(false)} placeholder="DMV Throwers" />
+                </Field>
+              </div>
+
+              <div className="mt-4">
+                <Field label="Profile Photo URL" hint="Optional image link (https://...)" error={errors.photo_url?.message}>
+                  <input {...register('photo_url')} className={inputCls(!!errors.photo_url)} placeholder="https://example.com/me.jpg" />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <Field label="Yo-Yo">
+                  <input {...register('yoyo')} className={inputCls(false)} placeholder="Edge Beyond" />
+                </Field>
+                <Field label="String">
+                  <input {...register('string')} className={inputCls(false)} placeholder="Poly 100%" />
+                </Field>
+                <Field label="Counterweight">
+                  <input {...register('counterweight')} className={inputCls(false)} placeholder="Dice CW" />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <Field label="Instagram">
+                  <input {...register('instagram')} className={inputCls(false)} placeholder="@yourhandle" />
+                </Field>
+                <Field label="TikTok">
+                  <input {...register('tiktok')} className={inputCls(false)} placeholder="@yourhandle" />
+                </Field>
+                <Field label="YouTube">
+                  <input {...register('youtube')} className={inputCls(false)} placeholder="@yourchannel" />
+                </Field>
+              </div>
+
+              <div className="mt-4">
+                <Field label="Bio" hint="Optional short intro" error={errors.bio?.message}>
+                  <textarea {...register('bio')} className={`${inputCls(!!errors.bio)} resize-none`} rows={3} placeholder="Yo-yo player from Northern Virginia..." />
+                </Field>
+              </div>
             </div>
 
             {/* ── Scheduling preference ── */}
@@ -463,10 +582,10 @@ export default function RegisterPage() {
             </label>
           </section>
 
-          {/* ── SECTION 5: Waivers ── */}
+          {/* ── SECTION 4: Waivers ── */}
           <section>
-            <SectionHeader tag="STEP 3" title="Waivers &amp; Agreements" />
-            <p className="text-sm text-text-body mb-5">All three are required to compete.</p>
+            <SectionHeader tag="STEP 4" title="Waivers &amp; Agreements" />
+            <p className="text-sm text-text-body mb-5">Code of Conduct is required for everyone. Competitors must also read and scroll through the liability release before agreeing.</p>
 
             {/* CoC Panel — Option C */}
             <div className="border border-navy-border mb-5">

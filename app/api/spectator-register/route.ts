@@ -74,11 +74,13 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   });
 
   // 6. Confirmation email with .ics calendar attachment
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
   await sendSpectatorConfirmationEmail({
     to: data.email,
     firstName: data.first_name,
     spectatorId: spectator.id,
     isPublic: data.is_public ?? false,
+    portalUrl: `${baseUrl}/spectators/portal`,
   });
 
   return NextResponse.json(

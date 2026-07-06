@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 
 const VALID_DIVISIONS = ['1A', 'X', 'SBJ'] as const;
 type Division = typeof VALID_DIVISIONS[number];
@@ -13,9 +14,26 @@ type Division = typeof VALID_DIVISIONS[number];
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   const division = req.nextUrl.searchParams.get('division') as Division | null;
+  const includeMusic = req.nextUrl.searchParams.get('include_music') === '1';
 
   if (!division || !VALID_DIVISIONS.includes(division)) {
     return apiError('bad_request', 'division must be one of: 1A, X, SBJ', requestId);
+  }
+
+  let canViewMusic = false;
+  if (includeMusic) {
+    const token = getBearerToken(req);
+    if (!token) {
+      return apiError('unauthorized', 'Missing bearer token', requestId);
+    }
+    const identity = await getStaffIdentityFromToken(token);
+    if (!identity || !identity.isActive) {
+      return apiError('forbidden', 'Staff access required', requestId);
+    }
+    canViewMusic = identity.role === 'dj' || identity.role === 'audio_tech' || identity.role === 'admin';
+    if (!canViewMusic) {
+      return apiError('forbidden', 'DJ/audio staff access required', requestId);
+    }
   }
 
   const supabase = createAdminClient();
@@ -57,7 +75,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
         display_name: reg?.preferred_bracket_name ?? `${reg?.first_name} ${reg?.last_name}`,
         city: reg?.city ?? null,
         state: reg?.state ?? null,
-        music_filename: reg?.music_filename ?? null,
+        music_filename: canViewMusic ? (reg?.music_filename ?? null) : null,
       };
     });
 
@@ -84,7 +102,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     display_name: reg.preferred_bracket_name ?? `${reg.first_name} ${reg.last_name}`,
     city: reg.city ?? null,
     state: reg.state ?? null,
-    music_filename: reg.music_filename ?? null,
+    music_filename: canViewMusic ? (reg.music_filename ?? null) : null,
   }));
 
   return NextResponse.json(

@@ -27,6 +27,12 @@ function ConfirmContent() {
         <p>Loaners are provided if you want to try throwing while you&apos;re there. No need to bring anything.</p>
       </div>
       <a
+        href="/spectators/portal"
+        className="inline-block mt-6 text-xs font-black tracking-caps text-gold hover:text-gold-light"
+      >
+        → MANAGE YOUR SPECTATOR RSVP
+      </a>
+      <a
         href="https://dmvthrowers.club/vsyc26-schedule.html"
         className="inline-block mt-8 text-xs font-black tracking-caps text-gold hover:text-gold-light"
       >

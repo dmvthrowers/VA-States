@@ -113,6 +113,7 @@ interface SpectatorConfirmationParams {
   firstName: string;
   spectatorId: string;
   isPublic: boolean;
+  portalUrl?: string;
 }
 
 export async function sendSpectatorConfirmationEmail(p: SpectatorConfirmationParams): Promise<EmailResult> {
@@ -220,6 +221,8 @@ function buildPaymentReminderHtml(p: PaymentReminderParams): string {
 }
 
 function buildSpectatorConfirmationHtml(p: SpectatorConfirmationParams): string {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
+  const portalUrl = p.portalUrl ?? `${baseUrl}/spectators/portal`;
   return emailWrap(`
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">You're on the list!</h1>
     <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${esc(p.firstName)} — see you at VSYC-26. Spectating is always free, all ages.</p>
@@ -227,6 +230,11 @@ function buildSpectatorConfirmationHtml(p: SpectatorConfirmationParams): string 
       <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Where:</strong> Dulles Town Center, Sterling, VA</div>
       <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">When:</strong> September 19, 2026</div>
       <div style="font-size:0.85rem;"><strong style="color:#fff;">Listed publicly:</strong> ${p.isPublic ? 'Yes — your profile will show on the site' : 'No — you\'re registered privately'}</div>
+    </div>
+    <div style="background:#0d1428;border-left:4px solid #C9A84C;padding:20px;margin-bottom:16px;">
+      <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">MANAGE YOUR RSVP</div>
+      <p style="font-size:0.85rem;margin:0 0 12px;">Need to update your profile later? Use the spectator portal magic-link login.</p>
+      <a href="${portalUrl}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;margin-top:6px;">OPEN SPECTATOR PORTAL →</a>
     </div>
     <p style="font-size:0.78rem;color:#6a7a9a;margin:0 0 16px;">📅 A calendar invite (VSYC-26.ics) is attached — add it to your calendar so you don't miss the day.</p>
     <p style="font-size:0.82rem;color:#6a7a9a;">Full event details and schedule: <a href="https://dmvthrowers.club/vsyc26-schedule.html" style="color:#C9A84C;">dmvthrowers.club/vsyc26-schedule.html</a></p>
