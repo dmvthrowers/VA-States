@@ -98,6 +98,16 @@ export const registrationSchema = z.object({
   if (data.divisions.includes('X') && selectedXSubstyles.length === 0) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Select at least one X Division sub-style (2A, 3A, 4A, or 5A)', path: ['x_substyles'] });
   }
+  const maxXSubstyles = data.divisions.includes('1A') ? 1 : 2;
+  if (data.divisions.includes('X') && selectedXSubstyles.length > maxXSubstyles) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: data.divisions.includes('1A')
+        ? 'When 1A is selected, choose only one X Division sub-style (max 2 total styles)'
+        : 'Choose at most two X Division sub-styles',
+      path: ['x_substyles'],
+    });
+  }
   if (!data.divisions.includes('X') && selectedXSubstyles.length > 0) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'X Division sub-styles can only be selected when X Division is selected', path: ['x_substyles'] });
   }

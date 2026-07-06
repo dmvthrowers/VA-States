@@ -83,6 +83,7 @@ export default function RegisterPage() {
   const watchedCompCode = watch('comp_code');
   const isMinor = watchedAge > 0 && watchedAge < 18;
   const showXSubstyle = watchedDivisions.includes('X');
+  const maxXSubstyles = watchedDivisions.includes('1A') ? 1 : 2;
 
   const feePreview = calculateFeePreview(
     watchedDivisions,
@@ -118,9 +119,12 @@ export default function RegisterPage() {
 
   const handleXSubstyleToggle = (substyle: '2A' | '3A' | '4A' | '5A') => {
     const current = watchedXSubstyles ?? [];
-    const next = current.includes(substyle)
-      ? current.filter(s => s !== substyle)
-      : [...current, substyle];
+    let next = current;
+    if (current.includes(substyle)) {
+      next = current.filter(s => s !== substyle);
+    } else if (current.length < maxXSubstyles) {
+      next = [...current, substyle];
+    }
     setValue('x_substyles', next, { shouldValidate: true });
   };
 
@@ -376,6 +380,11 @@ export default function RegisterPage() {
             {showXSubstyle && (
               <div className="mt-4 p-4 bg-navy border border-gold/30">
                 <label className="block text-xs font-black tracking-caps text-gold mb-3">X DIVISION SUB-STYLES *</label>
+                <p className="text-xs text-text-body mb-3">
+                  {watchedDivisions.includes('1A')
+                    ? '1A + X is limited to one X sub-style (max 2 total styles).'
+                    : 'Choose up to two X sub-styles.'}
+                </p>
                 <div className="space-y-2">
                   {([
                     { code: '2A', desc: 'Looping - two looping yo-yos focused on rhythm and control.' },
@@ -388,6 +397,7 @@ export default function RegisterPage() {
                         type="checkbox"
                         checked={watchedXSubstyles.includes(code)}
                         onChange={() => handleXSubstyleToggle(code)}
+                        disabled={!watchedXSubstyles.includes(code) && watchedXSubstyles.length >= maxXSubstyles}
                         className="w-4 h-4 accent-gold mt-0.5"
                       />
                       <span>
