@@ -111,6 +111,7 @@ export const spectatorSchema = z.object({
   first_name: nameSchema,
   last_name:  nameSchema,
   nickname:   z.string().trim().max(50).optional().or(z.literal('')),
+  pronouns:   z.string().trim().max(30).optional().or(z.literal('')),
   email:      emailSchema,
   state:      stateSchema,
 
@@ -124,6 +125,7 @@ export const spectatorSchema = z.object({
   socials:       socialsSchema.optional(),
 
   is_public: z.boolean().optional().default(false),
+  volunteer_interest: z.boolean().optional(),
 
   liability_accepted:       z.literal(true, { errorMap: () => ({ message: 'Please acknowledge you are responsible for yourself at the event' }) }),
   code_of_conduct_accepted: z.literal(true, { errorMap: () => ({ message: 'Code of Conduct agreement is required' }) }),

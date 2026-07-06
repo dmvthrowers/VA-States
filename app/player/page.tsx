@@ -32,7 +32,6 @@ type PlayerProfile = {
   accessibility_needs: string | null;
   performance_time_pref: 'no_pref' | 'early' | 'late' | 'conflict' | null;
   scheduling_notes: string | null;
-  volunteer_interest: boolean;
 };
 
 type EditableProfile = {
@@ -49,7 +48,6 @@ type EditableProfile = {
   accessibility_needs: string;
   performance_time_pref: '' | 'no_pref' | 'early' | 'late' | 'conflict';
   scheduling_notes: string;
-  volunteer_interest: boolean;
 };
 
 const supabase = createBrowserClient();
@@ -69,7 +67,6 @@ function toEditable(profile: PlayerProfile): EditableProfile {
     accessibility_needs: profile.accessibility_needs ?? '',
     performance_time_pref: profile.performance_time_pref ?? '',
     scheduling_notes: profile.scheduling_notes ?? '',
-    volunteer_interest: Boolean(profile.volunteer_interest),
   };
 }
 
@@ -464,16 +461,6 @@ export default function PlayerPortalPage() {
                   maxLength={500}
                 />
               </Field>
-
-              <label className="flex items-center gap-3 text-sm text-text-body">
-                <input
-                  type="checkbox"
-                  checked={editable.volunteer_interest}
-                  onChange={(e) => setEditable({ ...editable, volunteer_interest: e.target.checked })}
-                  className="w-4 h-4 accent-gold"
-                />
-                I am interested in volunteering
-              </label>
 
               <button type="submit" disabled={saveLoading} className="bg-gold text-navy-deep font-black tracking-caps px-5 py-3 text-xs disabled:opacity-60">
                 {saveLoading ? 'Saving...' : 'Save changes'}

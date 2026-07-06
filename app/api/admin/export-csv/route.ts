@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminRequest } from '@/lib/auth/admin-request';
 
 const COLUMNS = [
   'id', 'created_at', 'last_name', 'first_name', 'preferred_bracket_name',
@@ -13,7 +14,10 @@ function csvRow(values: string[]): string {
   return values.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
 }
 
-export const GET = withErrorHandling(async (requestId) => {
+export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
+  const auth = await requireAdminRequest(req, requestId);
+  if (auth instanceof NextResponse) return auth;
+
   const supabase = createAdminClient();
 
   const { data, error } = await supabase

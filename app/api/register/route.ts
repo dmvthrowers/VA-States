@@ -7,6 +7,7 @@ import { generateToken } from '@/lib/tokens';
 import { logAudit } from '@/lib/audit';
 import { sendConfirmationEmail } from '@/lib/email';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getEventFlagBoolean } from '@/lib/event-flags';
 import type { Division, RegistrationSource } from '@/lib/pricing';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
@@ -40,6 +41,10 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
   // 4. Online registration window check
   const now = new Date();
+  const onlineRegistrationOpen = await getEventFlagBoolean('online_registration_open', true);
+  if (!onlineRegistrationOpen) {
+    return apiError('unprocessable', 'Online registration is currently paused. Please try again later.', requestId);
+  }
   const onlineCutoff = new Date(process.env.ONLINE_REG_CUTOFF_ISO ?? '2026-09-13T23:59:59-04:00');
   if (now > onlineCutoff) {
     return apiError('unprocessable', 'Online registration has closed. Contact dmvthrowers@gmail.com for late entry.', requestId);

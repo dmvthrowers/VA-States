@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
+import { requireAdminRequest } from '@/lib/auth/admin-request';
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
+  const auth = await requireAdminRequest(req, requestId);
+  if (auth instanceof NextResponse) return auth;
+
   const body = await req.formData().catch(() => null);
-  if (!body) return NextResponse.json({ message: 'Bad request' }, { status: 400 });
+  if (!body) return apiError('bad_request', 'Bad request', requestId);
 
   const code = body.get('code')?.toString();
   const active = body.get('active')?.toString() === '1';
-  if (!code) return NextResponse.json({ message: 'Missing code' }, { status: 400 });
+  if (!code) return apiError('bad_request', 'Missing code', requestId);
 
   const supabase = createAdminClient();
   const { error } = await supabase
@@ -16,9 +21,9 @@ export async function POST(req: NextRequest) {
     .update({ active })
     .eq('code', code);
 
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  if (error) return apiError('upstream_error', error.message, requestId);
 
   await logAudit('updated', { registrationId: code, actor: 'admin', details: { active } });
 
-  return NextResponse.redirect(new URL('/admin/codes', req.url));
-}
+  return NextResponse.redirect(new URL('/admin-dashboard', req.url));
+});

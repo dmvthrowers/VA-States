@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withErrorHandling, apiError } from '@/lib/api-error';
 import { logAudit } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminRequest } from '@/lib/auth/admin-request';
 
 // Accepts both FormData (from admin table toggle) and JSON (from API clients)
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
+  const auth = await requireAdminRequest(req, requestId);
+  if (auth instanceof NextResponse) return auth;
+
   const contentType = req.headers.get('content-type') ?? '';
   let id: string, paid: boolean, payment_method: string | undefined, notes: string | undefined;
   const isForm = contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data');
@@ -22,7 +27,7 @@ export async function POST(req: NextRequest) {
     notes = body.notes as string | undefined;
   }
 
-  if (!id) return NextResponse.json({ message: 'id required' }, { status: 400 });
+  if (!id) return apiError('bad_request', 'id required', requestId);
 
   const supabase = createAdminClient();
   const { error } = await supabase
@@ -35,7 +40,7 @@ export async function POST(req: NextRequest) {
     })
     .eq('id', id);
 
-  if (error) return NextResponse.json({ message: 'Update failed' }, { status: 500 });
+  if (error) return apiError('upstream_error', 'Update failed', requestId);
 
   await logAudit(paid ? 'marked_paid' : 'marked_unpaid', {
     registrationId: id,
@@ -43,6 +48,6 @@ export async function POST(req: NextRequest) {
     details: { payment_method, notes },
   });
 
-  if (isForm) return NextResponse.redirect(new URL('/admin', req.url));
-  return NextResponse.json({ ok: true });
-}
+  if (isForm) return NextResponse.redirect(new URL('/admin-dashboard', req.url));
+  return NextResponse.json({ ok: true }, { headers: { 'x-request-id': requestId } });
+});

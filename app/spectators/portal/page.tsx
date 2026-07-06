@@ -10,6 +10,7 @@ type SpectatorProfile = {
   first_name: string;
   last_name: string;
   nickname: string | null;
+  pronouns: string | null;
   email: string;
   state: string;
   photo_url: string | null;
@@ -26,10 +27,12 @@ type SpectatorProfile = {
     other?: string;
   } | null;
   is_public: boolean;
+  volunteer_interest: boolean;
 };
 
 type Editable = {
   nickname: string;
+  pronouns: string;
   state: string;
   photo_url: string;
   bio: string;
@@ -43,6 +46,7 @@ type Editable = {
   youtube: string;
   other: string;
   is_public: boolean;
+  volunteer_interest: boolean;
 };
 
 const supabase = createBrowserClient();
@@ -50,6 +54,7 @@ const supabase = createBrowserClient();
 function toEditable(profile: SpectatorProfile): Editable {
   return {
     nickname: profile.nickname ?? '',
+    pronouns: profile.pronouns ?? '',
     state: profile.state ?? '',
     photo_url: profile.photo_url ?? '',
     bio: profile.bio ?? '',
@@ -63,6 +68,7 @@ function toEditable(profile: SpectatorProfile): Editable {
     youtube: profile.socials?.youtube ?? '',
     other: profile.socials?.other ?? '',
     is_public: Boolean(profile.is_public),
+    volunteer_interest: Boolean(profile.volunteer_interest),
   };
 }
 
@@ -179,6 +185,7 @@ export default function SpectatorPortalPage() {
         },
         body: JSON.stringify({
           nickname: editable.nickname,
+          pronouns: editable.pronouns,
           state: editable.state.toUpperCase(),
           photo_url: editable.photo_url,
           bio: editable.bio,
@@ -194,6 +201,7 @@ export default function SpectatorPortalPage() {
             other: editable.other,
           },
           is_public: editable.is_public,
+          volunteer_interest: editable.volunteer_interest,
         }),
       });
 
@@ -278,6 +286,9 @@ export default function SpectatorPortalPage() {
                 <Field label="State (2-letter)">
                   <input aria-label="State" title="State" value={editable.state} onChange={(e) => setEditable({ ...editable, state: e.target.value.toUpperCase() })} maxLength={2} className="input" required />
                 </Field>
+                <Field label="Pronouns">
+                  <input aria-label="Pronouns" title="Pronouns" value={editable.pronouns} onChange={(e) => setEditable({ ...editable, pronouns: e.target.value })} className="input" />
+                </Field>
                 <Field label="Team">
                   <input aria-label="Team" title="Team" value={editable.team} onChange={(e) => setEditable({ ...editable, team: e.target.value })} className="input" />
                 </Field>
@@ -325,6 +336,16 @@ export default function SpectatorPortalPage() {
                   className="w-4 h-4 accent-gold"
                 />
                 Show my profile publicly on the spectator list
+              </label>
+
+              <label className="flex items-center gap-3 text-sm text-text-body">
+                <input
+                  type="checkbox"
+                  checked={editable.volunteer_interest}
+                  onChange={(e) => setEditable({ ...editable, volunteer_interest: e.target.checked })}
+                  className="w-4 h-4 accent-gold"
+                />
+                I can volunteer (contact me by email)
               </label>
 
               <button type="submit" disabled={saving} className="bg-gold text-navy-deep font-black tracking-caps px-5 py-3 text-xs disabled:opacity-60">

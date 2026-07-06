@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
+import { getEventFlagBoolean } from '@/lib/event-flags';
 import { z } from 'zod';
 
 const VALID_DIVISIONS = ['1A', 'X', 'SBJ'] as const;
@@ -29,7 +30,9 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('bad_request', 'division must be one of: 1A, X, SBJ', requestId);
   }
 
-  if (!mine && process.env.RESULTS_PUBLISHED !== 'true') {
+  const resultsPublished = await getEventFlagBoolean('results_published', process.env.RESULTS_PUBLISHED === 'true');
+
+  if (!mine && !resultsPublished) {
     return NextResponse.json(
       { division, published: false, standings: [] },
       { headers: { 'x-request-id': requestId } }

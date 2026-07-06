@@ -41,7 +41,6 @@ type FormValues = {
   tiktok: string;
   youtube: string;
   is_public: boolean;
-  volunteer_interest: boolean;
   accessibility_needs: string;
   performance_time_pref: 'no_pref' | 'early' | 'late' | 'conflict' | '';
   scheduling_notes: string;
@@ -75,7 +74,6 @@ export default function RegisterPage() {
       code_of_conduct_accepted: false,
       parent_consented: false,
       is_public: false,
-      volunteer_interest: false,
     },
   });
 
@@ -576,10 +574,6 @@ export default function RegisterPage() {
               )}
             </div>
 
-            <label className="flex gap-3 items-center mt-4 cursor-pointer">
-              <input {...register('volunteer_interest')} type="checkbox" className="w-4 h-4 accent-gold flex-shrink-0" />
-              <span className="text-sm text-text-body">I&apos;m interested in volunteering at VSYC-26 (someone will follow up)</span>
-            </label>
           </section>
 
           {/* ── SECTION 4: Waivers ── */}
@@ -681,7 +675,7 @@ export default function RegisterPage() {
                 className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0"
               />
               <span className="text-sm text-text-body">
-                <strong className="text-white">Photo / Video Consent:</strong> I consent to being photographed and recorded at VSYC-26 for use in DMV Throwers promotional and archival materials.
+                <strong className="text-white">Photo / Video Consent (Required):</strong> I consent to being photographed and recorded at VSYC-26, including livestream broadcast, and for use in DMV Throwers promotional and archival materials.
               </span>
             </label>
             {errors.photo_video_consent && <p className="text-red text-xs mt-1">{errors.photo_video_consent.message}</p>}

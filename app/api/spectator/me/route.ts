@@ -12,6 +12,7 @@ const socialsSchema = z.object({
 
 const spectatorUpdateSchema = z.object({
   nickname: z.string().trim().max(50).optional().or(z.literal('')),
+  pronouns: z.string().trim().max(30).optional().or(z.literal('')),
   state: z.string().trim().length(2).toUpperCase().optional(),
   photo_url: z.string().trim().url().max(500).optional().or(z.literal('')),
   bio: z.string().trim().max(1000).optional().or(z.literal('')),
@@ -22,6 +23,7 @@ const spectatorUpdateSchema = z.object({
   counterweight: z.string().trim().max(100).optional().or(z.literal('')),
   socials: socialsSchema.optional(),
   is_public: z.boolean().optional(),
+  volunteer_interest: z.boolean().optional(),
 }).strict();
 
 async function getAuthedUser(req: NextRequest, requestId: string): Promise<{ userId: string; email: string } | NextResponse> {
@@ -49,7 +51,7 @@ async function getOrClaimSpectator(userId: string, email: string) {
 
   const { data: linked, error: linkedErr } = await supabase
     .from('vsyc_spectators')
-    .select('id, created_at, first_name, last_name, nickname, email, state, photo_url, bio, team, club, yoyo, string, counterweight, socials, is_public')
+    .select('id, created_at, first_name, last_name, nickname, pronouns, email, state, photo_url, bio, team, club, yoyo, string, counterweight, socials, is_public, volunteer_interest')
     .eq('auth_user_id', userId)
     .single();
 
@@ -82,7 +84,7 @@ async function getOrClaimSpectator(userId: string, email: string) {
 
   const { data: claimed, error: claimedErr } = await supabase
     .from('vsyc_spectators')
-    .select('id, created_at, first_name, last_name, nickname, email, state, photo_url, bio, team, club, yoyo, string, counterweight, socials, is_public')
+    .select('id, created_at, first_name, last_name, nickname, pronouns, email, state, photo_url, bio, team, club, yoyo, string, counterweight, socials, is_public, volunteer_interest')
     .eq('id', candidate.id)
     .single();
 
@@ -129,6 +131,7 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest) => {
   const normalized = {
     ...updates,
     nickname: updates.nickname || null,
+    pronouns: updates.pronouns || null,
     photo_url: updates.photo_url || null,
     bio: updates.bio || null,
     team: updates.team || null,

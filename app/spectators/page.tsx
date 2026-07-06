@@ -2,37 +2,44 @@ import { createAdminClient, hasAdminCredentials } from '@/lib/supabase/admin';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 
-interface Spectator {
+interface PublicProfile {
   id: string;
+  role: string;
   display_name: string;
+  pronouns: string | null;
+  bio: string | null;
   state: string | null;
   team: string | null;
+  photo_url: string | null;
 }
 
-async function getPublicSpectators(): Promise<Spectator[]> {
+const roleLabel: Record<string, string> = {
+  competitor: 'Competitor',
+  spectator: 'Spectator',
+  judge: 'Judge',
+  dj: 'DJ',
+  audio_tech: 'Audio Tech',
+  admin: 'Staff',
+};
+
+async function getPublicProfiles(): Promise<PublicProfile[]> {
   if (!hasAdminCredentials()) return [];
 
   const supabase = createAdminClient();
   const { data, error } = await supabase
-    .from('vsyc_spectators')
-    .select('id, first_name, last_name, nickname, state, team')
-    .eq('is_public', true)
-    .order('created_at', { ascending: true });
+    .from('vsyc_public_profiles')
+    .select('id, role, display_name, pronouns, bio, state, team, photo_url')
+    .order('display_name', { ascending: true });
 
   if (error || !data) return [];
 
-  return data.map((s) => ({
-    id: s.id,
-    display_name: s.nickname ?? `${s.first_name} ${s.last_name}`,
-    state: s.state ?? null,
-    team: s.team ?? null,
-  }));
+  return data as PublicProfile[];
 }
 
 export const revalidate = 60;
 
 export default async function SpectatorsPage() {
-  const spectators = await getPublicSpectators();
+  const profiles = await getPublicProfiles();
 
   return (
     <>
@@ -46,33 +53,38 @@ export default async function SpectatorsPage() {
             Who&apos;s Coming
           </h1>
           <p style={{ color: 'var(--text-body)', margin: 0 }}>
-            {spectators.length === 0
+            {profiles.length === 0
               ? 'RSVPs are open — spectating is always free.'
-              : `${spectators.length} spectator${spectators.length === 1 ? '' : 's'} on the public list.`}
+              : `${profiles.length} public profile${profiles.length === 1 ? '' : 's'} listed.`}
           </p>
         </header>
 
-        {spectators.length === 0 ? (
+        {profiles.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No public RSVPs yet.</p>
         ) : (
           <div style={{ border: '1px solid var(--navy-border)' }}>
-            {spectators.map((s, i) => (
+            {profiles.map((p, i) => (
               <div
-                key={s.id}
+                key={`${p.role}-${p.id}`}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: '0.75rem',
                   padding: '0.75rem 1rem',
-                  borderBottom: i < spectators.length - 1 ? '1px solid var(--navy-border)' : 'none',
+                  borderBottom: i < profiles.length - 1 ? '1px solid var(--navy-border)' : 'none',
                   background: i % 2 === 0 ? 'var(--navy)' : 'transparent',
                 }}
               >
                 <div>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>{s.display_name}</span>
-                  {s.team && <div style={{ fontSize: '0.7rem', color: 'var(--gold)' }}>{s.team}</div>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>{p.display_name}</span>
+                    <span style={{ fontSize: '0.65rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--gold)' }}>{roleLabel[p.role] ?? p.role}</span>
+                    {p.pronouns && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>({p.pronouns})</span>}
+                  </div>
+                  {p.team && <div style={{ fontSize: '0.7rem', color: 'var(--gold)' }}>{p.team}</div>}
+                  {p.bio && <div style={{ fontSize: '0.75rem', color: 'var(--text-body)', marginTop: '0.2rem' }}>{p.bio}</div>}
                 </div>
-                {s.state && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.state}</span>}
+                {p.state && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.state}</span>}
               </div>
             ))}
           </div>
@@ -80,7 +92,7 @@ export default async function SpectatorsPage() {
 
         <footer style={{ borderTop: '1px solid var(--navy-border)', paddingTop: '1.5rem', marginTop: '2.5rem' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
-            List shows public RSVPs only — spectators can opt to stay private. Free to attend, all ages.{' '}
+            List shows public profiles only — competitors, spectators, judges, and staff can opt in. Free to attend, all ages.{' '}
             <a href="/spectate" style={{ color: 'var(--gold-light)' }}>RSVP now →</a>
           </p>
         </footer>

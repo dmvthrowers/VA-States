@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { logAudit } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminRequest } from '@/lib/auth/admin-request';
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
+  const auth = await requireAdminRequest(req, requestId);
+  if (auth instanceof NextResponse) return auth;
+
   let body: unknown;
   try { body = await req.json(); } catch {
     return apiError('bad_request', 'Invalid JSON', requestId);

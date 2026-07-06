@@ -15,6 +15,12 @@ const portals = [
     cta: 'Go to music upload access',
   },
   {
+    title: 'Staff Profile',
+    description: 'Judges and staff can manage public bio/pronouns and choose whether to appear on the public "Who\'s Coming" list.',
+    href: '/staff/profile',
+    cta: 'Edit staff profile',
+  },
+  {
     title: 'Spectator Manage RSVP',
     description: 'Use magic-link login to update your spectator RSVP and public profile settings.',
     href: '/spectators/portal',
@@ -31,6 +37,12 @@ const portals = [
     description: 'DJ/audio staff login with assigned account credentials for secure music access.',
     href: '/dj',
     cta: 'Open DJ login',
+  },
+  {
+    title: 'Admin Dashboard',
+    description: 'Secure event-ops dashboard for staff admins to manage contestants, spectators, and live controls.',
+    href: '/admin-dashboard',
+    cta: 'Open admin dashboard',
   },
 ];
 

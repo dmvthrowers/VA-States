@@ -9,6 +9,10 @@ export interface StaffIdentity {
   role: StaffRole;
   displayName: string;
   isActive: boolean;
+  pronouns: string | null;
+  bio: string | null;
+  photoUrl: string | null;
+  isPublicProfile: boolean;
 }
 
 export function getBearerToken(req: NextRequest): string | null {
@@ -26,7 +30,7 @@ export async function getStaffIdentityFromToken(token: string): Promise<StaffIde
 
   const { data: staff, error: staffErr } = await supabase
     .from('vsyc_staff_accounts')
-    .select('auth_user_id, role, display_name, is_active')
+    .select('auth_user_id, role, display_name, is_active, pronouns, bio, photo_url, is_public_profile')
     .eq('auth_user_id', authData.user.id)
     .maybeSingle();
 
@@ -38,5 +42,9 @@ export async function getStaffIdentityFromToken(token: string): Promise<StaffIde
     role: staff.role as StaffRole,
     displayName: staff.display_name,
     isActive: Boolean(staff.is_active),
+    pronouns: staff.pronouns ?? null,
+    bio: staff.bio ?? null,
+    photoUrl: staff.photo_url ?? null,
+    isPublicProfile: Boolean(staff.is_public_profile),
   };
 }

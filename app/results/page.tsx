@@ -1,11 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getEventFlagBoolean } from '@/lib/event-flags';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 
-// Public results are gated: standings only appear when RESULTS_PUBLISHED=true
-// (set in Vercel after the contest). Until then visitors see a "coming soon"
-// placeholder — no live mid-contest scores leak out.
-const RESULTS_PUBLISHED = process.env.RESULTS_PUBLISHED === 'true';
+// Public results are gated with an admin-toggleable flag and env fallback.
 
 const DIVISIONS: { code: Division; label: string }[] = [
   { code: '1A',  label: '1A — Single String' },
@@ -85,7 +83,8 @@ export const revalidate = 60;
 const PLACE_COLORS = ['var(--gold)', '#c7c7d1', '#cd7f32']; // 1st gold · 2nd silver · 3rd bronze
 
 export default async function ResultsPage() {
-  const standings = RESULTS_PUBLISHED ? await getStandings() : null;
+  const resultsPublished = await getEventFlagBoolean('results_published', process.env.RESULTS_PUBLISHED === 'true');
+  const standings = resultsPublished ? await getStandings() : null;
   const total = standings
     ? Object.values(standings).reduce((s, arr) => s + arr.length, 0)
     : 0;
@@ -102,7 +101,7 @@ export default async function ResultsPage() {
             Contest Results
           </h1>
           <p style={{ color: 'var(--text-body)', margin: 0 }}>
-            {!RESULTS_PUBLISHED
+            {!resultsPublished
               ? 'Final standings will be posted here after the contest.'
               : total === 0
                 ? 'Results are being finalized — check back shortly.'
@@ -110,7 +109,7 @@ export default async function ResultsPage() {
           </p>
         </header>
 
-        {!RESULTS_PUBLISHED || !standings ? (
+        {!resultsPublished || !standings ? (
           <section style={{ border: '1px solid var(--navy-border)', background: 'var(--navy)', padding: '2.5rem 1.5rem', textAlign: 'center' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🏆</div>
             <p style={{ color: '#fff', fontWeight: 700, margin: '0 0 0.5rem' }}>

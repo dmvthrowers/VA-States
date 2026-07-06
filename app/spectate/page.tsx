@@ -10,6 +10,7 @@ type FormValues = {
   first_name: string;
   last_name: string;
   nickname: string;
+  pronouns: string;
   email: string;
   state: string;
   photo_url: string;
@@ -23,6 +24,7 @@ type FormValues = {
   tiktok: string;
   youtube: string;
   is_public: boolean;
+  volunteer_interest: boolean;
   liability_accepted: boolean;
   code_of_conduct_accepted: boolean;
   _hp: string;
@@ -44,6 +46,7 @@ export default function SpectatePage() {
       is_public: false,
       liability_accepted: false,
       code_of_conduct_accepted: false,
+      volunteer_interest: false,
     },
   });
 
@@ -57,6 +60,7 @@ export default function SpectatePage() {
         first_name: values.first_name,
         last_name: values.last_name,
         nickname: values.nickname,
+        pronouns: values.pronouns,
         email: values.email,
         state: values.state,
         bio: values.bio,
@@ -72,6 +76,7 @@ export default function SpectatePage() {
           youtube: values.youtube,
         },
         is_public: values.is_public,
+        volunteer_interest: values.volunteer_interest,
         liability_accepted: values.liability_accepted,
         code_of_conduct_accepted: values.code_of_conduct_accepted,
       };
@@ -168,6 +173,12 @@ export default function SpectatePage() {
             </Field>
             {errors.bio && <p className="text-red text-xs mt-1">{errors.bio.message}</p>}
 
+            <div className="mt-4">
+              <Field label="Pronouns" hint="Optional, shown on your public profile if you list publicly">
+                <input {...register('pronouns')} className={inputCls(false)} placeholder="she/her" />
+              </Field>
+            </div>
+
             <div className="grid grid-cols-2 gap-4 mt-4">
               <Field label="Team">
                 <input {...register('team')} className={inputCls(false)} placeholder="Team YoYoFactory" />
@@ -207,6 +218,13 @@ export default function SpectatePage() {
                 </Field>
               </div>
             </div>
+
+            <label className="flex gap-3 items-start cursor-pointer mt-5 p-4 border border-navy-border bg-navy-deep">
+              <input {...register('volunteer_interest')} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
+              <span className="text-sm text-text-body">
+                <strong className="text-white">I can volunteer.</strong> If needed, you can contact me by email with a volunteer sign-up form.
+              </span>
+            </label>
           </section>
 
           <section>
