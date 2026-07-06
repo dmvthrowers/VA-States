@@ -178,7 +178,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       is_comp: feeResult.is_comp,
       payment_instructions: {
         online_processor: 'Stripe',
-        payment_portal: baseUrl,
+        payment_portal: BASE_URL,
         day_of_info: 'See registration desk for available day-of alternatives.',
       },
       music_upload_url: musicUploadUrl,
