@@ -333,22 +333,22 @@ export default function RegisterPage() {
                   code: '1A' as Division,
                   name: '1A — Single String',
                   price: '$25',
-                  desc: 'Classic 1-string freestyle. 3-minute routine, judged on execution, difficulty, and presentation.',
-                  format: '3 min · Scored judging',
+                  desc: 'Classic 1-string freestyle. 2-minute routine, judged on execution, difficulty, and presentation.',
+                  format: '2 min · Scored judging',
                 },
                 {
                   code: 'X' as Division,
                   name: 'X Division',
                   price: '$20',
                   desc: 'Non-1A styles: 2A (looping), 3A (two strings), 4A (offstring), or 5A (freehand). Pick one.',
-                  format: '3 min · Scored judging',
+                  format: '2 min · Scored judging',
                 },
                 {
                   code: 'SBJ' as Division,
                   name: 'Sport / Beginner / Junior',
                   price: '$15',
                   desc: 'Open to all skill levels and ages. Relaxed format, simplified judging, great entry point.',
-                  format: '2 min · Simplified scoring',
+                  format: '90 sec · Simplified scoring',
                 },
               ] as const).map(({ code, name, price, desc, format }) => (
                 <button

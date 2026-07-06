@@ -17,6 +17,7 @@ type PlayerProfile = {
   paid: boolean;
   fee_cents: number;
   music_uploaded_at: string | null;
+  music_filename: string | null;
   can_upload_music: boolean;
   music_upload_url: string | null;
   preferred_bracket_name: string | null;
@@ -86,6 +87,30 @@ export default function PlayerPortalPage() {
 
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [editable, setEditable] = useState<EditableProfile | null>(null);
+
+  const [musicPlayUrl, setMusicPlayUrl] = useState<string | null>(null);
+  const [musicLoading, setMusicLoading] = useState(false);
+  const [musicError, setMusicError] = useState<string | null>(null);
+
+  async function handlePreviewMusic() {
+    if (!authToken) return;
+    setMusicLoading(true);
+    setMusicError(null);
+    try {
+      const res = await fetch('/api/player/music-url', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const body = await res.json().catch(() => ({})) as { play_url?: string; error?: { message?: string } };
+      if (!res.ok || !body.play_url) {
+        throw new Error(body.error?.message ?? 'Could not load your music file.');
+      }
+      setMusicPlayUrl(body.play_url);
+    } catch (err) {
+      setMusicError(err instanceof Error ? err.message : 'Could not load your music file.');
+    } finally {
+      setMusicLoading(false);
+    }
+  }
 
   const deadlineLabel = useMemo(() => 'September 12, 2026', []);
 
@@ -244,6 +269,7 @@ export default function PlayerPortalPage() {
     setAuthToken(null);
     setProfile(null);
     setEditable(null);
+    setMusicPlayUrl(null);
     setSuccess('Signed out.');
   }
 
@@ -375,6 +401,22 @@ export default function PlayerPortalPage() {
                   <p>Music received: <span className="text-white">{new Date(profile.music_uploaded_at).toLocaleString()}</span></p>
                 )}
               </div>
+              {profile.music_filename && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={handlePreviewMusic}
+                    disabled={musicLoading}
+                    className="border border-gold text-gold font-black tracking-caps px-4 py-2 text-xs disabled:opacity-60"
+                  >
+                    {musicLoading ? 'Loading...' : '▶ Preview my music'}
+                  </button>
+                  {musicError && <p className="text-red text-xs mt-2">{musicError}</p>}
+                  {musicPlayUrl && (
+                    <audio key={musicPlayUrl} controls autoPlay src={musicPlayUrl} className="w-full mt-3" />
+                  )}
+                </div>
+              )}
               {profile.music_upload_url ? (
                 <a href={profile.music_upload_url} className="inline-block mt-4 bg-gold text-navy-deep font-black tracking-caps px-4 py-2 text-xs">
                   Upload music

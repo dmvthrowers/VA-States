@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
+import RunOrderManager from '@/components/RunOrderManager';
 
 const DIVISIONS = ['1A', 'X', 'SBJ'] as const;
 type Division = typeof DIVISIONS[number];
@@ -44,6 +45,49 @@ export default function DJPage() {
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [view, setView] = useState<'live' | 'manage'>('live');
+
+  const [loadedTrack, setLoadedTrack] = useState<{ registrationId: string; filename: string; playUrl: string } | null>(null);
+  const [trackBusyId, setTrackBusyId] = useState<string | null>(null);
+  const [trackError, setTrackError] = useState<string | null>(null);
+
+  const fetchMusicUrl = useCallback(async (registrationId: string) => {
+    if (!token) return null;
+    const res = await fetch(`/api/dj/music-url?registration_id=${registrationId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.error?.message ?? 'Could not load music file.');
+    }
+    return await res.json() as { filename: string; play_url: string; download_url: string };
+  }, [token]);
+
+  const handlePlay = useCallback(async (registrationId: string) => {
+    setTrackBusyId(registrationId);
+    setTrackError(null);
+    try {
+      const json = await fetchMusicUrl(registrationId);
+      if (json) setLoadedTrack({ registrationId, filename: json.filename, playUrl: json.play_url });
+    } catch (e) {
+      setTrackError(e instanceof Error ? e.message : 'Could not load music file.');
+    } finally {
+      setTrackBusyId(null);
+    }
+  }, [fetchMusicUrl]);
+
+  const handleDownload = useCallback(async (registrationId: string) => {
+    setTrackBusyId(registrationId);
+    setTrackError(null);
+    try {
+      const json = await fetchMusicUrl(registrationId);
+      if (json) window.open(json.download_url, '_blank');
+    } catch (e) {
+      setTrackError(e instanceof Error ? e.message : 'Could not load music file.');
+    } finally {
+      setTrackBusyId(null);
+    }
+  }, [fetchMusicUrl]);
 
   const fetchStaffMe = useCallback(async (accessToken: string): Promise<StaffMe | null> => {
     const res = await fetch('/api/staff/me', {
@@ -271,6 +315,30 @@ export default function DJPage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <button
+                onClick={() => setView('live')}
+                style={{
+                  background: view === 'live' ? 'var(--gold)' : 'transparent',
+                  color: view === 'live' ? 'var(--navy-deep)' : 'var(--text-body)',
+                  border: '1px solid', borderColor: view === 'live' ? 'var(--gold)' : 'var(--navy-border)',
+                  padding: '0.3rem 0.75rem', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.05em', cursor: 'pointer',
+                }}
+              >
+                Live
+              </button>
+              <button
+                onClick={() => setView('manage')}
+                style={{
+                  background: view === 'manage' ? 'var(--gold)' : 'transparent',
+                  color: view === 'manage' ? 'var(--navy-deep)' : 'var(--text-body)',
+                  border: '1px solid', borderColor: view === 'manage' ? 'var(--gold)' : 'var(--navy-border)',
+                  padding: '0.3rem 0.75rem', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.05em', cursor: 'pointer',
+                }}
+              >
+                Manage Order
+              </button>
+            </div>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{staff.display_name}</span>
             {lastRefresh && (
               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
@@ -292,6 +360,12 @@ export default function DJPage() {
       </header>
 
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem' }}>
+        {view === 'manage' ? (
+          <section style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1rem' }}>
+            <RunOrderManager token={token} />
+          </section>
+        ) : (
+        <>
         <section style={{ marginBottom: '2.5rem' }}>
           <div style={{ fontSize: '0.6rem', letterSpacing: '0.18em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.75rem' }}>
             NOW PLAYING
@@ -316,8 +390,50 @@ export default function DJPage() {
                   <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: nowPerforming.music_filename ? '#fff' : '#ff6b6b' }}>
                     {nowPerforming.music_filename ?? 'No file uploaded'}
                   </div>
+                  {nowPerforming.music_filename && (
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem', justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={() => handlePlay(nowPerforming.registration_id)}
+                        disabled={trackBusyId === nowPerforming.registration_id}
+                        style={{
+                          background: 'var(--gold)', color: 'var(--navy-deep)', border: 'none',
+                          padding: '0.4rem 0.9rem', fontWeight: 800, fontSize: '0.75rem',
+                          letterSpacing: '0.05em', cursor: 'pointer',
+                          opacity: trackBusyId === nowPerforming.registration_id ? 0.6 : 1,
+                        }}
+                      >
+                        {trackBusyId === nowPerforming.registration_id ? 'Loading...' : '▶ Play'}
+                      </button>
+                      <button
+                        onClick={() => handleDownload(nowPerforming.registration_id)}
+                        disabled={trackBusyId === nowPerforming.registration_id}
+                        style={{
+                          background: 'transparent', color: 'var(--gold)', border: '1px solid var(--gold)',
+                          padding: '0.4rem 0.9rem', fontWeight: 800, fontSize: '0.75rem',
+                          letterSpacing: '0.05em', cursor: 'pointer',
+                          opacity: trackBusyId === nowPerforming.registration_id ? 0.6 : 1,
+                        }}
+                      >
+                        ⬇ Download
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
+              {loadedTrack && loadedTrack.registrationId === nowPerforming.registration_id && (
+                <div style={{ marginTop: '1.25rem' }}>
+                  <audio
+                    key={loadedTrack.playUrl}
+                    controls
+                    autoPlay
+                    src={loadedTrack.playUrl}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              )}
+              {trackError && (
+                <p style={{ color: '#ff6b6b', fontSize: '0.75rem', marginTop: '0.75rem' }}>{trackError}</p>
+              )}
             </div>
           ) : (
             <div style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1.5rem 2rem', color: 'var(--text-muted)' }}>
@@ -333,8 +449,8 @@ export default function DJPage() {
             </div>
             <div style={{ border: '1px solid var(--navy-border)' }}>
               {upcoming.slice(0, 5).map((p, i) => (
+                <div key={p.registration_id}>
                 <div
-                  key={p.registration_id}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -355,9 +471,51 @@ export default function DJPage() {
                       )}
                     </div>
                   </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: p.music_filename ? 'var(--text-muted)' : '#ff6b6b', textAlign: 'right', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {p.music_filename ?? 'missing'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: p.music_filename ? 'var(--text-muted)' : '#ff6b6b', textAlign: 'right', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {p.music_filename ?? 'missing'}
+                    </div>
+                    {p.music_filename && (
+                      <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
+                        <button
+                          onClick={() => handlePlay(p.registration_id)}
+                          disabled={trackBusyId === p.registration_id}
+                          title="Play"
+                          style={{
+                            background: 'transparent', color: 'var(--gold)', border: '1px solid var(--navy-border)',
+                            padding: '0.2rem 0.5rem', fontSize: '0.7rem', cursor: 'pointer',
+                            opacity: trackBusyId === p.registration_id ? 0.5 : 1,
+                          }}
+                        >
+                          ▶
+                        </button>
+                        <button
+                          onClick={() => handleDownload(p.registration_id)}
+                          disabled={trackBusyId === p.registration_id}
+                          title="Download"
+                          style={{
+                            background: 'transparent', color: 'var(--gold)', border: '1px solid var(--navy-border)',
+                            padding: '0.2rem 0.5rem', fontSize: '0.7rem', cursor: 'pointer',
+                            opacity: trackBusyId === p.registration_id ? 0.5 : 1,
+                          }}
+                        >
+                          ⬇
+                        </button>
+                      </div>
+                    )}
                   </div>
+                </div>
+                {loadedTrack && loadedTrack.registrationId === p.registration_id && (
+                  <div style={{ padding: '0 1rem 0.75rem', background: i === 0 ? '#0d1428' : 'var(--navy)' }}>
+                    <audio
+                      key={loadedTrack.playUrl}
+                      controls
+                      autoPlay
+                      src={loadedTrack.playUrl}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                )}
                 </div>
               ))}
               {upcoming.length > 5 && (
@@ -367,6 +525,8 @@ export default function DJPage() {
               )}
             </div>
           </section>
+        )}
+        </>
         )}
       </main>
     </div>

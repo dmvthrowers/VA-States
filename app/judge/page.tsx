@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
+import RunOrderManager from '@/components/RunOrderManager';
 
 const DIVISIONS = ['1A', 'X', 'SBJ'] as const;
 type Division = typeof DIVISIONS[number];
@@ -100,6 +101,7 @@ export default function JudgePage() {
   const [submitMsg, setSubmitMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const [myScores, setMyScores] = useState<ScoreEntry[]>([]);
+  const [view, setView] = useState<'score' | 'manage'>('score');
 
   const fetchStaffMe = useCallback(async (accessToken: string): Promise<StaffMe | null> => {
     const res = await fetch('/api/staff/me', {
@@ -375,6 +377,30 @@ export default function JudgePage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <button
+                onClick={() => setView('score')}
+                style={{
+                  background: view === 'score' ? 'var(--gold)' : 'transparent',
+                  color: view === 'score' ? 'var(--navy-deep)' : 'var(--text-body)',
+                  border: '1px solid', borderColor: view === 'score' ? 'var(--gold)' : 'var(--navy-border)',
+                  padding: '0.3rem 0.75rem', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.05em', cursor: 'pointer',
+                }}
+              >
+                Score
+              </button>
+              <button
+                onClick={() => setView('manage')}
+                style={{
+                  background: view === 'manage' ? 'var(--gold)' : 'transparent',
+                  color: view === 'manage' ? 'var(--navy-deep)' : 'var(--text-body)',
+                  border: '1px solid', borderColor: view === 'manage' ? 'var(--gold)' : 'var(--navy-border)',
+                  padding: '0.3rem 0.75rem', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.05em', cursor: 'pointer',
+                }}
+              >
+                Manage Order
+              </button>
+            </div>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{staff.display_name}</span>
             <button
               onClick={async () => {
@@ -390,6 +416,13 @@ export default function JudgePage() {
         </div>
       </header>
 
+      {view === 'manage' ? (
+        <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem' }}>
+          <section style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1rem' }}>
+            <RunOrderManager token={token} />
+          </section>
+        </main>
+      ) : (
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem', display: 'grid', gridTemplateColumns: '1fr 320px', gap: '2rem', alignItems: 'start' }}>
         <div>
           <section style={{ marginBottom: '1.5rem' }}>
@@ -529,6 +562,7 @@ export default function JudgePage() {
           </section>
         </aside>
       </main>
+      )}
     </div>
   );
 }

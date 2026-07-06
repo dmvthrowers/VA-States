@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withErrorHandling, apiError } from '@/lib/api-error';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireRunOrderEditorRequest } from '@/lib/auth/admin-request';
 
 export const runtime = 'nodejs';
 
@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 // Client uploads directly to the signed URL via PUT, then this record is done.
 
 export const POST = withErrorHandling(async (requestId: string, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireRunOrderEditorRequest(req, requestId);
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json().catch(() => ({}));
@@ -55,7 +55,7 @@ export const POST = withErrorHandling(async (requestId: string, req: NextRequest
 // Called after upload completes to confirm music_filename (optional — POST already sets it)
 
 export const PATCH = withErrorHandling(async (requestId: string, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireRunOrderEditorRequest(req, requestId);
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json().catch(() => ({}));

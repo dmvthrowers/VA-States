@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireRunOrderEditorRequest } from '@/lib/auth/admin-request';
 import { z } from 'zod';
 
 const VALID_DIVISIONS = ['1A', 'X', 'SBJ'] as const;
@@ -22,7 +22,7 @@ const saveRunOrderSchema = z.object({
  * Body: { division: "1A", registration_ids: ["uuid1", "uuid2", ...] }
  */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireRunOrderEditorRequest(req, requestId);
   if (auth instanceof NextResponse) return auth;
 
   let body: unknown;
@@ -106,7 +106,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
  * Returns full run order rows with registration details for admin view.
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireRunOrderEditorRequest(req, requestId);
   if (auth instanceof NextResponse) return auth;
 
   const division = req.nextUrl.searchParams.get('division');
