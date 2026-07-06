@@ -19,10 +19,7 @@ interface ResultRow {
   display_name: string;
   city: string | null;
   state: string | null;
-  execution: number | string;
-  difficulty: number | string;
-  presentation: number | string;
-  total: number | string;
+  final_score: number | string;
 }
 
 interface Standing {
@@ -63,7 +60,7 @@ async function getStandings(): Promise<Record<Division, Standing[]>> {
     }
     const entry = grouped[div].get(row.registration_id)!;
     entry.s.judge_count += 1;
-    entry.sum += Number(row.total);
+    entry.sum += Number(row.final_score);
   }
 
   const result: Record<Division, Standing[]> = { '1A': [], X: [], SBJ: [] };

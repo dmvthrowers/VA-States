@@ -333,7 +333,7 @@ export default function RegisterPage() {
                   code: '1A' as Division,
                   name: '1A — Single String',
                   price: '$25',
-                  desc: 'Classic 1-string freestyle. 2-minute routine, judged on execution, difficulty, and presentation.',
+                  desc: 'Classic 1-string freestyle. 2-minute routine, judged on technical execution plus trick presentation, performance quality, musicality, and routine construction.',
                   format: '2 min · Scored judging',
                 },
                 {
