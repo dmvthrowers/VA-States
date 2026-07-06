@@ -203,6 +203,9 @@ function ConfirmContent() {
                 <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', marginTop: '1rem', marginBottom: 0 }}>
                   Accepted formats: MP3, WAV, AIFF, M4A · Max 128 MB
                 </p>
+                <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', marginTop: '0.5rem', marginBottom: 0 }}>
+                  Music must be appropriate for all audiences — <strong style={{ color: '#fff' }}>inappropriate music results in disqualification</strong>. Full Music Selection Rules are on the upload page.
+                </p>
               </section>
             )}
 
@@ -213,6 +216,9 @@ function ConfirmContent() {
                 </h2>
                 <p style={{ color: 'var(--text-body)', margin: 0 }}>
                   Music upload unlocks in this portal after payment is received. Deadline: <strong style={{ color: '#fff' }}>{deadlineLabel}</strong>.
+                </p>
+                <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', marginTop: '0.75rem', marginBottom: 0 }}>
+                  Start picking your track now: it must be appropriate for all audiences — <strong style={{ color: '#fff' }}>inappropriate music results in disqualification</strong>. Full Music Selection Rules are on the upload page.
                 </p>
               </section>
             )}

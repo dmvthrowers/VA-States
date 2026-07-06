@@ -777,6 +777,7 @@ export default function RegisterPage() {
             <div className="mt-4 pt-4 border-t border-navy-border">
               <div className="text-xs font-black tracking-caps text-gold mb-2">MUSIC DEADLINE</div>
               <p className="text-xs text-text-body">Upload your music in this registration app after payment. <strong className="text-white">Deadline: Sept 12, 2026.</strong></p>
+              <p className="text-xs text-text-body mt-2">Music must be appropriate for all audiences — no explicit language, sexual content, or glorification of violence. <strong className="text-white">Inappropriate music results in disqualification.</strong> Full rules are on the upload page.</p>
             </div>
 
             <div className="mt-4 pt-4 border-t border-navy-border">

@@ -424,6 +424,11 @@ export default function PlayerPortalPage() {
               ) : (
                 <p className="mt-4 text-sm text-text-body">Music upload unlocks after payment is received.</p>
               )}
+              <p className="mt-3 text-xs text-text-body">
+                Music must be appropriate for all audiences — <strong className="text-white">inappropriate music results in disqualification</strong>.
+                Full Music Selection Rules are on the upload page. Questions? Email{' '}
+                <a href="mailto:dmvthrowers@gmail.com" className="text-gold">dmvthrowers@gmail.com</a>.
+              </p>
             </section>
 
             <form onSubmit={handleSave} className="border border-navy-border bg-navy p-6 space-y-5">
