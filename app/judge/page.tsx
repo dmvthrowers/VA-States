@@ -22,17 +22,22 @@ interface ScoreEntry {
   display_name: string;
   city: string | null;
   state: string | null;
-  tech_execution: number;
+  tech_execution_raw: number;
+  tech_execution_normalized: number;
   trick_presentation: number;
   performance_quality: number;
   musicality: number;
   routine_construction: number;
-  deduction_stop: number;
-  deduction_discard: number;
-  deduction_cut: number;
+  stop_count: number;
+  discard_count: number;
+  detach_count: number;
+  deduction_points: number;
   final_score: number;
   notes: string | null;
 }
+
+/** Tech Execution cap: Sport/SBJ scores to /20, 1A/X to /60 — see NYYL freestyle rules. */
+const TECH_EXECUTION_CAP: Record<Division, number> = { '1A': 60, X: 60, SBJ: 20 };
 
 interface StaffMe {
   auth_user_id: string;
@@ -46,14 +51,20 @@ const supabase = createBrowserClient();
 
 function ScoreInput({
   label,
+  sublabel,
+  min = 0,
   max,
+  step = 0.1,
   value,
   onChange,
   disabled,
   accent,
 }: {
   label: string;
+  sublabel?: string;
+  min?: number;
   max: number;
+  step?: number;
   value: number | '';
   onChange: (v: number) => void;
   disabled?: boolean;
@@ -62,17 +73,17 @@ function ScoreInput({
   return (
     <div style={{ flex: 1, minWidth: 90 }}>
       <label style={{ display: 'block', fontSize: '0.6rem', letterSpacing: '0.1em', fontWeight: 800, color: accent ?? 'var(--gold)', marginBottom: '0.3rem' }}>
-        {label} <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>/{max}</span>
+        {label} <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{sublabel ?? `/${max}`}</span>
       </label>
       <input
         type="number"
-        min={0}
+        min={min}
         max={max}
-        step={0.1}
+        step={step}
         value={value}
         onChange={(e) => {
           const n = parseFloat(e.target.value);
-          if (!isNaN(n) && n >= 0 && n <= max) onChange(n);
+          if (!isNaN(n) && n >= min && n <= max) onChange(n);
           else if (e.target.value === '') onChange(0);
         }}
         disabled={disabled}
@@ -103,14 +114,14 @@ export default function JudgePage() {
   const [runOrder, setRunOrder] = useState<Performer[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const [techExecution, setTechExecution] = useState<number | ''>(0);
+  const [techExecutionRaw, setTechExecutionRaw] = useState<number | ''>(0);
   const [trickPresentation, setTrickPresentation] = useState<number | ''>(0);
   const [performanceQuality, setPerformanceQuality] = useState<number | ''>(0);
   const [musicality, setMusicality] = useState<number | ''>(0);
   const [routineConstruction, setRoutineConstruction] = useState<number | ''>(0);
-  const [deductionStop, setDeductionStop] = useState<number | ''>(0);
-  const [deductionDiscard, setDeductionDiscard] = useState<number | ''>(0);
-  const [deductionCut, setDeductionCut] = useState<number | ''>(0);
+  const [stopCount, setStopCount] = useState<number | ''>(0);
+  const [discardCount, setDiscardCount] = useState<number | ''>(0);
+  const [detachCount, setDetachCount] = useState<number | ''>(0);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -220,24 +231,24 @@ export default function JudgePage() {
     if (!selectedId) return;
     const existing = myScores.find((s) => s.registration_id === selectedId);
     if (existing) {
-      setTechExecution(existing.tech_execution);
+      setTechExecutionRaw(existing.tech_execution_raw);
       setTrickPresentation(existing.trick_presentation);
       setPerformanceQuality(existing.performance_quality);
       setMusicality(existing.musicality);
       setRoutineConstruction(existing.routine_construction);
-      setDeductionStop(existing.deduction_stop);
-      setDeductionDiscard(existing.deduction_discard);
-      setDeductionCut(existing.deduction_cut);
+      setStopCount(existing.stop_count);
+      setDiscardCount(existing.discard_count);
+      setDetachCount(existing.detach_count);
       setNotes(existing.notes ?? '');
     } else {
-      setTechExecution(0);
+      setTechExecutionRaw(0);
       setTrickPresentation(0);
       setPerformanceQuality(0);
       setMusicality(0);
       setRoutineConstruction(0);
-      setDeductionStop(0);
-      setDeductionDiscard(0);
-      setDeductionCut(0);
+      setStopCount(0);
+      setDiscardCount(0);
+      setDetachCount(0);
       setNotes('');
     }
     setSubmitMsg(null);
@@ -272,7 +283,7 @@ export default function JudgePage() {
   async function handleSubmitScore(e: React.FormEvent) {
     e.preventDefault();
     if (!token || !selectedId) return;
-    if (techExecution === '' || trickPresentation === '' || performanceQuality === '' || musicality === '' || routineConstruction === '') {
+    if (techExecutionRaw === '' || trickPresentation === '' || performanceQuality === '' || musicality === '' || routineConstruction === '') {
       setSubmitMsg({ ok: false, text: 'Tech Execution, Trick Presentation, Performance Quality, Musicality, and Routine Construction are required.' });
       return;
     }
@@ -290,14 +301,14 @@ export default function JudgePage() {
         body: JSON.stringify({
           registration_id: selectedId,
           division,
-          tech_execution: Number(techExecution),
+          tech_execution_raw: Number(techExecutionRaw),
           trick_presentation: Number(trickPresentation),
           performance_quality: Number(performanceQuality),
           musicality: Number(musicality),
           routine_construction: Number(routineConstruction),
-          deduction_stop: Number(deductionStop) || 0,
-          deduction_discard: Number(deductionDiscard) || 0,
-          deduction_cut: Number(deductionCut) || 0,
+          stop_count: division === 'SBJ' ? 0 : Number(stopCount) || 0,
+          discard_count: division === 'SBJ' ? 0 : Number(discardCount) || 0,
+          detach_count: division === 'SBJ' ? 0 : Number(detachCount) || 0,
           notes: notes.trim() || undefined,
         }),
       });
@@ -368,9 +379,9 @@ export default function JudgePage() {
 
   const selectedPerformer = runOrder.find((p) => p.registration_id === selectedId);
   const alreadyScored = myScores.find((s) => s.registration_id === selectedId);
-  const subtotal = (Number(techExecution) || 0) + (Number(trickPresentation) || 0) + (Number(performanceQuality) || 0) + (Number(musicality) || 0) + (Number(routineConstruction) || 0);
-  const totalDeductions = (Number(deductionStop) || 0) + (Number(deductionDiscard) || 0) + (Number(deductionCut) || 0);
-  const finalScore = Math.max(0, subtotal - totalDeductions);
+  const categoryTotal = (Number(trickPresentation) || 0) + (Number(performanceQuality) || 0) + (Number(musicality) || 0) + (Number(routineConstruction) || 0);
+  const totalDeductionPoints = division === 'SBJ' ? 0 : (Number(stopCount) || 0) * 1 + (Number(discardCount) || 0) * 3 + (Number(detachCount) || 0) * 5;
+  const techExecutionCap = TECH_EXECUTION_CAP[division];
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--navy-deep)' }}>
@@ -514,9 +525,22 @@ export default function JudgePage() {
             </div>
 
             <form onSubmit={handleSubmitScore}>
-              <div style={{ marginBottom: '0.4rem' }}>
-                <ScoreInput label="TECH EXECUTION" max={60} value={techExecution} onChange={setTechExecution} disabled={!selectedId || submitting} />
+              <div style={{ marginBottom: '0.3rem' }}>
+                <ScoreInput
+                  label="TECH EXECUTION"
+                  sublabel={`(raw clicker → /${techExecutionCap})`}
+                  min={division === 'SBJ' ? 0 : -100}
+                  max={100}
+                  step={1}
+                  value={techExecutionRaw}
+                  onChange={setTechExecutionRaw}
+                  disabled={!selectedId || submitting}
+                />
               </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.68rem', margin: '0 0 1rem' }}>
+                Enter your net clicker tally (+ for landed elements, − for misses{division === 'SBJ' ? ', though Sport/SBJ uses no negative clicks' : ''}).
+                It&rsquo;s normalized to /{techExecutionCap} against your own highest score in this division once saved.
+              </p>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1rem' }}>
                 <ScoreInput label="TRICK PRES." max={10} value={trickPresentation} onChange={setTrickPresentation} disabled={!selectedId || submitting} />
@@ -525,14 +549,18 @@ export default function JudgePage() {
                 <ScoreInput label="ROUTINE CONSTR." max={10} value={routineConstruction} onChange={setRoutineConstruction} disabled={!selectedId || submitting} />
               </div>
 
-              <div style={{ fontSize: '0.6rem', letterSpacing: '0.14em', fontWeight: 800, color: '#ff6b6b', marginBottom: '0.4rem' }}>
-                MAJOR DEDUCTIONS
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1rem' }}>
-                <ScoreInput label="STOP" max={60} value={deductionStop} onChange={setDeductionStop} disabled={!selectedId || submitting} accent="#ff6b6b" />
-                <ScoreInput label="DISCARD" max={60} value={deductionDiscard} onChange={setDeductionDiscard} disabled={!selectedId || submitting} accent="#ff6b6b" />
-                <ScoreInput label="CUT" max={60} value={deductionCut} onChange={setDeductionCut} disabled={!selectedId || submitting} accent="#ff6b6b" />
-              </div>
+              {division !== 'SBJ' && (
+                <>
+                  <div style={{ fontSize: '0.6rem', letterSpacing: '0.14em', fontWeight: 800, color: '#ff6b6b', marginBottom: '0.4rem' }}>
+                    MAJOR DEDUCTIONS (count of each)
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1rem' }}>
+                    <ScoreInput label="STOP" sublabel="× −1" step={1} max={20} value={stopCount} onChange={setStopCount} disabled={!selectedId || submitting} accent="#ff6b6b" />
+                    <ScoreInput label="DISCARD" sublabel="× −3" step={1} max={20} value={discardCount} onChange={setDiscardCount} disabled={!selectedId || submitting} accent="#ff6b6b" />
+                    <ScoreInput label="DETACH" sublabel="× −5" step={1} max={20} value={detachCount} onChange={setDetachCount} disabled={!selectedId || submitting} accent="#ff6b6b" />
+                  </div>
+                </>
+              )}
 
               <div style={{ marginBottom: '0.8rem' }}>
                 <label style={{ display: 'block', fontSize: '0.6rem', letterSpacing: '0.14em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.3rem' }}>
@@ -550,12 +578,12 @@ export default function JudgePage() {
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.8rem', flexWrap: 'wrap' }}>
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                  Subtotal: <span style={{ color: '#fff', fontFamily: 'monospace', fontWeight: 700 }}>{subtotal.toFixed(1)}</span>
-                  {totalDeductions > 0 && (
-                    <span style={{ color: '#ff6b6b', fontFamily: 'monospace' }}> − {totalDeductions.toFixed(1)}</span>
+                  Category subtotal (unnormalized): <span style={{ color: '#fff', fontFamily: 'monospace', fontWeight: 700 }}>{categoryTotal.toFixed(1)}</span>
+                  {totalDeductionPoints > 0 && (
+                    <span style={{ color: '#ff6b6b', fontFamily: 'monospace' }}> − {totalDeductionPoints.toFixed(1)}</span>
                   )}
-                  {' = '}
-                  Final: <span style={{ color: 'var(--gold)', fontFamily: 'monospace', fontWeight: 800 }}>{finalScore.toFixed(1)}</span>
+                  <br />
+                  <span style={{ fontSize: '0.72rem' }}>Final score (with normalized Tech Execution) shows in My Scores after saving.</span>
                 </div>
                 {alreadyScored && <div style={{ color: '#7fff7f', fontSize: '0.75rem' }}>Existing score will be updated</div>}
               </div>
@@ -601,9 +629,9 @@ export default function JudgePage() {
                       {s.display_name}
                     </div>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginBottom: '0.2rem' }}>
-                      TE {s.tech_execution.toFixed(1)} | TP {s.trick_presentation.toFixed(1)} | PQ {s.performance_quality.toFixed(1)} | MU {s.musicality.toFixed(1)} | RC {s.routine_construction.toFixed(1)}
-                      {(s.deduction_stop + s.deduction_discard + s.deduction_cut) > 0 && (
-                        <span style={{ color: '#ff6b6b' }}> | −{(s.deduction_stop + s.deduction_discard + s.deduction_cut).toFixed(1)}</span>
+                      TE {s.tech_execution_raw.toFixed(0)} raw → {s.tech_execution_normalized.toFixed(1)} | TP {s.trick_presentation.toFixed(1)} | PQ {s.performance_quality.toFixed(1)} | MU {s.musicality.toFixed(1)} | RC {s.routine_construction.toFixed(1)}
+                      {s.deduction_points > 0 && (
+                        <span style={{ color: '#ff6b6b' }}> | −{s.deduction_points.toFixed(1)}</span>
                       )}
                     </div>
                     <div style={{ color: 'var(--gold)', fontFamily: 'monospace', fontWeight: 800, fontSize: '0.92rem' }}>

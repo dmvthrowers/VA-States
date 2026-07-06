@@ -265,7 +265,7 @@ export default function RegisterPage() {
           {/* ── SECTION 1: Player Info ── */}
           <section>
             <SectionHeader tag="STEP 1" title="Player Information" />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="First Name *" error={errors.first_name?.message}>
                 <input {...register('first_name', { required: 'Required' })} className={inputCls(!!errors.first_name)} placeholder="Brandon" />
               </Field>
@@ -273,7 +273,7 @@ export default function RegisterPage() {
                 <input {...register('last_name', { required: 'Required' })} className={inputCls(!!errors.last_name)} placeholder="Rogers" />
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <Field label="Bracket Display Name" hint="Optional override — defaults to first + last">
                 <input {...register('preferred_bracket_name')} className={inputCls(false)} placeholder="Brandito" />
               </Field>
@@ -281,7 +281,7 @@ export default function RegisterPage() {
                 <input {...register('pronouns')} className={inputCls(false)} placeholder="he/him" />
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <Field label="Age on September 19, 2026 *" error={errors.age_on_event?.message}>
                 <input
                   {...register('age_on_event', {
@@ -298,7 +298,7 @@ export default function RegisterPage() {
                 <input {...register('email', { required: 'Required', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email' } })} type="email" className={inputCls(!!errors.email)} placeholder="you@example.com" />
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <Field label="Phone *" error={errors.phone?.message}>
                 <input {...register('phone', { required: 'Required' })} type="tel" className={inputCls(!!errors.phone)} placeholder="(555) 555-5555" />
               </Field>
@@ -306,7 +306,7 @@ export default function RegisterPage() {
                 <input {...register('club_affiliation')} className={inputCls(false)} placeholder="DMV Throwers" />
               </Field>
             </div>
-            <div className="grid grid-cols-3 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
               <div className="col-span-2">
                 <Field label="City *" error={errors.city?.message}>
                   <input {...register('city', { required: 'Required' })} className={inputCls(!!errors.city)} placeholder="Sterling" />
@@ -460,7 +460,7 @@ export default function RegisterPage() {
             <section className="border border-gold/40 p-5">
               <SectionHeader tag="MINOR CONSENT" title="Parent / Guardian Information" />
               <p className="text-sm text-text-body mb-4">This competitor is under 18. A parent or guardian must provide their information and consent below.</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Parent / Guardian Name *" error={errors.parent_name?.message}>
                   <input {...register('parent_name', { required: isMinor ? 'Required for minors' : false })} className={inputCls(!!errors.parent_name)} />
                 </Field>
@@ -483,7 +483,7 @@ export default function RegisterPage() {
           {/* ── SECTION 3: Safety + Optional Info ── */}
           <section>
             <SectionHeader tag="STEP 3" title="Safety + Additional Information" />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Emergency Contact Name *" error={errors.emergency_contact_name?.message}>
                 <input {...register('emergency_contact_name', { required: 'Required for competitors' })} className={inputCls(!!errors.emergency_contact_name)} placeholder="Jane Rogers" />
               </Field>
@@ -511,7 +511,7 @@ export default function RegisterPage() {
                 <span className="text-sm text-text-body"><strong className="text-white">List me publicly.</strong> If unchecked, your registration stays private.</span>
               </label>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Nickname / Screenname">
                   <input {...register('nickname')} className={inputCls(false)} placeholder="Brandito" />
                 </Field>
@@ -526,7 +526,7 @@ export default function RegisterPage() {
                 </Field>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
                 <Field label="Yo-Yo">
                   <input {...register('yoyo')} className={inputCls(false)} placeholder="Edge Beyond" />
                 </Field>
@@ -538,7 +538,7 @@ export default function RegisterPage() {
                 </Field>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
                 <Field label="Instagram">
                   <input {...register('instagram')} className={inputCls(false)} placeholder="@yourhandle" />
                 </Field>
