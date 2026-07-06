@@ -44,8 +44,9 @@ export const registrationSchema = z.object({
   code_of_conduct_accepted:  z.literal(true, { errorMap: () => ({ message: 'Code of Conduct agreement is required' }) }),
 
   // Required for competitors
-  emergency_contact_name:  z.string().trim().min(1, 'Emergency contact name is required').max(100),
-  emergency_contact_phone: phoneSchema,
+  emergency_contact_name:         z.string().trim().min(1, 'Emergency contact name is required').max(100),
+  emergency_contact_phone:        phoneSchema,
+  emergency_contact_relationship: z.string().trim().min(1, 'Emergency contact relationship is required').max(50),
 
   // Optional profile + setup
   nickname:      z.string().trim().max(50).optional().or(z.literal('')),

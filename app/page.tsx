@@ -30,6 +30,7 @@ type FormValues = {
   code_of_conduct_accepted: boolean;
   emergency_contact_name: string;
   emergency_contact_phone: string;
+  emergency_contact_relationship: string;
   nickname: string;
   photo_url: string;
   bio: string;
@@ -73,7 +74,8 @@ export default function RegisterPage() {
       photo_video_consent: false,
       code_of_conduct_accepted: false,
       parent_consented: false,
-      is_public: false,
+      // Competitor profiles are public by default (spectators opt in instead).
+      is_public: true,
     },
   });
 
@@ -487,6 +489,9 @@ export default function RegisterPage() {
               </Field>
               <Field label="Emergency Contact Phone *" error={errors.emergency_contact_phone?.message}>
                 <input {...register('emergency_contact_phone', { required: 'Required for competitors' })} className={inputCls(!!errors.emergency_contact_phone)} placeholder="(555) 555-5555" />
+              </Field>
+              <Field label="Emergency Contact Relationship *" error={errors.emergency_contact_relationship?.message}>
+                <input {...register('emergency_contact_relationship', { required: 'Required for competitors' })} className={inputCls(!!errors.emergency_contact_relationship)} placeholder="Parent, spouse, friend…" />
               </Field>
             </div>
             <p className="text-xs text-text-body mt-2">Emergency contact is required for competitors. Spectator RSVP does not require emergency contact.</p>
