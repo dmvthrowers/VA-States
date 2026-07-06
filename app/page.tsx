@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import type { Division } from '@/lib/pricing';
@@ -86,6 +86,12 @@ export default function RegisterPage() {
   const isMinor = watchedAge > 0 && watchedAge < 18;
   const showXSubstyle = watchedDivisions.includes('X');
   const maxXSubstyles = watchedDivisions.includes('1A') ? 1 : 2;
+
+  // Competitors under 18 are private by default — a parent can ask us to
+  // enable public listing after registration if they want it.
+  useEffect(() => {
+    if (isMinor) setValue('is_public', false);
+  }, [isMinor, setValue]);
 
   const feePreview = calculateFeePreview(
     watchedDivisions,
@@ -504,57 +510,69 @@ export default function RegisterPage() {
 
             <div className="mt-6 p-4 border border-navy-border bg-navy-deep">
               <div className="text-xs font-black tracking-caps text-gold mb-1">OPTIONAL PUBLIC PROFILE + SETUP</div>
-              <p className="text-xs text-text-body mb-4">If you want to appear in the public participant directory, add whatever you want shared.</p>
 
-              <label className="flex gap-3 items-start cursor-pointer mb-4">
-                <input {...register('is_public')} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
-                <span className="text-sm text-text-body"><strong className="text-white">List me publicly.</strong> If unchecked, your registration stays private.</span>
-              </label>
+              {isMinor ? (
+                <p className="text-sm text-text-body">
+                  <strong className="text-white">Public profile is off for competitors under 18.</strong>{' '}
+                  This registration stays private — no nickname, photo, bio, or socials are collected. A parent or guardian can email{' '}
+                  <a href="mailto:dmvthrowers@gmail.com" className="text-gold hover:text-gold-light">dmvthrowers@gmail.com</a>{' '}
+                  after registering to enable a public listing if you&apos;d like one.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-text-body mb-4">If you want to appear in the public participant directory, add whatever you want shared.</p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Nickname / Screenname">
-                  <input {...register('nickname')} className={inputCls(false)} placeholder="Brandito" />
-                </Field>
-                <Field label="Team">
-                  <input {...register('team')} className={inputCls(false)} placeholder="DMV Throwers" />
-                </Field>
-              </div>
+                  <label className="flex gap-3 items-start cursor-pointer mb-4">
+                    <input {...register('is_public')} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
+                    <span className="text-sm text-text-body"><strong className="text-white">List me publicly.</strong> If unchecked, your registration stays private.</span>
+                  </label>
 
-              <div className="mt-4">
-                <Field label="Profile Photo URL" hint="Optional image link (https://...)" error={errors.photo_url?.message}>
-                  <input {...register('photo_url')} className={inputCls(!!errors.photo_url)} placeholder="https://example.com/me.jpg" />
-                </Field>
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Nickname / Screenname">
+                      <input {...register('nickname')} className={inputCls(false)} placeholder="Brandito" />
+                    </Field>
+                    <Field label="Team">
+                      <input {...register('team')} className={inputCls(false)} placeholder="DMV Throwers" />
+                    </Field>
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-                <Field label="Yo-Yo">
-                  <input {...register('yoyo')} className={inputCls(false)} placeholder="Edge Beyond" />
-                </Field>
-                <Field label="String">
-                  <input {...register('string')} className={inputCls(false)} placeholder="Poly 100%" />
-                </Field>
-                <Field label="Counterweight">
-                  <input {...register('counterweight')} className={inputCls(false)} placeholder="Dice CW" />
-                </Field>
-              </div>
+                  <div className="mt-4">
+                    <Field label="Profile Photo URL" hint="Optional image link (https://...)" error={errors.photo_url?.message}>
+                      <input {...register('photo_url')} className={inputCls(!!errors.photo_url)} placeholder="https://example.com/me.jpg" />
+                    </Field>
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-                <Field label="Instagram">
-                  <input {...register('instagram')} className={inputCls(false)} placeholder="@yourhandle" />
-                </Field>
-                <Field label="TikTok">
-                  <input {...register('tiktok')} className={inputCls(false)} placeholder="@yourhandle" />
-                </Field>
-                <Field label="YouTube">
-                  <input {...register('youtube')} className={inputCls(false)} placeholder="@yourchannel" />
-                </Field>
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                    <Field label="Yo-Yo">
+                      <input {...register('yoyo')} className={inputCls(false)} placeholder="Edge Beyond" />
+                    </Field>
+                    <Field label="String">
+                      <input {...register('string')} className={inputCls(false)} placeholder="Poly 100%" />
+                    </Field>
+                    <Field label="Counterweight">
+                      <input {...register('counterweight')} className={inputCls(false)} placeholder="Dice CW" />
+                    </Field>
+                  </div>
 
-              <div className="mt-4">
-                <Field label="Bio" hint="Optional short intro" error={errors.bio?.message}>
-                  <textarea {...register('bio')} className={`${inputCls(!!errors.bio)} resize-none`} rows={3} placeholder="Yo-yo player from Northern Virginia..." />
-                </Field>
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                    <Field label="Instagram">
+                      <input {...register('instagram')} className={inputCls(false)} placeholder="@yourhandle" />
+                    </Field>
+                    <Field label="TikTok">
+                      <input {...register('tiktok')} className={inputCls(false)} placeholder="@yourhandle" />
+                    </Field>
+                    <Field label="YouTube">
+                      <input {...register('youtube')} className={inputCls(false)} placeholder="@yourchannel" />
+                    </Field>
+                  </div>
+
+                  <div className="mt-4">
+                    <Field label="Bio" hint="Optional short intro" error={errors.bio?.message}>
+                      <textarea {...register('bio')} className={`${inputCls(!!errors.bio)} resize-none`} rows={3} placeholder="Yo-yo player from Northern Virginia..." />
+                    </Field>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* ── Scheduling preference ── */}
