@@ -51,6 +51,13 @@ type Editable = {
 
 const supabase = createBrowserClient();
 
+function getSpectatorPortalRedirectUrl(): string {
+  const base = process.env.NEXT_PUBLIC_BASE_URL?.trim();
+  if (base) return `${base.replace(/\/$/, '')}/spectators/portal`;
+  if (typeof window !== 'undefined') return `${window.location.origin}/spectators/portal`;
+  return 'https://register.dmvthrowers.club/spectators/portal';
+}
+
 function toEditable(profile: SpectatorProfile): Editable {
   return {
     nickname: profile.nickname ?? '',
@@ -103,6 +110,25 @@ export default function SpectatorPortalPage() {
   useEffect(() => {
     let active = true;
 
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
+      const hashParams = new URLSearchParams(hash);
+      const searchParams = new URLSearchParams(window.location.search);
+
+      const errorCode = hashParams.get('error_code') ?? searchParams.get('error_code');
+      const errorDescription = hashParams.get('error_description') ?? searchParams.get('error_description');
+
+      if (errorCode === 'otp_expired') {
+        setError('Magic link expired or was already used. Request a new link below.');
+      } else if (errorCode) {
+        setError(errorDescription ? decodeURIComponent(errorDescription.replace(/\+/g, ' ')) : 'Sign-in link could not be verified. Please request a new one.');
+      }
+
+      if (hash || searchParams.has('error_code')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+
     (async () => {
       const { data } = await supabase.auth.getSession();
       const currentToken = data.session?.access_token ?? null;
@@ -147,12 +173,12 @@ export default function SpectatorPortalPage() {
     setSuccess(null);
 
     try {
-      const redirectTo = `${window.location.origin}/spectators/portal`;
+      const redirectTo = getSpectatorPortalRedirectUrl();
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
           emailRedirectTo: redirectTo,
-          shouldCreateUser: true,
+          shouldCreateUser: false,
         },
       });
 

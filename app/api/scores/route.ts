@@ -96,7 +96,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   if (!mine && !resultsPublished) {
     return NextResponse.json(
       { division, published: false, standings: [] },
-      { headers: { 'x-request-id': requestId } }
+      { headers: { 'x-request-id': requestId, 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=45' } }
     );
   }
 
@@ -193,7 +193,10 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
         created_at: s.created_at,
       };
     });
-    return NextResponse.json({ division, judge: judgeIdentity?.displayName, scores: result }, { headers: { 'x-request-id': requestId } });
+    return NextResponse.json(
+      { division, judge: judgeIdentity?.displayName, scores: result },
+      { headers: { 'x-request-id': requestId, 'Cache-Control': 'private, no-store' } }
+    );
   }
 
   // Public aggregated standings — normalize within each judge's own scores first, then average across judges.
@@ -266,7 +269,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 
   return NextResponse.json(
     { division, standings },
-    { headers: { 'x-request-id': requestId } }
+    { headers: { 'x-request-id': requestId, 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=45' } }
   );
 });
 

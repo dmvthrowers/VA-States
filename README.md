@@ -88,6 +88,37 @@ If the base domain changes, update NEXT_PUBLIC_BASE_URL and redeploy.
 - Admin/staff route guards enforce role checks server-side
 - Stripe webhook verifies signatures using STRIPE_WEBHOOK_SECRET
 
+## Free Tier Stability Profile
+
+This project is tuned for free tiers across Vercel, Supabase, Redis/KV, and Resend.
+
+- In-memory singleton clients reduce per-request setup overhead (Supabase and Resend).
+- Public list pages use ISR at 5-minute windows to cut repeated DB reads.
+- Event flags use a short in-memory cache (default 30s) to reduce repeated flag queries.
+- Rate limiting fails open on KV outages so registration does not hard-fail during provider incidents.
+- Email send waits are bounded so slow provider calls do not consume excessive serverless runtime.
+
+### Optional Runtime Knobs
+
+- EVENT_FLAGS_CACHE_TTL_MS: event-flag cache TTL in milliseconds (default 30000).
+- Keep this low during event-day live ops, higher during normal periods to reduce DB reads.
+- HEALTHCHECK_TOKEN: required token for deep DB health checks at /api/health?deep=1.
+
+### Crawler and Abuse Controls
+
+- API crawler gate in middleware blocks obvious bot-like GET requests to API routes.
+- /api/validate-code only accepts POST to avoid crawler-triggered code probing.
+- /api/health is shallow by default (no DB call); deep DB probe requires HEALTHCHECK_TOKEN.
+- robots.txt disallows /api and admin routes for compliant crawlers.
+
+### Recommended Launch Defaults
+
+1. Keep online registration open flag and results publish flag controlled via admin dashboard.
+2. Monitor Vercel function duration and invocation spikes during announcements.
+3. Monitor Supabase project usage and query spikes on competitor/spectator listing pages.
+4. Treat Redis/KV rate limiting as best-effort protection, not a hard dependency.
+5. Ensure Resend is configured before launch; if unavailable, registrations still complete.
+
 ## Project Structure
 
 - app/: pages and API routes

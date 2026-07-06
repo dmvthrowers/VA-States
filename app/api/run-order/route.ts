@@ -79,7 +79,15 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       };
     });
 
-    return NextResponse.json({ division, source: 'run_order', performers }, { headers: { 'x-request-id': requestId } });
+    return NextResponse.json(
+      { division, source: 'run_order', performers },
+      {
+        headers: {
+          'x-request-id': requestId,
+          'Cache-Control': includeMusic ? 'private, no-store' : 'public, s-maxage=15, stale-while-revalidate=45',
+        },
+      }
+    );
   }
 
   // Fallback: registration order, only paid registrants in this division
@@ -107,6 +115,11 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 
   return NextResponse.json(
     { division, source: 'registration_order', performers },
-    { headers: { 'x-request-id': requestId } }
+    {
+      headers: {
+        'x-request-id': requestId,
+        'Cache-Control': includeMusic ? 'private, no-store' : 'public, s-maxage=15, stale-while-revalidate=45',
+      },
+    }
   );
 });

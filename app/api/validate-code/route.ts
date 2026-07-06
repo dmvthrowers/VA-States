@@ -5,6 +5,10 @@ import { isCodeLocked, recordFailedCodeAttempt } from '@/lib/comp-code-guard';
 import { logAudit } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+function shouldSampleAudit(sampleRate: number): boolean {
+  return Math.random() < sampleRate;
+}
+
 async function validateCompCode(requestId: string, req: NextRequest, codeInput: string) {
   const code = codeInput.trim().toUpperCase();
 
@@ -15,7 +19,9 @@ async function validateCompCode(requestId: string, req: NextRequest, codeInput: 
   // Per-code lockout — stops a distributed attacker rotating IPs to guess
   // one specific code string, which the per-IP limiter above can't catch.
   if (await isCodeLocked(code)) {
-    await logAudit('comp_code_locked_attempt', { actor: 'anonymous', details: { ip: getClientIp(req.headers), code } });
+    if (shouldSampleAudit(0.1)) {
+      await logAudit('comp_code_locked_attempt', { actor: 'anonymous', details: { ip: getClientIp(req.headers), code } });
+    }
     return NextResponse.json({ valid: false, discount_percent: 0 }, { headers: { 'x-request-id': requestId } });
   }
 
@@ -32,7 +38,9 @@ async function validateCompCode(requestId: string, req: NextRequest, codeInput: 
 
   if (!valid) {
     await recordFailedCodeAttempt(code);
-    await logAudit('comp_code_invalid_attempt', { actor: 'anonymous', details: { ip: getClientIp(req.headers), code } });
+    if (shouldSampleAudit(0.1)) {
+      await logAudit('comp_code_invalid_attempt', { actor: 'anonymous', details: { ip: getClientIp(req.headers), code } });
+    }
   }
 
   return NextResponse.json(
@@ -41,13 +49,10 @@ async function validateCompCode(requestId: string, req: NextRequest, codeInput: 
   );
 }
 
-export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const ip = getClientIp(req.headers);
-  const allowed = await checkRateLimit(ip, 'validate-code', 8, 15);
-  if (!allowed) return apiError('rate_limited', 'Too many requests. Try again in a few minutes.', requestId);
-
-  const code = req.nextUrl.searchParams.get('code') ?? '';
-  return validateCompCode(requestId, req, code);
+export const GET = withErrorHandling(async (requestId) => {
+  return apiError('bad_request', 'Use POST for code validation', requestId, {
+    Allow: 'POST',
+  });
 });
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {

@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let adminClient: SupabaseClient<any, 'public', any> | null = null;
 
 export function hasAdminCredentials() {
