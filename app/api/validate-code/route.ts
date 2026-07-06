@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { isCodeLocked, recordFailedCodeAttempt } from '@/lib/comp-code-guard';
+import { logAudit } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   const ip = getClientIp(req.headers);
-  const allowed = await checkRateLimit(ip, 'validate-code', 20, 10);
-  if (!allowed) return apiError('rate_limited', 'Too many requests', requestId);
+  const allowed = await checkRateLimit(ip, 'validate-code', 8, 15);
+  if (!allowed) return apiError('rate_limited', 'Too many requests. Try again in a few minutes.', requestId);
 
   let body: unknown;
   try { body = await req.json(); } catch {
@@ -21,6 +23,13 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('bad_request', 'Invalid code', requestId);
   }
 
+  // Per-code lockout — stops a distributed attacker rotating IPs to guess
+  // one specific code string, which the per-IP limiter above can't catch.
+  if (await isCodeLocked(code)) {
+    await logAudit('comp_code_locked_attempt', { actor: 'anonymous', details: { ip, code } });
+    return NextResponse.json({ valid: false }, { headers: { 'x-request-id': requestId } });
+  }
+
   const supabase = createAdminClient();
   const now = new Date();
 
@@ -31,6 +40,11 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     .single();
 
   const valid = !error && data && data.active && data.uses_count < data.max_uses && new Date(data.expires_at) >= now;
+
+  if (!valid) {
+    await recordFailedCodeAttempt(code);
+    await logAudit('comp_code_invalid_attempt', { actor: 'anonymous', details: { ip, code } });
+  }
 
   return NextResponse.json(
     { valid: Boolean(valid) },

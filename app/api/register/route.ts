@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { isCodeLocked, recordFailedCodeAttempt } from '@/lib/comp-code-guard';
 import { registrationSchema } from '@/lib/validation';
 import { calculateFee } from '@/lib/pricing';
 import { generateToken } from '@/lib/tokens';
@@ -55,6 +56,10 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   // 5. Comp code validation
   let compCodeValid = false;
   if (data.comp_code) {
+    if (await isCodeLocked(data.comp_code)) {
+      return apiError('unprocessable', 'Comp code is invalid, expired, or has reached its usage limit.', requestId);
+    }
+
     const { data: code, error } = await supabase
       .from('vsyc_comp_codes')
       .select('uses_count, max_uses, expires_at, active')
@@ -62,6 +67,8 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       .single();
 
     if (error || !code || !code.active || code.uses_count >= code.max_uses || new Date(code.expires_at) < now) {
+      await recordFailedCodeAttempt(data.comp_code);
+      await logAudit('comp_code_invalid_attempt', { actor: 'anonymous', details: { ip, code: data.comp_code, via: 'register' } });
       return apiError('unprocessable', 'Comp code is invalid, expired, or has reached its usage limit.', requestId);
     }
     compCodeValid = true;
@@ -153,7 +160,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   await logAudit('created', {
     registrationId: reg.id,
     actor: 'system',
-    details: { source, fee_cents: feeResult.fee_cents, divisions: data.divisions },
+    details: { source, fee_cents: feeResult.fee_cents, divisions: data.divisions, comp_code: compCodeValid ? data.comp_code : null },
   });
 
   // 11. Send confirmation email
