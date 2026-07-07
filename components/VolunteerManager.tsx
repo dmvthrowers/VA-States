@@ -19,6 +19,7 @@ interface VolunteerRow {
   role_choice_2: string | null;
   shift_preference: ShiftPreference;
   experience_notes: string | null;
+  other_role_description: string | null;
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
   photo_video_consent: boolean;
@@ -200,6 +201,12 @@ export default function VolunteerManager({ token }: { token: string }) {
                     )}
                     <div><strong className="text-white">OK in photos/video:</strong> {v.photo_video_consent ? 'Yes' : 'No'}</div>
                   </div>
+
+                  {v.other_role_description && (
+                    <div className="text-xs text-text-body bg-navy-deep border border-gold/40 p-2">
+                      <strong className="text-gold">Their idea:</strong> {v.other_role_description}
+                    </div>
+                  )}
 
                   {v.experience_notes && (
                     <div className="text-xs text-text-body">

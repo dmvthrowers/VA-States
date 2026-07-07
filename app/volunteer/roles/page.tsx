@@ -18,6 +18,10 @@ const CATEGORY_META: Record<string, { title: string; blurb: string }> = {
     title: 'Volunteer Roles',
     blurb: 'Up to 4 people per role. Registration Booth is our highest-priority support role.',
   },
+  other: {
+    title: 'Something Else?',
+    blurb: 'No cap here — got a talent, act, or idea we didn\'t think of (magician, lunch-break band, whatever)? Tell us on the form.',
+  },
 };
 
 function fillLabel(role: VolunteerRoleAvailability): string {
@@ -34,7 +38,7 @@ function fillLabel(role: VolunteerRoleAvailability): string {
 
 export default async function VolunteerRolesPage() {
   const roles = await getVolunteerRoleAvailability();
-  const categories: Array<'core' | 'judge' | 'non_core'> = ['core', 'judge', 'non_core'];
+  const categories: Array<'core' | 'judge' | 'non_core' | 'other'> = ['core', 'judge', 'non_core', 'other'];
 
   return (
     <>

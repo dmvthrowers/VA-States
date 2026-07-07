@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
-import { VOLUNTEER_ROLES, SHIFT_PREFERENCES, SHIFT_PREFERENCE_LABELS, type ShiftPreference } from '@/lib/volunteer-roles';
+import { VOLUNTEER_ROLES, SHIFT_PREFERENCES, SHIFT_PREFERENCE_LABELS, OTHER_ROLE_KEY, isExperienceRequired, type ShiftPreference } from '@/lib/volunteer-roles';
 
 type FormValues = {
   first_name: string;
@@ -22,6 +22,7 @@ type FormValues = {
   role_choice_2: string;
   shift_preference: ShiftPreference;
   experience_notes: string;
+  other_role_description: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
   photo_video_consent: boolean;
@@ -42,6 +43,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   core: 'Core roles (small honorarium possible)',
   judge: 'Judges',
   non_core: 'Volunteer roles',
+  other: 'Something else? (talent / show idea)',
 };
 
 export default function VolunteerPage() {
@@ -79,6 +81,9 @@ export default function VolunteerPage() {
 
   const isAdult = watch('is_18_or_older');
   const roleChoice1 = watch('role_choice_1');
+  const roleChoice2 = watch('role_choice_2');
+  const experienceRequired = isExperienceRequired(roleChoice1) || isExperienceRequired(roleChoice2);
+  const choseOther = roleChoice1 === OTHER_ROLE_KEY || roleChoice2 === OTHER_ROLE_KEY;
 
   const spotsLabel = (roleKey: string) => {
     const a = availability.find((x) => x.role_key === roleKey);
@@ -106,6 +111,7 @@ export default function VolunteerPage() {
         role_choice_2: values.role_choice_2,
         shift_preference: values.shift_preference,
         experience_notes: values.experience_notes,
+        other_role_description: values.other_role_description,
         emergency_contact_name: values.emergency_contact_name,
         emergency_contact_phone: values.emergency_contact_phone,
         photo_video_consent: values.photo_video_consent,
@@ -217,7 +223,7 @@ export default function VolunteerPage() {
               <Field label="1st Choice Role *" error={errors.role_choice_1?.message}>
                 <select {...register('role_choice_1', { required: 'Required' })} className={inputCls(!!errors.role_choice_1)}>
                   <option value="">Select a role…</option>
-                  {(['core', 'judge', 'non_core'] as const).map((cat) => (
+                  {(['core', 'judge', 'non_core', 'other'] as const).map((cat) => (
                     <optgroup key={cat} label={CATEGORY_LABELS[cat]}>
                       {VOLUNTEER_ROLES.filter((r) => r.category === cat).map((r) => (
                         <option key={r.key} value={r.key}>{r.label}{spotsLabel(r.key)}</option>
@@ -229,7 +235,7 @@ export default function VolunteerPage() {
               <Field label="2nd Choice Role" hint="Optional">
                 <select {...register('role_choice_2')} className={inputCls(false)}>
                   <option value="">No second choice</option>
-                  {(['core', 'judge', 'non_core'] as const).map((cat) => (
+                  {(['core', 'judge', 'non_core', 'other'] as const).map((cat) => (
                     <optgroup key={cat} label={CATEGORY_LABELS[cat]}>
                       {VOLUNTEER_ROLES.filter((r) => r.category === cat && r.key !== roleChoice1).map((r) => (
                         <option key={r.key} value={r.key}>{r.label}{spotsLabel(r.key)}</option>
@@ -239,6 +245,18 @@ export default function VolunteerPage() {
                 </select>
               </Field>
             </div>
+
+            {choseOther && (
+              <div className="mt-4">
+                <Field label="What's the idea? *" error={errors.other_role_description?.message} hint="Magician, lunch-break band, something else — tell us what it is">
+                  <textarea
+                    {...register('other_role_description', { required: choseOther ? 'Tell us what the act/idea is' : false, maxLength: { value: 300, message: 'Max 300 characters' } })}
+                    className={`${inputCls(!!errors.other_role_description)} resize-none`}
+                    rows={2}
+                  />
+                </Field>
+              </div>
+            )}
 
             <div className="mt-4">
               <Field label="Shift Preference">
@@ -251,8 +269,20 @@ export default function VolunteerPage() {
             </div>
 
             <div className="mt-4">
-              <Field label="Relevant Experience" hint="Optional — sound/AV experience, judging history, certifications, etc.">
-                <textarea {...register('experience_notes', { maxLength: { value: 500, message: 'Max 500 characters' } })} className={`${inputCls(!!errors.experience_notes)} resize-none`} rows={3} />
+              <Field
+                label={experienceRequired ? 'Relevant Experience *' : 'Relevant Experience'}
+                hint={experienceRequired
+                  ? 'Required for core roles, judges, and "Other" — why you’d be a good fit'
+                  : 'Optional — sound/AV experience, judging history, certifications, etc.'}
+              >
+                <textarea
+                  {...register('experience_notes', {
+                    required: experienceRequired ? 'Relevant experience is required for this role' : false,
+                    maxLength: { value: 500, message: 'Max 500 characters' },
+                  })}
+                  className={`${inputCls(!!errors.experience_notes)} resize-none`}
+                  rows={3}
+                />
               </Field>
               {errors.experience_notes && <p className="text-red text-xs mt-1">{errors.experience_notes.message}</p>}
             </div>

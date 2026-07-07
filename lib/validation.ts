@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { VOLUNTEER_ROLE_KEYS, SHIFT_PREFERENCES } from './volunteer-roles';
+import { VOLUNTEER_ROLE_KEYS, SHIFT_PREFERENCES, OTHER_ROLE_KEY, isExperienceRequired } from './volunteer-roles';
 
 const nameSchema = z.string().trim().min(1).max(50);
 const emailSchema = z.string().trim().email().toLowerCase();
@@ -173,7 +173,11 @@ export const volunteerSchema = z.object({
   role_choice_2: roleKeySchema.optional().or(z.literal('')),
 
   shift_preference: z.enum(SHIFT_PREFERENCES).default('flexible'),
+  // Mandatory for core roles, judges, and "other" (see superRefine below);
+  // optional for the rest.
   experience_notes: z.string().trim().max(500).optional().or(z.literal('')),
+  // Required only when role_choice_1 or role_choice_2 is the "other" role.
+  other_role_description: z.string().trim().max(300).optional().or(z.literal('')),
 
   emergency_contact_name:  z.string().trim().max(100).optional().or(z.literal('')),
   emergency_contact_phone: z.string().trim().max(20).optional().or(z.literal('')),
@@ -195,6 +199,24 @@ export const volunteerSchema = z.object({
 
   if (data.role_choice_2 && data.role_choice_2 === data.role_choice_1) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Second choice must be different from your first choice', path: ['role_choice_2'] });
+  }
+
+  const experienceRequired = isExperienceRequired(data.role_choice_1) || isExperienceRequired(data.role_choice_2);
+  if (experienceRequired && !data.experience_notes) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Relevant experience is required for core roles, judges, and the "Other" option',
+      path: ['experience_notes'],
+    });
+  }
+
+  const choseOther = data.role_choice_1 === OTHER_ROLE_KEY || data.role_choice_2 === OTHER_ROLE_KEY;
+  if (choseOther && !data.other_role_description) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Tell us what the act/idea is',
+      path: ['other_role_description'],
+    });
   }
 });
 

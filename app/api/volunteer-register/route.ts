@@ -73,6 +73,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       role_choice_2:             data.role_choice_2 || null,
       shift_preference:          data.shift_preference,
       experience_notes:          data.experience_notes || null,
+      other_role_description:    data.other_role_description || null,
 
       emergency_contact_name:    data.emergency_contact_name || null,
       emergency_contact_phone:   data.emergency_contact_phone || null,
@@ -104,6 +105,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       volunteerId: volunteer.id,
       roleChoice1Label: roleChoice1.label,
       roleChoice2Label: roleChoice2?.label,
+      otherRoleDescription: data.other_role_description || undefined,
     }),
     2500,
   );

@@ -157,6 +157,7 @@ interface VolunteerConfirmationParams {
   volunteerId: string;
   roleChoice1Label: string;
   roleChoice2Label?: string;
+  otherRoleDescription?: string;
 }
 
 export async function sendVolunteerConfirmationEmail(p: VolunteerConfirmationParams): Promise<EmailResult> {
@@ -288,6 +289,7 @@ function buildVolunteerConfirmationHtml(p: VolunteerConfirmationParams): string 
       <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">YOUR APPLICATION</div>
       <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">1st choice:</strong> ${esc(p.roleChoice1Label)}</div>
       ${p.roleChoice2Label ? `<div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">2nd choice:</strong> ${esc(p.roleChoice2Label)}</div>` : ''}
+      ${p.otherRoleDescription ? `<div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Your idea:</strong> ${esc(p.otherRoleDescription)}</div>` : ''}
       <div style="font-size:0.85rem;"><strong style="color:#fff;">Status:</strong> Pending review</div>
     </div>
     <div style="background:#0d1428;border-left:4px solid #C9A84C;padding:20px;margin-bottom:16px;">

@@ -9,7 +9,11 @@
  * supabase/migrations/*_0018_volunteers.sql — role_key values must match exactly.
  */
 
-export type VolunteerRoleCategory = 'core' | 'judge' | 'non_core';
+export type VolunteerRoleCategory = 'core' | 'judge' | 'non_core' | 'other';
+
+/** Stable key for the free-form "other" role — checked by key in a few places
+ *  (form UI, DB constraints) since it's the one role that isn't a fixed job. */
+export const OTHER_ROLE_KEY = 'other_show_talent';
 
 export interface VolunteerRoleDef {
   /** Stable key, also the DB primary key / FK target. Never change once live. */
@@ -198,12 +202,38 @@ export const VOLUNTEER_ROLES: VolunteerRoleDef[] = [
     isPriority: false,
     sortOrder: 308,
   },
+
+  // --- Other: open-ended, no fixed cap. Applicant proposes their own idea. ---
+  {
+    key: OTHER_ROLE_KEY,
+    label: 'Other / Show or Talent',
+    category: 'other',
+    description: 'Got a talent, act, or idea we didn\'t think of — magician, lunch-break band, something else? Tell us.',
+    maxCapacity: null,
+    groupKey: null,
+    groupMaxCapacity: null,
+    isPriority: false,
+    sortOrder: 400,
+  },
 ];
 
 export const VOLUNTEER_ROLE_KEYS = VOLUNTEER_ROLES.map((r) => r.key) as [string, ...string[]];
 
 export function getVolunteerRole(key: string): VolunteerRoleDef | undefined {
   return VOLUNTEER_ROLES.find((r) => r.key === key);
+}
+
+/**
+ * Relevant experience is mandatory for core roles, judges, and the "other"
+ * role (we need to know what the act/idea actually is and why they'd be
+ * good at it) — optional for the rest. Unknown/empty keys are treated as
+ * not-required so an incomplete selection doesn't block the other choice.
+ */
+export function isExperienceRequired(roleKey: string | null | undefined): boolean {
+  if (!roleKey) return false;
+  const role = getVolunteerRole(roleKey);
+  if (!role) return false;
+  return role.category === 'core' || role.category === 'judge' || role.category === 'other';
 }
 
 export const SHIFT_PREFERENCES = ['am', 'pm', 'full_day', 'flexible'] as const;
