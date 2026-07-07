@@ -4,12 +4,19 @@ import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { z } from 'zod';
 
+const staffSocialsSchema = z.object({
+  instagram: z.string().trim().max(100).optional().or(z.literal('')),
+  tiktok:    z.string().trim().max(100).optional().or(z.literal('')),
+  youtube:   z.string().trim().max(100).optional().or(z.literal('')),
+}).partial();
+
 const staffProfilePatchSchema = z.object({
   display_name: z.string().trim().min(1).max(100).optional(),
   pronouns: z.string().trim().max(30).optional().or(z.literal('')),
   bio: z.string().trim().max(1000).optional().or(z.literal('')),
   photo_url: z.string().trim().url().max(500).optional().or(z.literal('')),
   is_public_profile: z.boolean().optional(),
+  socials: staffSocialsSchema.optional(),
 }).strict();
 
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
@@ -33,6 +40,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       bio: identity.bio,
       photo_url: identity.photoUrl,
       is_public_profile: identity.isPublicProfile,
+      socials: identity.socials,
       is_active: identity.isActive,
     },
     { headers: { 'x-request-id': requestId } }
@@ -71,6 +79,7 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest) => {
     pronouns: parsed.data.pronouns || null,
     bio: parsed.data.bio || null,
     photo_url: parsed.data.photo_url || null,
+    ...(parsed.data.socials ? { socials: parsed.data.socials } : {}),
   };
 
   const supabase = createAdminClient();

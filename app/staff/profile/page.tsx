@@ -7,6 +7,12 @@ import Footer from '@/components/Footer';
 
 type StaffRole = 'judge' | 'dj' | 'audio_tech' | 'admin';
 
+type StaffSocials = {
+  instagram?: string | null;
+  tiktok?: string | null;
+  youtube?: string | null;
+};
+
 type StaffProfile = {
   auth_user_id: string;
   email: string;
@@ -17,6 +23,7 @@ type StaffProfile = {
   photo_url: string | null;
   is_public_profile: boolean;
   is_active: boolean;
+  socials: StaffSocials;
 };
 
 const roleLabel: Record<StaffRole, string> = {
@@ -135,6 +142,11 @@ export default function StaffProfilePage() {
           bio: profile.bio ?? '',
           photo_url: profile.photo_url ?? '',
           is_public_profile: profile.is_public_profile,
+          socials: {
+            instagram: profile.socials?.instagram ?? '',
+            tiktok: profile.socials?.tiktok ?? '',
+            youtube: profile.socials?.youtube ?? '',
+          },
         }),
       });
 
@@ -260,6 +272,33 @@ export default function StaffProfilePage() {
                   placeholder="https://example.com/staff-photo.jpg"
                 />
               </Field>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Field label="Instagram">
+                  <input
+                    value={profile.socials?.instagram ?? ''}
+                    onChange={(e) => setProfile({ ...profile, socials: { ...profile.socials, instagram: e.target.value } })}
+                    className="input"
+                    placeholder="@yourhandle"
+                  />
+                </Field>
+                <Field label="TikTok">
+                  <input
+                    value={profile.socials?.tiktok ?? ''}
+                    onChange={(e) => setProfile({ ...profile, socials: { ...profile.socials, tiktok: e.target.value } })}
+                    className="input"
+                    placeholder="@yourhandle"
+                  />
+                </Field>
+                <Field label="YouTube">
+                  <input
+                    value={profile.socials?.youtube ?? ''}
+                    onChange={(e) => setProfile({ ...profile, socials: { ...profile.socials, youtube: e.target.value } })}
+                    className="input"
+                    placeholder="@yourchannel"
+                  />
+                </Field>
+              </div>
 
               <label className="flex items-center gap-3 text-sm text-text-body">
                 <input
