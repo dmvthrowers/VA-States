@@ -28,6 +28,12 @@ While you're in Authentication settings, also set **Email OTP Expiration**
 to `300` (5 minutes) under Authentication → Providers → Email, to match the
 countdown shown in the spectator portal UI.
 
+Note: this project's email OTP codes are **8 digits**, not the more common
+6 — confirmed from a live email. The frontend (`app/spectators/portal/page.tsx`)
+and `magic-link.html` are both set to match that length via a `CODE_LENGTH`
+constant. If you ever change the OTP length in Authentication → Providers →
+Email, update `CODE_LENGTH` in that file too.
+
 The other five templates are here so they look right the moment any of
 those flows get wired up later — nothing to do with them now beyond pasting
 them in if you want the dashboard previews to look on-brand.

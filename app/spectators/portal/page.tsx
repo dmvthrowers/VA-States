@@ -56,6 +56,11 @@ const supabase = createBrowserClient();
 // the dashboard) -- this constant only drives the client-side countdown/UI.
 const CODE_EXPIRY_SECONDS = 300;
 
+// Supabase Auth on this project issues 8-digit email OTP codes (not the
+// more common 6). Keep this in sync with the project's Auth > Providers >
+// Email OTP length setting if that's ever changed.
+const CODE_LENGTH = 8;
+
 function toEditable(profile: SpectatorProfile): Editable {
   return {
     nickname: profile.nickname ?? '',
@@ -330,17 +335,17 @@ export default function SpectatorPortalPage() {
             {codeSent && (
               <form onSubmit={verifyCode} className="space-y-4 mt-5 pt-5 border-t border-navy-border">
                 <div>
-                  <label className="block text-xs font-black tracking-caps text-gold mb-1.5">6-digit code</label>
+                  <label className="block text-xs font-black tracking-caps text-gold mb-1.5">{CODE_LENGTH}-digit code</label>
                   <input
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    maxLength={6}
+                    maxLength={CODE_LENGTH}
                     value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))}
-                    aria-label="6-digit code"
-                    title="6-digit code"
-                    placeholder="123456"
+                    onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, CODE_LENGTH))}
+                    aria-label={`${CODE_LENGTH}-digit code`}
+                    title={`${CODE_LENGTH}-digit code`}
+                    placeholder={'1'.repeat(CODE_LENGTH)}
                     className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white tracking-[0.3em] focus:outline-none focus:border-gold"
                     required
                     autoFocus
@@ -354,7 +359,7 @@ export default function SpectatorPortalPage() {
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="submit"
-                    disabled={verifyingCode || code.length !== 6 || secondsLeft === 0}
+                    disabled={verifyingCode || code.length !== CODE_LENGTH || secondsLeft === 0}
                     className="bg-gold text-navy-deep font-black tracking-caps px-5 py-3 text-xs disabled:opacity-60"
                   >
                     {verifyingCode ? 'Verifying...' : 'Verify code'}
