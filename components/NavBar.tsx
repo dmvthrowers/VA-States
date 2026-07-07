@@ -31,10 +31,13 @@ const MORE_LINKS = [
   { label: 'Results',   href: '/results' },
 ];
 
+// Single action button on the main bar. "Event Info" was dropped because the brand
+// logo already links to SITE_HOME (same destination, redundant button). "Music Upload"
+// was dropped because /portal already lists it as a card — it doesn't need its own
+// top-level slot too. This is the fix for the nav feeling squished: we went from 3
+// buttons + 5 links + a dropdown down to 1 button + 5 links + a dropdown.
 const ACTION_LINKS = [
-  { label: '← Event Info',     href: SITE_HOME,   variant: 'gold' as const },
   { label: 'Portal Access',    href: '/portal',   variant: 'outline' as const },
-  { label: 'Music Upload',     href: '/player',   variant: 'red' as const },
 ];
 
 const actionClasses: Record<'gold' | 'outline' | 'red', string> = {
@@ -98,18 +101,18 @@ export default function NavBar({ activePage }: NavBarProps) {
           </a>
 
           {/* Desktop links — hidden below lg */}
-          <div className="hidden lg:flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-6">
             {ACTION_LINKS.map(link => (
               <a
                 key={link.label}
                 href={link.href}
-                className={`font-condensed text-xs font-extrabold tracking-caps uppercase no-underline px-3 py-1.5 whitespace-nowrap ${actionClasses[link.variant]}`}
+                className={`font-condensed text-xs font-extrabold tracking-caps uppercase no-underline px-4 py-1.5 whitespace-nowrap ${actionClasses[link.variant]}`}
               >
                 {link.label}
               </a>
             ))}
 
-            <div className="flex items-center gap-4 pl-1">
+            <div className="flex items-center gap-5">
               {NAV_LINKS.map(link => {
                 const isActive = activePage === 'register' && link.label === 'Register';
                 return (
