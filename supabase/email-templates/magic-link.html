@@ -1,0 +1,45 @@
+<!--
+  Supabase Dashboard → Authentication → Email Templates → Magic Link
+  Subject line suggestion: Your VSYC-26 sign-in code
+
+  This is the ONLY template currently wired into the app (spectator portal
+  sign-in). It shows the code prominently and has no clickable sign-in link,
+  by design — a clickable link gets pre-fetched and burned by Outlook/Defender
+  Safe Links before the person ever opens the email. A typed code has nothing
+  for a scanner to click.
+-->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+</head>
+<body style="margin:0;padding:0;background:#0d1428;font-family:Montserrat,system-ui,sans-serif;color:#c8d0e0;">
+  <div style="max-width:560px;margin:0 auto;padding:40px 24px;">
+    <div style="border-top:4px solid #C9A84C;background:#1a2744;padding:32px;">
+      <div style="font-size:0.6rem;letter-spacing:0.2em;font-weight:800;color:#C9A84C;margin-bottom:8px;">
+        VSYC-26 &middot; VIRGINIA STATE YO-YO CONTEST 2026
+      </div>
+
+      <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Your sign-in code</h1>
+      <p style="font-size:0.9rem;margin:0 0 24px;">Enter this code on the spectator portal to sign in.</p>
+
+      <div style="background:#0d1428;padding:28px;margin-bottom:16px;text-align:center;">
+        <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:14px;">6-DIGIT CODE</div>
+        <div style="font-family:monospace;font-size:2.25rem;font-weight:800;letter-spacing:0.4em;color:#fff;">{{ .Token }}</div>
+      </div>
+
+      <div style="background:#0d1428;border-left:4px solid #C9A84C;padding:16px 20px;margin-bottom:16px;">
+        <p style="font-size:0.8rem;margin:0;color:#c8d0e0;">This code expires in 5 minutes and can only be used once. If you didn't request it, you can ignore this email.</p>
+      </div>
+
+      <p style="font-size:0.78rem;color:#6a7a9a;margin:0;">Didn't ask for this? No action needed — nobody can sign in without this code.</p>
+
+      <div style="margin-top:32px;padding-top:20px;border-top:1px solid #2a3a5a;font-size:0.72rem;color:#3a4a6a;">
+        Questions? Reply to this email or contact <a href="mailto:dmvthrowers@gmail.com" style="color:#C9A84C;">dmvthrowers@gmail.com</a><br />
+        September 19, 2026 &middot; Dulles Town Center &middot; Sterling, VA
+      </div>
+    </div>
+  </div>
+</body>
+</html>

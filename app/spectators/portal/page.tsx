@@ -51,12 +51,10 @@ type Editable = {
 
 const supabase = createBrowserClient();
 
-function getSpectatorPortalRedirectUrl(): string {
-  const base = process.env.NEXT_PUBLIC_BASE_URL?.trim();
-  if (base) return `${base.replace(/\/$/, '')}/spectators/portal`;
-  if (typeof window !== 'undefined') return `${window.location.origin}/spectators/portal`;
-  return 'https://register.dmvthrowers.club/spectators/portal';
-}
+// Code expires 5 minutes after it's sent. This is enforced server-side by the
+// Supabase project's "Email OTP Expiration" auth setting (set that to 300s in
+// the dashboard) -- this constant only drives the client-side countdown/UI.
+const CODE_EXPIRY_SECONDS = 300;
 
 function toEditable(profile: SpectatorProfile): Editable {
   return {
@@ -81,10 +79,15 @@ function toEditable(profile: SpectatorProfile): Editable {
 
 export default function SpectatorPortalPage() {
   const [loading, setLoading] = useState(true);
-  const [sendingLink, setSendingLink] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [codeExpiresAt, setCodeExpiresAt] = useState<number | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [profile, setProfile] = useState<SpectatorProfile | null>(null);
   const [editable, setEditable] = useState<Editable | null>(null);
@@ -109,25 +112,6 @@ export default function SpectatorPortalPage() {
 
   useEffect(() => {
     let active = true;
-
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
-      const hashParams = new URLSearchParams(hash);
-      const searchParams = new URLSearchParams(window.location.search);
-
-      const errorCode = hashParams.get('error_code') ?? searchParams.get('error_code');
-      const errorDescription = hashParams.get('error_description') ?? searchParams.get('error_description');
-
-      if (errorCode === 'otp_expired') {
-        setError('Magic link expired or was already used. Request a new link below.');
-      } else if (errorCode) {
-        setError(errorDescription ? decodeURIComponent(errorDescription.replace(/\+/g, ' ')) : 'Sign-in link could not be verified. Please request a new one.');
-      }
-
-      if (hash || searchParams.has('error_code')) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
 
     (async () => {
       const { data } = await supabase.auth.getSession();
@@ -166,18 +150,40 @@ export default function SpectatorPortalPage() {
     };
   }, []);
 
-  async function sendMagicLink(e: FormEvent) {
+  // Countdown for the code's validity window, purely cosmetic -- the real
+  // expiry is enforced by Supabase Auth server-side.
+  useEffect(() => {
+    if (!codeExpiresAt) {
+      setSecondsLeft(null);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((codeExpiresAt - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [codeExpiresAt]);
+
+  async function sendCode(e: FormEvent) {
     e.preventDefault();
-    setSendingLink(true);
+    setSendingCode(true);
     setError(null);
     setSuccess(null);
 
     try {
-      const redirectTo = getSpectatorPortalRedirectUrl();
+      // No emailRedirectTo: this sends a 6-digit code instead of a clickable
+      // magic link. (Requires the "Magic Link" email template in the
+      // Supabase dashboard to use {{ .Token }} rather than
+      // {{ .ConfirmationURL }}.) Codes as links break for anyone on
+      // Outlook/Microsoft Defender: Safe Links prefetches and clicks every
+      // link in an email to scan it, which silently burns the one-time
+      // token before the real person ever opens the message. A typed code
+      // has no link for a scanner to consume.
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
-          emailRedirectTo: redirectTo,
           shouldCreateUser: false,
         },
       });
@@ -186,11 +192,42 @@ export default function SpectatorPortalPage() {
         throw new Error(otpError.message);
       }
 
-      setSuccess('Magic link sent. Open the email and tap the sign-in link.');
+      setCodeSent(true);
+      setCode('');
+      setCodeExpiresAt(Date.now() + CODE_EXPIRY_SECONDS * 1000);
+      setSuccess('Code sent. Check your email for a 6-digit code.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not send magic link.');
+      setError(err instanceof Error ? err.message : 'Could not send code.');
     } finally {
-      setSendingLink(false);
+      setSendingCode(false);
+    }
+  }
+
+  async function verifyCode(e: FormEvent) {
+    e.preventDefault();
+    setVerifyingCode(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: code.trim(),
+        type: 'email',
+      });
+
+      if (verifyError) {
+        throw new Error(verifyError.message);
+      }
+
+      setCodeSent(false);
+      setCode('');
+      setCodeExpiresAt(null);
+      setSuccess('Signed in.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid or expired code. Request a new one.');
+    } finally {
+      setVerifyingCode(false);
     }
   }
 
@@ -258,7 +295,7 @@ export default function SpectatorPortalPage() {
       <NavBar />
       <main id="main-content" className="max-w-3xl mx-auto px-4 py-10">
         <h1 className="font-display font-black text-3xl text-gold mb-2">Spectator Portal</h1>
-        <p className="text-sm text-text-body mb-8">Use a magic link to update your spectator RSVP anytime.</p>
+        <p className="text-sm text-text-body mb-8">Use a 6-digit code to update your spectator RSVP anytime.</p>
 
         {error && <div className="mb-4 border border-red bg-red/10 p-3 text-sm text-white">{error}</div>}
         {success && <div className="mb-4 border border-green-700 bg-green-900/30 p-3 text-sm text-white">{success}</div>}
@@ -267,9 +304,9 @@ export default function SpectatorPortalPage() {
           <p className="text-text-body">Loading...</p>
         ) : !token || !profile || !editable ? (
           <section className="border border-navy-border bg-navy p-6">
-            <h2 className="font-display font-bold text-xl text-white mb-2">Sign in with magic link</h2>
+            <h2 className="font-display font-bold text-xl text-white mb-2">Sign in with a code</h2>
             <p className="text-sm text-text-body mb-4">Enter the same email used on your spectator RSVP.</p>
-            <form onSubmit={sendMagicLink} className="space-y-4">
+            <form onSubmit={sendCode} className="space-y-4">
               <div>
                 <label className="block text-xs font-black tracking-caps text-gold mb-1.5">Email</label>
                 <input
@@ -280,12 +317,59 @@ export default function SpectatorPortalPage() {
                   title="Email"
                   className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
                   required
+                  disabled={codeSent}
                 />
               </div>
-              <button type="submit" disabled={sendingLink} className="bg-gold text-navy-deep font-black tracking-caps px-5 py-3 text-xs disabled:opacity-60">
-                {sendingLink ? 'Sending link...' : 'Send magic link'}
-              </button>
+              {!codeSent ? (
+                <button type="submit" disabled={sendingCode} className="bg-gold text-navy-deep font-black tracking-caps px-5 py-3 text-xs disabled:opacity-60">
+                  {sendingCode ? 'Sending code...' : 'Send code'}
+                </button>
+              ) : null}
             </form>
+
+            {codeSent && (
+              <form onSubmit={verifyCode} className="space-y-4 mt-5 pt-5 border-t border-navy-border">
+                <div>
+                  <label className="block text-xs font-black tracking-caps text-gold mb-1.5">6-digit code</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))}
+                    aria-label="6-digit code"
+                    title="6-digit code"
+                    placeholder="123456"
+                    className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white tracking-[0.3em] focus:outline-none focus:border-gold"
+                    required
+                    autoFocus
+                  />
+                  <p className="text-xs text-text-body mt-1.5">
+                    {secondsLeft !== null && secondsLeft > 0
+                      ? `Code expires in ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}.`
+                      : 'Code expired. Send a new one.'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="submit"
+                    disabled={verifyingCode || code.length !== 6 || secondsLeft === 0}
+                    className="bg-gold text-navy-deep font-black tracking-caps px-5 py-3 text-xs disabled:opacity-60"
+                  >
+                    {verifyingCode ? 'Verifying...' : 'Verify code'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => sendCode(e as unknown as FormEvent)}
+                    disabled={sendingCode}
+                    className="border border-navy-border px-4 py-3 text-xs tracking-caps text-text-body hover:text-white disabled:opacity-60"
+                  >
+                    {sendingCode ? 'Resending...' : 'Resend code'}
+                  </button>
+                </div>
+              </form>
+            )}
           </section>
         ) : (
           <>

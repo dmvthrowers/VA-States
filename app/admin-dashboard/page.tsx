@@ -146,7 +146,7 @@ export default function AdminDashboardPage() {
       }
       const json = await res.json() as DashboardData;
       setData(json);
-      const codeRes = await fetch('/api/admin/comp-codes', {
+      const codeRes = await fetch('/api/ops/comp-codes', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (codeRes.ok) {
@@ -420,7 +420,7 @@ export default function AdminDashboardPage() {
     setStatusMsg(null);
 
     try {
-      const res = await fetch('/api/admin/comp-codes', {
+      const res = await fetch('/api/ops/comp-codes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -468,13 +468,13 @@ export default function AdminDashboardPage() {
     setStatusMsg(null);
 
     try {
-      const res = await fetch('/api/admin/comp-codes', {
+      const res = await fetch(`/api/ops/comp-codes/${encodeURIComponent(code)}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ code, active }),
+        body: JSON.stringify({ active }),
       });
 
       const json = await res.json().catch(() => ({})) as {
@@ -491,6 +491,34 @@ export default function AdminDashboardPage() {
       setStatusMsg(`${json.code.code} is now ${json.code.active ? 'active' : 'disabled'}.`);
     } catch (err) {
       setStatusMsg(err instanceof Error ? err.message : 'Failed to update comp code.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const deleteCompCode = async (code: string) => {
+    if (!token) return;
+    if (!window.confirm(`Delete comp code ${code}? This can't be undone. (Codes that have already been used can't be deleted — disable them instead.)`)) return;
+
+    setSaving(`code:${code}`);
+    setStatusMsg(null);
+
+    try {
+      const res = await fetch(`/api/ops/comp-codes/${encodeURIComponent(code)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: { message?: string } };
+
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error?.message ?? 'Failed to delete comp code.');
+      }
+
+      setCompCodes((current) => current.filter((row) => row.code !== code));
+      setStatusMsg(`Deleted comp code ${code}.`);
+    } catch (err) {
+      setStatusMsg(err instanceof Error ? err.message : 'Failed to delete comp code.');
     } finally {
       setSaving(null);
     }
@@ -827,14 +855,25 @@ export default function AdminDashboardPage() {
                           <span className={code.active ? 'text-green-300' : 'text-text-muted'}>{code.active ? 'Active' : 'Disabled'}</span>
                         </td>
                         <td className="py-2 pr-3">
-                          <button
-                            type="button"
-                            onClick={() => toggleCompCode(code.code, !code.active)}
-                            disabled={saving === `code:${code.code}`}
-                            className="border border-navy-border px-3 py-2 text-xs text-text-body hover:text-white disabled:opacity-50"
-                          >
-                            {saving === `code:${code.code}` ? 'Saving...' : (code.active ? 'Disable' : 'Enable')}
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleCompCode(code.code, !code.active)}
+                              disabled={saving === `code:${code.code}`}
+                              className="border border-navy-border px-3 py-2 text-xs text-text-body hover:text-white disabled:opacity-50"
+                            >
+                              {saving === `code:${code.code}` ? 'Saving...' : (code.active ? 'Disable' : 'Enable')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteCompCode(code.code)}
+                              disabled={saving === `code:${code.code}` || code.uses_count > 0}
+                              title={code.uses_count > 0 ? 'Already used — disable instead of deleting' : 'Delete this code'}
+                              className="border border-red/40 px-3 py-2 text-xs text-red hover:bg-red/10 disabled:opacity-30"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
