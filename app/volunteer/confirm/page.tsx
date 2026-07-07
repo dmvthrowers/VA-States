@@ -25,6 +25,7 @@ function ConfirmContent() {
       <div className="border border-navy-border bg-navy p-6 text-left text-sm text-text-body">
         <p className="mb-2"><strong className="text-white">Role assignments are the organizer&apos;s call.</strong></p>
         <p>Your final role may differ from your top choice, especially for roles that fill up fast. Nothing is confirmed until you hear back.</p>
+        <p className="mt-3"><strong className="text-gold-light">Once confirmed, you&apos;ll get a follow-up email with a one-time code for 50% off your own VSYC-26 competitor entry fee.</strong></p>
       </div>
       <a
         href="/volunteer/roles"

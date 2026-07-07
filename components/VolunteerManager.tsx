@@ -28,6 +28,7 @@ interface VolunteerRow {
   is_paid_role: boolean;
   honorarium_cents: number | null;
   admin_notes: string | null;
+  comp_code: string | null;
 }
 
 interface RoleRow {
@@ -53,6 +54,7 @@ export default function VolunteerManager({ token }: { token: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState<{ id: string; ok: boolean; text: string } | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -110,6 +112,24 @@ export default function VolunteerManager({ token }: { token: string }) {
       setSaveMsg({ id, ok: false, text: 'Network error.' });
     }
     setSavingId(null);
+  }
+
+  async function resendCode(id: string) {
+    setResendingId(id);
+    setSaveMsg(null);
+    try {
+      const res = await fetch(`/api/admin/volunteers/${id}/resend-code`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      setSaveMsg(res.ok
+        ? { id, ok: true, text: 'Code email resent.' }
+        : { id, ok: false, text: json.error?.message ?? 'Resend failed.' });
+    } catch {
+      setSaveMsg({ id, ok: false, text: 'Network error.' });
+    }
+    setResendingId(null);
   }
 
   return (
@@ -201,6 +221,23 @@ export default function VolunteerManager({ token }: { token: string }) {
                     )}
                     <div><strong className="text-white">OK in photos/video:</strong> {v.photo_video_consent ? 'Yes' : 'No'}</div>
                   </div>
+
+                  {v.comp_code && (
+                    <div className="flex items-center gap-3 text-xs bg-navy-deep border border-gold/40 px-3 py-2">
+                      <span className="text-text-body">
+                        <strong className="text-white">50% off code:</strong>{' '}
+                        <span className="font-mono text-gold tracking-wider">{v.comp_code}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => resendCode(v.id)}
+                        disabled={resendingId === v.id}
+                        className="ml-auto border border-navy-border px-2 py-1 text-[0.65rem] font-bold tracking-caps text-text-body hover:text-white disabled:opacity-50"
+                      >
+                        {resendingId === v.id ? 'Sending…' : 'Resend email'}
+                      </button>
+                    </div>
+                  )}
 
                   {v.other_role_description && (
                     <div className="text-xs text-text-body bg-navy-deep border border-gold/40 p-2">

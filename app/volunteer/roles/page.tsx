@@ -51,6 +51,9 @@ export default async function VolunteerRolesPage() {
             Counts below reflect confirmed volunteers only — pending applications aren&apos;t counted, so a role
             showing &quot;FULL&quot; may still be worth applying to as a backup or for a future role.
           </p>
+          <p className="text-sm text-gold-light mt-2 font-semibold">
+            Confirmed volunteers get 50% off their own competitor entry fee.
+          </p>
           <Link href="/volunteer" className="inline-block mt-4 text-xs font-black tracking-caps text-gold hover:text-gold-light">
             → Apply to volunteer
           </Link>

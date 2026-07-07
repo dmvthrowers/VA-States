@@ -296,7 +296,54 @@ function buildVolunteerConfirmationHtml(p: VolunteerConfirmationParams): string 
       <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">WHAT HAPPENS NEXT</div>
       <p style="font-size:0.85rem;margin:0;">Role assignments are made by the event organizer based on need — your final role may differ from your top choice, and some roles fill up fast. We'll follow up by email to confirm your assignment and shift time before the event.</p>
     </div>
+    <p style="font-size:0.82rem;color:#6a7a9a;margin:0 0 8px;">Once confirmed, you'll get a follow-up email with a code for 50% off your own VSYC-26 entry fee.</p>
     <p style="font-size:0.82rem;color:#6a7a9a;margin:0 0 8px;">Where: Dulles Town Center, Sterling, VA · When: September 19, 2026</p>
     <p style="font-size:0.78rem;color:#6a7a9a;">Questions in the meantime? Reply to this email — it goes straight to the organizer.</p>
+  `);
+}
+
+interface VolunteerConfirmedParams {
+  to: string;
+  firstName: string;
+  assignedRoleLabel: string;
+  compCode: string;
+  discountPercent: number;
+  shiftPreference?: string;
+}
+
+export async function sendVolunteerConfirmedEmail(p: VolunteerConfirmedParams): Promise<EmailResult> {
+  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
+  try {
+    const resend = getResend();
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to: p.to,
+      replyTo: REPLY_TO,
+      subject: `You're confirmed for VSYC-26, ${p.firstName} — plus your discount code`,
+      html: buildVolunteerConfirmedHtml(p),
+    });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+function buildVolunteerConfirmedHtml(p: VolunteerConfirmedParams): string {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
+  return emailWrap(`
+    <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">You're confirmed!</h1>
+    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${esc(p.firstName)} — you're locked in as <strong style="color:#fff;">${esc(p.assignedRoleLabel)}</strong> for VSYC-26.${p.shiftPreference ? ` We'll follow up with your exact shift time.` : ''}</p>
+    <div style="background:#0d1428;border-left:4px solid #C9A84C;padding:20px;margin-bottom:16px;">
+      <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">YOUR ${p.discountPercent}% OFF CODE</div>
+      <p style="font-size:0.85rem;margin:0 0 12px;">As a thank-you, here's a one-time code for ${p.discountPercent}% off your own VSYC-26 competitor entry fee.</p>
+      <div style="background:#1a2744;border:1px dashed #C9A84C;padding:14px 18px;text-align:center;margin-bottom:12px;">
+        <span style="font-family:monospace;font-size:1.3rem;letter-spacing:0.1em;color:#C9A84C;font-weight:800;">${esc(p.compCode)}</span>
+      </div>
+      <p style="font-size:0.75rem;margin:0 0 12px;color:#6a7a9a;">Enter this code at checkout when you register to compete. One-time use, valid through event day.</p>
+      <a href="${baseUrl}/" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;">REGISTER TO COMPETE →</a>
+    </div>
+    <p style="font-size:0.82rem;color:#6a7a9a;margin:0 0 8px;">Where: Dulles Town Center, Sterling, VA · When: September 19, 2026</p>
+    <p style="font-size:0.78rem;color:#6a7a9a;">Questions about your role or shift? Reply to this email — it goes straight to the organizer.</p>
   `);
 }

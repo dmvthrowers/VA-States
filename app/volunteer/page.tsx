@@ -154,6 +154,9 @@ export default function VolunteerPage() {
             role may differ from your top choice. Registration Booth is our highest-priority support role outside of
             the core roles.
           </p>
+          <p className="text-sm text-gold-light mt-2 font-semibold">
+            Confirmed volunteers get 50% off their own VSYC-26 competitor entry fee — we&apos;ll email you a one-time code once your role is confirmed.
+          </p>
           <Link href="/volunteer/roles" className="inline-block mt-4 text-xs font-black tracking-caps text-gold hover:text-gold-light">
             → See all roles and current availability
           </Link>
