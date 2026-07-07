@@ -151,6 +151,32 @@ export async function sendSpectatorConfirmationEmail(p: SpectatorConfirmationPar
   }
 }
 
+interface VolunteerConfirmationParams {
+  to: string;
+  firstName: string;
+  volunteerId: string;
+  roleChoice1Label: string;
+  roleChoice2Label?: string;
+}
+
+export async function sendVolunteerConfirmationEmail(p: VolunteerConfirmationParams): Promise<EmailResult> {
+  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
+  try {
+    const resend = getResend();
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to: p.to,
+      replyTo: REPLY_TO,
+      subject: `Volunteer application received — VSYC-26, ${p.firstName}`,
+      html: buildVolunteerConfirmationHtml(p),
+    });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 // ─── HTML builders ───────────────────────────────────────────────────────────
 
 function emailWrap(body: string): string {
@@ -251,5 +277,24 @@ function buildSpectatorConfirmationHtml(p: SpectatorConfirmationParams): string 
     </div>
     <p style="font-size:0.78rem;color:#6a7a9a;margin:0 0 16px;">📅 A calendar invite (VSYC-26.ics) is attached — add it to your calendar so you don't miss the day.</p>
     <p style="font-size:0.82rem;color:#6a7a9a;">Full event details and schedule: <a href="https://dmvthrowers.club/vsyc26-schedule.html" style="color:#C9A84C;">dmvthrowers.club/vsyc26-schedule.html</a></p>
+  `);
+}
+
+function buildVolunteerConfirmationHtml(p: VolunteerConfirmationParams): string {
+  return emailWrap(`
+    <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Thanks for volunteering!</h1>
+    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${esc(p.firstName)} — your VSYC-26 volunteer application is in.</p>
+    <div style="background:#0d1428;padding:20px;margin-bottom:16px;">
+      <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">YOUR APPLICATION</div>
+      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">1st choice:</strong> ${esc(p.roleChoice1Label)}</div>
+      ${p.roleChoice2Label ? `<div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">2nd choice:</strong> ${esc(p.roleChoice2Label)}</div>` : ''}
+      <div style="font-size:0.85rem;"><strong style="color:#fff;">Status:</strong> Pending review</div>
+    </div>
+    <div style="background:#0d1428;border-left:4px solid #C9A84C;padding:20px;margin-bottom:16px;">
+      <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">WHAT HAPPENS NEXT</div>
+      <p style="font-size:0.85rem;margin:0;">Role assignments are made by the event organizer based on need — your final role may differ from your top choice, and some roles fill up fast. We'll follow up by email to confirm your assignment and shift time before the event.</p>
+    </div>
+    <p style="font-size:0.82rem;color:#6a7a9a;margin:0 0 8px;">Where: Dulles Town Center, Sterling, VA · When: September 19, 2026</p>
+    <p style="font-size:0.78rem;color:#6a7a9a;">Questions in the meantime? Reply to this email — it goes straight to the organizer.</p>
   `);
 }

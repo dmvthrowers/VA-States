@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { VOLUNTEER_ROLE_KEYS, SHIFT_PREFERENCES } from './volunteer-roles';
 
 const nameSchema = z.string().trim().min(1).max(50);
 const emailSchema = z.string().trim().email().toLowerCase();
@@ -149,3 +150,52 @@ export const spectatorSchema = z.object({
 });
 
 export type SpectatorInput = z.infer<typeof spectatorSchema>;
+
+// ─── Volunteer application ──────────────────────────────────────────────────
+
+const roleKeySchema = z.enum(VOLUNTEER_ROLE_KEYS);
+
+export const volunteerSchema = z.object({
+  first_name: nameSchema,
+  last_name:  nameSchema,
+  email:      emailSchema,
+  phone:      phoneSchema,
+  pronouns:   z.string().trim().max(30).optional().or(z.literal('')),
+
+  is_18_or_older: z.boolean(),
+
+  // Required only if is_18_or_older is false (enforced in superRefine)
+  parent_guardian_name:  z.string().trim().max(100).optional().or(z.literal('')),
+  parent_guardian_email: z.string().trim().email().toLowerCase().optional().or(z.literal('')),
+  parent_guardian_phone: z.string().trim().max(20).optional().or(z.literal('')),
+
+  role_choice_1: roleKeySchema,
+  role_choice_2: roleKeySchema.optional().or(z.literal('')),
+
+  shift_preference: z.enum(SHIFT_PREFERENCES).default('flexible'),
+  experience_notes: z.string().trim().max(500).optional().or(z.literal('')),
+
+  emergency_contact_name:  z.string().trim().max(100).optional().or(z.literal('')),
+  emergency_contact_phone: z.string().trim().max(20).optional().or(z.literal('')),
+  photo_video_consent:     z.boolean().optional().default(false),
+
+  liability_accepted:       z.literal(true, { errorMap: () => ({ message: 'Please acknowledge you are responsible for yourself at the event' }) }),
+  code_of_conduct_accepted: z.literal(true, { errorMap: () => ({ message: 'Code of Conduct agreement is required' }) }),
+
+  _hp: honeypotSchema,
+}).superRefine((data, ctx) => {
+  if (!data.is_18_or_older) {
+    if (!data.parent_guardian_name) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Parent/guardian name is required for volunteers under 18', path: ['parent_guardian_name'] });
+    }
+    if (!data.parent_guardian_phone) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Parent/guardian phone is required for volunteers under 18', path: ['parent_guardian_phone'] });
+    }
+  }
+
+  if (data.role_choice_2 && data.role_choice_2 === data.role_choice_1) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Second choice must be different from your first choice', path: ['role_choice_2'] });
+  }
+});
+
+export type VolunteerInput = z.infer<typeof volunteerSchema>;

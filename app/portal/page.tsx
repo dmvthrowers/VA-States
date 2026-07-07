@@ -20,6 +20,12 @@ const portals = [
     href: '/spectators/portal',
     cta: 'Manage spectator RSVP',
   },
+  {
+    title: 'Volunteer',
+    description: 'Apply to volunteer — Registration Booth, Setup/Breakdown, Judging, DJ/Audio, MC, Streaming, and more. All ages, all levels, always free to help.',
+    href: '/volunteer',
+    cta: 'Apply to volunteer',
+  },
 ];
 
 export default function PortalAccessPage() {

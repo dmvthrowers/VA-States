@@ -27,6 +27,7 @@ const NAV_LINKS = [
 const MORE_LINKS = [
   { label: 'Rules',     href: 'https://dmvthrowers.club/vsyc26-rules.html' },
   { label: 'FAQ',       href: 'https://dmvthrowers.club/vsyc26-faq.html' },
+  { label: 'Volunteer', href: '/volunteer' },
   { label: 'Directory', href: '/directory' },
   { label: 'Results',   href: '/results' },
 ];
