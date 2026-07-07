@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 
 const SITE_HOME = 'https://dmvthrowers.club/vsyc26-register.html';
@@ -11,15 +11,20 @@ interface NavBarProps {
   activePage?: 'register' | 'upload' | 'confirm';
 }
 
-// Order mirrors the marketing site's nav (About/Schedule/Register/Sponsors/Venue/Rules/FAQ)
-// with Directory + Results appended — those two are app-only, DB-backed pages with no
-// static-site equivalent.
+// Always-visible desktop links — kept short on purpose so the bar doesn't get crowded.
+// Mirrors the marketing site's core nav order (About/Schedule/Register/Sponsors/Venue).
 const NAV_LINKS = [
-  { label: 'About',     href: 'https://dmvthrowers.club/vsyc26.html' },
-  { label: 'Schedule',  href: 'https://dmvthrowers.club/vsyc26-schedule.html' },
-  { label: 'Register',  href: '/' },
-  { label: 'Sponsors',  href: 'https://dmvthrowers.club/vsyc26-sponsors.html' },
-  { label: 'Venue',     href: 'https://dmvthrowers.club/vsyc26-venue.html' },
+  { label: 'About',    href: 'https://dmvthrowers.club/vsyc26.html' },
+  { label: 'Schedule', href: 'https://dmvthrowers.club/vsyc26-schedule.html' },
+  { label: 'Register', href: '/' },
+  { label: 'Sponsors', href: 'https://dmvthrowers.club/vsyc26-sponsors.html' },
+  { label: 'Venue',    href: 'https://dmvthrowers.club/vsyc26-venue.html' },
+];
+
+// Less-critical / reference links, tucked under a "More" dropdown on desktop so the
+// primary bar stays uncluttered. Rules/FAQ exist on the marketing site; Directory/Results
+// are app-only, DB-backed pages with no static-site equivalent.
+const MORE_LINKS = [
   { label: 'Rules',     href: 'https://dmvthrowers.club/vsyc26-rules.html' },
   { label: 'FAQ',       href: 'https://dmvthrowers.club/vsyc26-faq.html' },
   { label: 'Directory', href: '/directory' },
@@ -40,6 +45,19 @@ const actionClasses: Record<'gold' | 'outline' | 'red', string> = {
 
 export default function NavBar({ activePage }: NavBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [moreOpen]);
 
   return (
     <>
@@ -80,34 +98,69 @@ export default function NavBar({ activePage }: NavBarProps) {
           </a>
 
           {/* Desktop links — hidden below lg */}
-          <div className="hidden lg:flex items-center gap-5">
+          <div className="hidden lg:flex items-center gap-4">
             {ACTION_LINKS.map(link => (
               <a
                 key={link.label}
                 href={link.href}
-                className={`font-condensed text-xs font-extrabold tracking-caps uppercase no-underline px-3 py-1.5 ${actionClasses[link.variant]}`}
+                className={`font-condensed text-xs font-extrabold tracking-caps uppercase no-underline px-3 py-1.5 whitespace-nowrap ${actionClasses[link.variant]}`}
               >
                 {link.label}
               </a>
             ))}
 
-            {NAV_LINKS.map(link => {
-              const isActive = activePage === 'register' && link.label === 'Register';
-              return (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`font-condensed text-xs font-bold tracking-caps no-underline py-1.5 border-b-2 uppercase transition-colors ${
-                    isActive
-                      ? 'text-gold border-gold'
-                      : 'text-text-muted border-transparent hover:text-gold hover:border-gold'
-                  }`}
+            <div className="flex items-center gap-4 pl-1">
+              {NAV_LINKS.map(link => {
+                const isActive = activePage === 'register' && link.label === 'Register';
+                return (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`font-condensed text-xs font-bold tracking-caps no-underline py-1.5 border-b-2 uppercase transition-colors whitespace-nowrap ${
+                      isActive
+                        ? 'text-gold border-gold'
+                        : 'text-text-muted border-transparent hover:text-gold hover:border-gold'
+                    }`}
+                  >
+                    {link.label}
+                  </a>
+                );
+              })}
+
+              {/* "More" dropdown — Rules/FAQ/Directory/Results, kept off the main bar */}
+              <div className="relative" ref={moreRef}>
+                <button
+                  type="button"
+                  onClick={() => setMoreOpen(o => !o)}
+                  aria-expanded={moreOpen}
+                  aria-haspopup="menu"
+                  className="flex items-center gap-1 font-condensed text-xs font-bold tracking-caps uppercase py-1.5 border-b-2 border-transparent text-text-muted hover:text-gold hover:border-gold transition-colors"
                 >
-                  {link.label}
-                </a>
-              );
-            })}
+                  More
+                  <span className={`inline-block transition-transform ${moreOpen ? 'rotate-180' : ''}`}>▾</span>
+                </button>
+
+                {moreOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-full mt-2 min-w-[160px] bg-navy-deep border border-navy-border shadow-lg py-1 z-[210]"
+                  >
+                    {MORE_LINKS.map(link => (
+                      <a
+                        key={link.label}
+                        href={link.href}
+                        role="menuitem"
+                        onClick={() => setMoreOpen(false)}
+                        className="block font-condensed text-xs font-bold tracking-caps uppercase text-text-muted no-underline px-4 py-2.5 hover:text-gold hover:bg-navy"
+                      >
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Burger button — visible below lg */}
@@ -147,6 +200,18 @@ export default function NavBar({ activePage }: NavBarProps) {
                   className={`font-condensed text-sm font-bold tracking-caps no-underline uppercase py-2 ${
                     activePage === 'register' && link.label === 'Register' ? 'text-gold' : 'text-text-muted'
                   }`}
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+            <div className="border-t border-navy-border pt-3 flex flex-col gap-1">
+              <div className="font-condensed text-[0.65rem] tracking-caps uppercase text-text-muted/70 pb-1">More</div>
+              {MORE_LINKS.map(link => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="font-condensed text-sm font-bold tracking-caps no-underline uppercase py-2 text-text-muted"
                 >
                   {link.label}
                 </a>
