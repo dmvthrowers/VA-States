@@ -10,7 +10,7 @@ async function getPublicProfiles(): Promise<DirectoryProfile[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('vsyc_public_profiles')
-    .select('id, role, display_name, pronouns, city, state, club, team, bio, divisions')
+    .select('id, role, display_name, pronouns, city, state, club, team, bio, divisions, photo_url, socials')
     .order('display_name', { ascending: true });
 
   if (error || !data) return [];

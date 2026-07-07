@@ -129,7 +129,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       string:                   data.string || null,
       counterweight:            data.counterweight || null,
       socials:                  isMinor ? {} : (data.socials ?? {}),
-      is_public:                isMinor ? false : (data.is_public ?? true),
+      is_public:                isMinor ? false : (data.is_public ?? false),
       liability_waiver_accepted: data.liability_waiver_accepted,
       photo_video_consent:       data.photo_video_consent,
       code_of_conduct_accepted:  data.code_of_conduct_accepted,

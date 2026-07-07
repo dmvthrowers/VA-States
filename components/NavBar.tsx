@@ -14,7 +14,7 @@ interface NavBarProps {
 const NAV_LINKS = [
   { label: 'About',     href: 'https://dmvthrowers.club/vsyc26.html' },
   { label: 'Schedule',  href: 'https://dmvthrowers.club/vsyc26-schedule.html' },
-  { label: 'Register',  href: SITE_HOME },
+  { label: 'Register',  href: '/' },
   { label: 'Directory', href: '/directory' },
   { label: 'Results',   href: '/results' },
   { label: 'Sponsors',  href: 'https://dmvthrowers.club/vsyc26-sponsors.html' },
@@ -86,21 +86,23 @@ export default function NavBar({ activePage }: NavBarProps) {
               </a>
             ))}
 
-            {NAV_LINKS.filter(l => l.label !== 'Register').map(link => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="font-condensed text-xs font-bold tracking-caps text-text-muted no-underline py-1.5 border-b-2 border-transparent uppercase hover:text-gold hover:border-gold transition-colors"
-              >
-                {link.label}
-              </a>
-            ))}
-
-            {activePage === 'register' && (
-              <span className="font-condensed text-xs font-bold tracking-caps text-gold py-1.5 border-b-2 border-gold uppercase">
-                REGISTER
-              </span>
-            )}
+            {NAV_LINKS.map(link => {
+              const isActive = activePage === 'register' && link.label === 'Register';
+              return (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`font-condensed text-xs font-bold tracking-caps no-underline py-1.5 border-b-2 uppercase transition-colors ${
+                    isActive
+                      ? 'text-gold border-gold'
+                      : 'text-text-muted border-transparent hover:text-gold hover:border-gold'
+                  }`}
+                >
+                  {link.label}
+                </a>
+              );
+            })}
           </div>
 
           {/* Burger button — visible below lg */}
