@@ -3,6 +3,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export type StaffRole = 'judge' | 'dj' | 'audio_tech' | 'admin';
 
+export interface StaffSocials {
+  instagram?: string | null;
+  tiktok?: string | null;
+  youtube?: string | null;
+}
+
 export interface StaffIdentity {
   authUserId: string;
   email: string;
@@ -13,6 +19,7 @@ export interface StaffIdentity {
   bio: string | null;
   photoUrl: string | null;
   isPublicProfile: boolean;
+  socials: StaffSocials;
 }
 
 export function getBearerToken(req: NextRequest): string | null {
@@ -30,7 +37,7 @@ export async function getStaffIdentityFromToken(token: string): Promise<StaffIde
 
   const { data: staff, error: staffErr } = await supabase
     .from('vsyc_staff_accounts')
-    .select('auth_user_id, role, display_name, is_active, pronouns, bio, photo_url, is_public_profile')
+    .select('auth_user_id, role, display_name, is_active, pronouns, bio, photo_url, is_public_profile, socials')
     .eq('auth_user_id', authData.user.id)
     .maybeSingle();
 
@@ -46,5 +53,6 @@ export async function getStaffIdentityFromToken(token: string): Promise<StaffIde
     bio: staff.bio ?? null,
     photoUrl: staff.photo_url ?? null,
     isPublicProfile: Boolean(staff.is_public_profile),
+    socials: (staff.socials as StaffSocials) ?? {},
   };
 }
