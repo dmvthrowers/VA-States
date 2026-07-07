@@ -47,7 +47,7 @@ export default function NavBar({ activePage }: NavBarProps) {
           href="https://dmvthrowers.club/vsyc26-sponsors.html"
           className="font-condensed text-[0.62rem] md:text-[0.72rem] text-navy-deep font-extrabold tracking-caps uppercase underline whitespace-nowrap"
         >
-          SPONSOR VSYC-26 →
+          BECOME A SPONSOR →
         </a>
       </div>
 
