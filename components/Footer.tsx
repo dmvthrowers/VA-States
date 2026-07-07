@@ -6,14 +6,19 @@ import Image from 'next/image';
 
 const SITE_HOME = 'https://dmvthrowers.club/vsyc26-register.html';
 
+// Mirrors the marketing site's footer set (About/Register/Sponsors/Venue/Contact/
+// Terms-equivalent/GitHub) plus app-only utility links (Event Info, Staff).
 const FOOTER_LINKS = [
   { label: 'Event Info',  href: SITE_HOME },
   { label: 'About',       href: 'https://dmvthrowers.club/vsyc26.html' },
   { label: 'Schedule',    href: 'https://dmvthrowers.club/vsyc26-schedule.html' },
+  { label: 'Register',    href: '/' },
   { label: 'Sponsors',    href: 'https://dmvthrowers.club/vsyc26-sponsors.html' },
   { label: 'Venue',       href: 'https://dmvthrowers.club/vsyc26-venue.html' },
+  { label: 'FAQ',         href: 'https://dmvthrowers.club/vsyc26-faq.html' },
   { label: 'Policies',    href: '/policies' },
   { label: 'Staff',       href: '/staff' },
+  { label: 'GitHub',      href: 'https://github.com/dmvthrowers' },
 ];
 
 export default function Footer() {
@@ -71,6 +76,7 @@ export default function Footer() {
               <a
                 key={link.label}
                 href={link.href}
+                {...(link.label === 'GitHub' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                 style={{
                   color: '#fff',
                   fontSize: '0.75rem',

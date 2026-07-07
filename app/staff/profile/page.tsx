@@ -307,7 +307,7 @@ export default function StaffProfilePage() {
                   onChange={(e) => setProfile({ ...profile, is_public_profile: e.target.checked })}
                   className="w-4 h-4 accent-gold"
                 />
-                Show my profile publicly on the Who&apos;s Coming list
+                Show my profile publicly on the Directory page
               </label>
 
               <button type="submit" disabled={saving} className="bg-gold text-navy-deep font-black tracking-caps px-5 py-3 text-xs disabled:opacity-60">

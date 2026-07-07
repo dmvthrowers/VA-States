@@ -11,14 +11,19 @@ interface NavBarProps {
   activePage?: 'register' | 'upload' | 'confirm';
 }
 
+// Order mirrors the marketing site's nav (About/Schedule/Register/Sponsors/Venue/Rules/FAQ)
+// with Directory + Results appended — those two are app-only, DB-backed pages with no
+// static-site equivalent.
 const NAV_LINKS = [
   { label: 'About',     href: 'https://dmvthrowers.club/vsyc26.html' },
   { label: 'Schedule',  href: 'https://dmvthrowers.club/vsyc26-schedule.html' },
   { label: 'Register',  href: '/' },
-  { label: 'Directory', href: '/directory' },
-  { label: 'Results',   href: '/results' },
   { label: 'Sponsors',  href: 'https://dmvthrowers.club/vsyc26-sponsors.html' },
   { label: 'Venue',     href: 'https://dmvthrowers.club/vsyc26-venue.html' },
+  { label: 'Rules',     href: 'https://dmvthrowers.club/vsyc26-rules.html' },
+  { label: 'FAQ',       href: 'https://dmvthrowers.club/vsyc26-faq.html' },
+  { label: 'Directory', href: '/directory' },
+  { label: 'Results',   href: '/results' },
 ];
 
 const ACTION_LINKS = [
