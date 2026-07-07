@@ -377,7 +377,7 @@ export default function FeeCalculatorPage() {
                       type="text"
                       value={compCode}
                       onChange={e => { setCompCode(e.target.value.toUpperCase()); setCompApplied(false); setCompDiscountPercent(0); setCodeError(''); }}
-                      placeholder="e.g. VOLUNTEER26"
+                      placeholder="e.g. SPONSOR2026"
                       disabled={compApplied}
                       style={{
                         flex: 1,

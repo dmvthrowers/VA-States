@@ -53,7 +53,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   if (!onlineRegistrationOpen) {
     return apiError('unprocessable', 'Online registration is currently paused. Please try again later.', requestId);
   }
-  const onlineCutoff = new Date(process.env.ONLINE_REG_CUTOFF_ISO ?? '2026-09-13T23:59:59-04:00');
+  const onlineCutoff = new Date(process.env.ONLINE_REG_CUTOFF_ISO ?? '2026-09-12T23:59:59-04:00');
   if (now > onlineCutoff) {
     return apiError('unprocessable', 'Online registration has closed. Contact dmvthrowers@gmail.com for late entry.', requestId);
   }

@@ -12,11 +12,13 @@ interface NavBarProps {
 }
 
 const NAV_LINKS = [
-  { label: 'About',    href: 'https://dmvthrowers.club/vsyc26.html' },
-  { label: 'Schedule', href: 'https://dmvthrowers.club/vsyc26-schedule.html' },
-  { label: 'Register', href: SITE_HOME },
-  { label: 'Sponsors', href: 'https://dmvthrowers.club/vsyc26-sponsors.html' },
-  { label: 'Venue',    href: 'https://dmvthrowers.club/vsyc26-venue.html' },
+  { label: 'About',     href: 'https://dmvthrowers.club/vsyc26.html' },
+  { label: 'Schedule',  href: 'https://dmvthrowers.club/vsyc26-schedule.html' },
+  { label: 'Register',  href: SITE_HOME },
+  { label: 'Directory', href: '/directory' },
+  { label: 'Results',   href: '/results' },
+  { label: 'Sponsors',  href: 'https://dmvthrowers.club/vsyc26-sponsors.html' },
+  { label: 'Venue',     href: 'https://dmvthrowers.club/vsyc26-venue.html' },
 ];
 
 const ACTION_LINKS = [

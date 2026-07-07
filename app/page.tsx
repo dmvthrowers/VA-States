@@ -75,8 +75,8 @@ export default function RegisterPage() {
       photo_video_consent: false,
       code_of_conduct_accepted: false,
       parent_consented: false,
-      // Competitor profiles are public by default (spectators opt in instead).
-      is_public: true,
+      // Public listing is opt-in for everyone — must be explicitly checked.
+      is_public: false,
     },
   });
 
@@ -453,7 +453,7 @@ export default function RegisterPage() {
                 <input
                   {...register('comp_code')}
                   className={`flex-1 bg-navy-deep border px-3 py-2 text-sm text-white font-mono uppercase ${codeStatus === 'valid' ? 'border-green-500' : codeStatus === 'invalid' ? 'border-red' : 'border-navy-border'} focus:outline-none focus:border-gold`}
-                  placeholder="VOLUNTEER26"
+                  placeholder="e.g. SPONSOR2026"
                   onChange={() => { setCodeStatus('idle'); setCodeApplied(false); setCompDiscountPercent(0); }}
                 />
                 <button

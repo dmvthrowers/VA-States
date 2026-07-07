@@ -15,34 +15,10 @@ const portals = [
     cta: 'Go to music upload access',
   },
   {
-    title: 'Staff Profile',
-    description: 'Judges and staff can manage public bio/pronouns and choose whether to appear on the public "Who\'s Coming" list.',
-    href: '/staff/profile',
-    cta: 'Edit staff profile',
-  },
-  {
     title: 'Spectator Manage RSVP',
     description: 'Use magic-link login to update your spectator RSVP and public profile settings.',
     href: '/spectators/portal',
     cta: 'Manage spectator RSVP',
-  },
-  {
-    title: 'Judge Login',
-    description: 'Judge scoring access with your assigned staff email and password.',
-    href: '/judge',
-    cta: 'Open judge login',
-  },
-  {
-    title: 'DJ Login',
-    description: 'DJ/audio staff login with assigned account credentials for secure music access.',
-    href: '/dj',
-    cta: 'Open DJ login',
-  },
-  {
-    title: 'Admin Dashboard',
-    description: 'Secure event-ops dashboard for staff admins to manage contestants, spectators, and live controls.',
-    href: '/admin-dashboard',
-    cta: 'Open admin dashboard',
   },
 ];
 
@@ -54,7 +30,7 @@ export default function PortalAccessPage() {
         <div className="mb-8">
           <span className="inline-block bg-gold text-navy-deep text-xs font-black tracking-widest px-3 py-1 mb-3">VSYC-26</span>
           <h1 className="font-display font-black text-4xl text-gold mb-2">Portal Access</h1>
-          <p className="text-sm text-text-body">Use the correct portal for your role on event day and during prep.</p>
+          <p className="text-sm text-text-body">Use the correct portal for your role on event day and during prep. Judges, DJs, and event admins: head to <a href="/staff" className="text-gold-light underline">Staff Portals</a> instead.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

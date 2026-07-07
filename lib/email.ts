@@ -229,7 +229,7 @@ function buildPaymentReminderHtml(p: PaymentReminderParams): string {
       <a href="${p.confirmUrl}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;margin-top:6px;">PAY NOW →</a>
       <p style="font-size:0.75rem;margin:10px 0 0;color:#6a7a9a;">Day-of alternatives may be available at the registration desk.</p>
     </div>
-    <p style="font-size:0.82rem;color:#6a7a9a;">Registration closes September 13. Unpaid registrations may be released after that date. Questions? Reply to this email.</p>
+    <p style="font-size:0.82rem;color:#6a7a9a;">Registration closes September 12. Unpaid registrations may be released after that date. Questions? Reply to this email.</p>
   `);
 }
 

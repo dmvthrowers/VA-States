@@ -114,7 +114,7 @@ export default async function ResultsPage() {
             </p>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
               Competing on September 19? See who&rsquo;s registered on the{' '}
-              <a href="/competitors" style={{ color: 'var(--gold-light)' }}>competitors page</a>.
+              <a href="/directory" style={{ color: 'var(--gold-light)' }}>directory page</a>.
             </p>
           </section>
         ) : (
