@@ -5,6 +5,7 @@ import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import RunOrderManager from '@/components/RunOrderManager';
 import VolunteerManager from '@/components/VolunteerManager';
+import BudgetManager from '@/components/BudgetManager';
 import { createBrowserClient } from '@/lib/supabase/client';
 
 interface StaffMe {
@@ -120,7 +121,7 @@ export default function AdminDashboardPage() {
 
   const [contestantQuery, setContestantQuery] = useState('');
   const [spectatorQuery, setSpectatorQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'run-order' | 'volunteers'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'run-order' | 'volunteers' | 'budget'>('overview');
 
   const fetchStaffMe = async (accessToken: string): Promise<StaffMe | null> => {
     const res = await fetch('/api/staff/me', {
@@ -601,7 +602,7 @@ export default function AdminDashboardPage() {
         </header>
 
         <nav className="flex gap-2 mb-6 border-b border-navy-border">
-          {(['overview', 'run-order', 'volunteers'] as const).map((tab) => (
+          {(['overview', 'run-order', 'volunteers', 'budget'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -610,7 +611,7 @@ export default function AdminDashboardPage() {
                 activeTab === tab ? 'border-gold text-gold' : 'border-transparent text-text-muted hover:text-text-body'
               }`}
             >
-              {tab === 'overview' ? 'Overview' : tab === 'run-order' ? 'Run Order' : 'Volunteers'}
+              {tab === 'overview' ? 'Overview' : tab === 'run-order' ? 'Run Order' : tab === 'volunteers' ? 'Volunteers' : 'Budget'}
             </button>
           ))}
         </nav>
@@ -626,6 +627,12 @@ export default function AdminDashboardPage() {
         {activeTab === 'volunteers' && token && (
           <section className="border border-navy-border bg-navy p-4">
             <VolunteerManager token={token} />
+          </section>
+        )}
+
+        {activeTab === 'budget' && token && (
+          <section className="border border-navy-border bg-navy p-4">
+            <BudgetManager token={token} />
           </section>
         )}
 

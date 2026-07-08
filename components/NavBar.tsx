@@ -30,6 +30,7 @@ const MORE_LINKS = [
   { label: 'Volunteer', href: '/volunteer' },
   { label: 'Directory', href: '/directory' },
   { label: 'Results',   href: '/results' },
+  { label: 'Budget',    href: '/budget' },
 ];
 
 // Single action button on the main bar. "Event Info" was dropped because the brand
