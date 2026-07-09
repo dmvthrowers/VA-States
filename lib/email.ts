@@ -56,6 +56,7 @@ export async function sendConfirmationEmail(p: ConfirmationParams): Promise<Emai
       replyTo: REPLY_TO,
       subject: `VSYC-26 Registration Received — ${p.firstName}, here's what's next`,
       html: buildConfirmationHtml(p, fee),
+      text: buildConfirmationText(p, fee),
       attachments: [
         { filename: 'VSYC-26.ics', content: Buffer.from(ics, 'utf-8').toString('base64') },
       ],
@@ -84,6 +85,7 @@ export async function sendMusicReceivedEmail(p: MusicReceivedParams): Promise<Em
       replyTo: REPLY_TO,
       subject: `Music received for VSYC-26 — ${p.firstName}`,
       html: buildMusicReceivedHtml(p),
+      text: buildMusicReceivedText(p),
     });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
@@ -110,6 +112,7 @@ export async function sendPaymentReminderEmail(p: PaymentReminderParams): Promis
       replyTo: REPLY_TO,
       subject: `VSYC-26 Payment Reminder — ${p.firstName}`,
       html: buildPaymentReminderHtml(p),
+      text: buildPaymentReminderText(p),
     });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
@@ -140,6 +143,7 @@ export async function sendSpectatorConfirmationEmail(p: SpectatorConfirmationPar
       replyTo: REPLY_TO,
       subject: `You're on the list for VSYC-26, ${p.firstName}!`,
       html: buildSpectatorConfirmationHtml(p),
+      text: buildSpectatorConfirmationText(p),
       attachments: [
         { filename: 'VSYC-26.ics', content: Buffer.from(ics, 'utf-8').toString('base64') },
       ],
@@ -170,6 +174,7 @@ export async function sendVolunteerConfirmationEmail(p: VolunteerConfirmationPar
       replyTo: REPLY_TO,
       subject: `Volunteer application received — VSYC-26, ${p.firstName}`,
       html: buildVolunteerConfirmationHtml(p),
+      text: buildVolunteerConfirmationText(p),
     });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
@@ -233,6 +238,52 @@ function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
   `);
 }
 
+function buildConfirmationText(p: ConfirmationParams, fee: string): string {
+  const lines = [
+    `Registration Received — VSYC-26`,
+    ``,
+    `Hey ${p.firstName} — you're in. Here's everything you need.`,
+    ``,
+    `YOUR REGISTRATION`,
+    `Name: ${p.firstName} ${p.lastName}`,
+    `Division(s): ${p.divisions.join(', ')}`,
+    `Entry fee: ${fee}`,
+    `ID: ${p.registrationId.slice(0, 8).toUpperCase()}`,
+    ``,
+  ];
+  if (!p.isComp) {
+    lines.push(
+      `PAYMENT REQUIRED`,
+      `Complete your secure Stripe checkout for ${fee}: ${p.confirmUrl}`,
+      `Day-of alternatives may be available at the registration desk.`,
+      ``,
+    );
+  }
+  if (p.musicUploadUrl) {
+    lines.push(
+      `MUSIC UPLOAD`,
+      `Upload your music (deadline September 12, 2026): ${p.musicUploadUrl}`,
+      `Format: DIVISION_LastName_FirstName.mp3 — the system will rename it automatically.`,
+      `Music must be appropriate for all audiences — no explicit language, sexual content, or glorification of violence. Inappropriate music results in disqualification.`,
+      ``,
+    );
+  } else {
+    lines.push(
+      `MUSIC UPLOAD`,
+      `Music upload unlocks in your registration portal after payment is received. Deadline: September 12, 2026.`,
+      ``,
+    );
+  }
+  lines.push(
+    `A calendar invite (VSYC-26.ics) is attached.`,
+    `View your registration: ${p.confirmUrl}`,
+    ``,
+    `Questions? Reply to this email or contact dmvthrowers@gmail.com`,
+    `September 19, 2026 · Dulles Town Center · Sterling, VA`,
+  );
+  return lines.join('\n');
+}
+
 function buildMusicReceivedHtml(p: MusicReceivedParams): string {
   return emailWrap(`
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Music Received</h1>
@@ -243,6 +294,22 @@ function buildMusicReceivedHtml(p: MusicReceivedParams): string {
     </div>
     <p style="font-size:0.82rem;color:#6a7a9a;">Music deadline was September 12, 2026. You're all set. See you at Dulles Town Center on September 19.</p>
   `);
+}
+
+function buildMusicReceivedText(p: MusicReceivedParams): string {
+  return [
+    `Music Received — VSYC-26`,
+    ``,
+    `Got it, ${p.firstName}. Your music is in.`,
+    ``,
+    `Division: ${p.division}`,
+    `File saved as: ${p.filename}`,
+    ``,
+    `Music deadline was September 12, 2026. You're all set. See you at Dulles Town Center on September 19.`,
+    ``,
+    `Questions? Reply to this email or contact dmvthrowers@gmail.com`,
+    `September 19, 2026 · Dulles Town Center · Sterling, VA`,
+  ].join('\n');
 }
 
 function buildPaymentReminderHtml(p: PaymentReminderParams): string {
@@ -258,6 +325,24 @@ function buildPaymentReminderHtml(p: PaymentReminderParams): string {
     </div>
     <p style="font-size:0.82rem;color:#6a7a9a;">Registration closes September 12. Unpaid registrations may be released after that date. Questions? Reply to this email.</p>
   `);
+}
+
+function buildPaymentReminderText(p: PaymentReminderParams): string {
+  const fee = `$${(p.feeCents / 100).toFixed(2)}`;
+  return [
+    `Payment Reminder — VSYC-26`,
+    ``,
+    `Hey ${p.firstName} — we haven't received your VSYC-26 entry payment yet.`,
+    ``,
+    `Amount due: ${fee}`,
+    `Pay now: ${p.confirmUrl}`,
+    `Day-of alternatives may be available at the registration desk.`,
+    ``,
+    `Registration closes September 12. Unpaid registrations may be released after that date. Questions? Reply to this email.`,
+    ``,
+    `Questions? Reply to this email or contact dmvthrowers@gmail.com`,
+    `September 19, 2026 · Dulles Town Center · Sterling, VA`,
+  ].join('\n');
 }
 
 function buildSpectatorConfirmationHtml(p: SpectatorConfirmationParams): string {
@@ -281,6 +366,27 @@ function buildSpectatorConfirmationHtml(p: SpectatorConfirmationParams): string 
   `);
 }
 
+function buildSpectatorConfirmationText(p: SpectatorConfirmationParams): string {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
+  const portalUrl = p.portalUrl ?? `${baseUrl}/spectators/portal`;
+  return [
+    `You're on the list! — VSYC-26`,
+    ``,
+    `Hey ${p.firstName} — see you at VSYC-26. Spectating is always free, all ages.`,
+    ``,
+    `Where: Dulles Town Center, Sterling, VA`,
+    `When: September 19, 2026`,
+    `Listed publicly: ${p.isPublic ? 'Yes — your profile will show on the site' : "No — you're registered privately"}`,
+    ``,
+    `Manage your RSVP: ${portalUrl}`,
+    ``,
+    `A calendar invite (VSYC-26.ics) is attached.`,
+    `Full event details and schedule: https://dmvthrowers.club/vsyc26-schedule.html`,
+    ``,
+    `Questions? Reply to this email or contact dmvthrowers@gmail.com`,
+  ].join('\n');
+}
+
 function buildVolunteerConfirmationHtml(p: VolunteerConfirmationParams): string {
   return emailWrap(`
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Thanks for volunteering!</h1>
@@ -302,6 +408,31 @@ function buildVolunteerConfirmationHtml(p: VolunteerConfirmationParams): string 
   `);
 }
 
+function buildVolunteerConfirmationText(p: VolunteerConfirmationParams): string {
+  const lines = [
+    `Thanks for volunteering! — VSYC-26`,
+    ``,
+    `Hey ${p.firstName} — your VSYC-26 volunteer application is in.`,
+    ``,
+    `YOUR APPLICATION`,
+    `1st choice: ${p.roleChoice1Label}`,
+  ];
+  if (p.roleChoice2Label) lines.push(`2nd choice: ${p.roleChoice2Label}`);
+  if (p.otherRoleDescription) lines.push(`Your idea: ${p.otherRoleDescription}`);
+  lines.push(
+    `Status: Pending review`,
+    ``,
+    `WHAT HAPPENS NEXT`,
+    `Role assignments are made by the event organizer based on need — your final role may differ from your top choice, and some roles fill up fast. We'll follow up by email to confirm your assignment and shift time before the event.`,
+    ``,
+    `Once confirmed, you'll get a follow-up email with a code for 50% off your own VSYC-26 entry fee.`,
+    `Where: Dulles Town Center, Sterling, VA · When: September 19, 2026`,
+    ``,
+    `Questions in the meantime? Reply to this email — it goes straight to the organizer.`,
+  );
+  return lines.join('\n');
+}
+
 interface VolunteerConfirmedParams {
   to: string;
   firstName: string;
@@ -321,6 +452,7 @@ export async function sendVolunteerConfirmedEmail(p: VolunteerConfirmedParams): 
       replyTo: REPLY_TO,
       subject: `You're confirmed for VSYC-26, ${p.firstName} — plus your discount code`,
       html: buildVolunteerConfirmedHtml(p),
+      text: buildVolunteerConfirmedText(p),
     });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
@@ -346,4 +478,23 @@ function buildVolunteerConfirmedHtml(p: VolunteerConfirmedParams): string {
     <p style="font-size:0.82rem;color:#6a7a9a;margin:0 0 8px;">Where: Dulles Town Center, Sterling, VA · When: September 19, 2026</p>
     <p style="font-size:0.78rem;color:#6a7a9a;">Questions about your role or shift? Reply to this email — it goes straight to the organizer.</p>
   `);
+}
+
+function buildVolunteerConfirmedText(p: VolunteerConfirmedParams): string {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
+  return [
+    `You're confirmed! — VSYC-26`,
+    ``,
+    `Hey ${p.firstName} — you're locked in as ${p.assignedRoleLabel} for VSYC-26.${p.shiftPreference ? ` We'll follow up with your exact shift time.` : ''}`,
+    ``,
+    `YOUR ${p.discountPercent}% OFF CODE`,
+    `As a thank-you, here's a one-time code for ${p.discountPercent}% off your own VSYC-26 competitor entry fee.`,
+    ``,
+    `Code: ${p.compCode}`,
+    `Enter this code at checkout when you register to compete. One-time use, valid through event day.`,
+    `Register to compete: ${baseUrl}/`,
+    ``,
+    `Where: Dulles Town Center, Sterling, VA · When: September 19, 2026`,
+    `Questions about your role or shift? Reply to this email — it goes straight to the organizer.`,
+  ].join('\n');
 }
