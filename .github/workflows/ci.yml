@@ -14,6 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NEXT_TELEMETRY_DISABLED: "1"
+      # Placeholder values so client components that construct a Supabase
+      # browser client at module scope don't crash Next's build-time
+      # prerender pass. No live network call happens during static
+      # generation, so these never need to be real credentials.
+      NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
