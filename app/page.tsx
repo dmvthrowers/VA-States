@@ -58,6 +58,10 @@ export default function RegisterPage() {
   const [liabilityScrolled, setLiabilityScrolled] = useState(false);
   const [codeStatus, setCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [codeApplied, setCodeApplied] = useState(false);
+  // Store the exact code string that was validated — never submit the raw input
+  // value, because on mobile paste/autofill can change the field without
+  // triggering onChange, which would desync codeApplied and the field value.
+  const [validatedCode, setValidatedCode] = useState<string>('');
   const [compDiscountPercent, setCompDiscountPercent] = useState(0);
 
   const {
@@ -123,6 +127,7 @@ export default function RegisterPage() {
       setValue('x_substyles', [], { shouldValidate: true });
     }
     setCodeApplied(false);
+    setValidatedCode('');
     setCompDiscountPercent(0);
     setCodeStatus('idle');
   };
@@ -152,15 +157,18 @@ export default function RegisterPage() {
       if (json.valid) {
         setCodeStatus('valid');
         setCodeApplied(true);
+        setValidatedCode(code); // lock in the exact string that passed
         setCompDiscountPercent(json.discount_percent ?? 0);
       } else {
         setCodeStatus('invalid');
         setCodeApplied(false);
+        setValidatedCode('');
         setCompDiscountPercent(0);
       }
     } catch {
       setCodeStatus('invalid');
       setCodeApplied(false);
+      setValidatedCode('');
       setCompDiscountPercent(0);
     }
   }, [watchedCompCode]);
@@ -185,7 +193,9 @@ export default function RegisterPage() {
           youtube,
         },
         age_on_event: parseInt(values.age_on_event, 10),
-        comp_code: codeApplied ? values.comp_code?.trim().toUpperCase() : undefined,
+        // Always send the exact code that was validated, not the current field
+        // value — these can differ on mobile when paste/autofill bypasses onChange.
+        comp_code: (codeApplied && validatedCode) ? validatedCode : undefined,
       };
 
       const res = await fetch('/api/register', {
@@ -451,10 +461,14 @@ export default function RegisterPage() {
               <label className="block text-xs font-black tracking-caps text-gold mb-2">COMP / SPONSOR CODE</label>
               <div className="flex gap-2">
                 <input
-                  {...register('comp_code')}
+                  {...register('comp_code', {
+                    // Pass onChange through register options so RHF's internal
+                    // tracking fires alongside our reset, preventing the field
+                    // value and codeApplied from drifting out of sync.
+                    onChange: () => { setCodeStatus('idle'); setCodeApplied(false); setValidatedCode(''); setCompDiscountPercent(0); },
+                  })}
                   className={`flex-1 bg-navy-deep border px-3 py-2 text-sm text-white font-mono uppercase ${codeStatus === 'valid' ? 'border-green-500' : codeStatus === 'invalid' ? 'border-red' : 'border-navy-border'} focus:outline-none focus:border-gold`}
                   placeholder="e.g. SPONSOR2026"
-                  onChange={() => { setCodeStatus('idle'); setCodeApplied(false); setCompDiscountPercent(0); }}
                 />
                 <button
                   type="button"
