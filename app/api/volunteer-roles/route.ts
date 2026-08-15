@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { NextRequest } from 'next/server';
 import { withErrorHandling } from '@/lib/api-error';
 import { getVolunteerRoleAvailability } from '@/lib/volunteer-availability';
 
@@ -11,7 +10,7 @@ import { getVolunteerRoleAvailability } from '@/lib/volunteer-availability';
  * volunteer application form. The dedicated /volunteer/roles page queries
  * the same helper directly server-side rather than calling this route.
  */
-export const GET = withErrorHandling(async (requestId, _req: NextRequest) => {
+export const GET = withErrorHandling(async (requestId) => {
   const roles = await getVolunteerRoleAvailability();
   return NextResponse.json(
     { roles },
