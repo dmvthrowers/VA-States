@@ -39,6 +39,8 @@ interface ConfirmationParams {
   confirmUrl: string;
   musicUploadUrl?: string;
   registrationId: string;
+  /** Set true when resending to a registrant who has already paid, so the email doesn't ask for payment again. */
+  alreadyPaid?: boolean;
 }
 
 export async function sendConfirmationEmail(p: ConfirmationParams): Promise<EmailResult> {
@@ -206,7 +208,7 @@ function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
       <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Entry fee:</strong> ${fee}</div>
       <div style="font-size:0.85rem;"><strong style="color:#fff;">ID:</strong> ${p.registrationId.slice(0, 8).toUpperCase()}</div>
     </div>
-    ${!p.isComp ? `
+    ${!p.isComp && !p.alreadyPaid ? `
     <div style="background:#0d1428;border-left:4px solid #C8102E;padding:20px;margin-bottom:16px;">
       <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C8102E;font-weight:800;margin-bottom:12px;">PAYMENT REQUIRED</div>
       <p style="font-size:0.85rem;margin:0 0 12px;">Complete your secure Stripe checkout for <strong style="color:#fff;">${fee}</strong> in your registration portal.</p>
