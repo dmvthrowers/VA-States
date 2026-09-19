@@ -21,6 +21,10 @@ export default function RunOrderPage() {
           <p style={{ color: 'var(--text-body)', margin: 0 }}>
             Who&rsquo;s up next in each division, straight from the day-of run order. Refreshes
             automatically as staff update it.{' '}
+            <strong style={{ color: '#fff' }}>
+              One round per division — there are no prelims. Every competitor performs once, and
+              placements come from that round.
+            </strong>{' '}
             <a href="/results" style={{ color: 'var(--gold-light)' }}>View final results →</a>
           </p>
         </header>
