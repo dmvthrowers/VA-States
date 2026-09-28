@@ -506,6 +506,8 @@ function buildVolunteerConfirmedText(p: VolunteerConfirmedParams): string {
 export interface SurveyInviteRecipient {
   to: string;
   firstName: string;
+  /** Colleagues copied on the same email (sponsor and vendor contacts). */
+  cc?: string[];
 }
 
 interface SurveyInviteBatchParams {
@@ -516,6 +518,8 @@ interface SurveyInviteBatchParams {
   recipients: SurveyInviteRecipient[];
   /** Admin preview: marks the subject so it can't be mistaken for a real send. */
   isTest?: boolean;
+  /** Follow-up to an invite already sent: reminder subject and copy. */
+  reminder?: boolean;
 }
 
 export interface SurveyInviteBatchResult {
@@ -543,10 +547,17 @@ export async function sendSurveyInviteBatch(p: SurveyInviteBatchParams): Promise
         chunk.map((r) => ({
           from: FROM,
           to: r.to,
+          ...(r.cc?.length ? { cc: r.cc } : {}),
           replyTo: REPLY_TO,
-          subject: `${p.isTest ? '[TEST] ' : ''}How was VSYC-26? A few minutes to shape VSYC-27`,
-          html: buildSurveyInviteHtml(r.firstName, p.audienceLabel, p.surveyUrl, p.extraLine),
-          text: buildSurveyInviteText(r.firstName, p.audienceLabel, p.surveyUrl, p.extraLine),
+          subject: `${p.isTest ? '[TEST] ' : ''}${p.reminder
+            ? 'Still time: tell us what you thought of VSYC-26'
+            : 'How was VSYC-26? A few minutes to shape VSYC-27'}`,
+          html: p.reminder
+            ? buildSurveyReminderHtml(r.firstName, p.surveyUrl)
+            : buildSurveyInviteHtml(r.firstName, p.audienceLabel, p.surveyUrl, p.extraLine),
+          text: p.reminder
+            ? buildSurveyReminderText(r.firstName, p.surveyUrl)
+            : buildSurveyInviteText(r.firstName, p.audienceLabel, p.surveyUrl, p.extraLine),
         })),
       );
       if (error) {
@@ -583,6 +594,35 @@ function buildSurveyInviteText(firstName: string, audienceLabel: string, surveyU
     '',
     ...(extraLine ? [extraLine, ''] : []),
     'It only takes a few minutes. Every answer goes straight into planning VSYC-27.',
+    '',
+    `Take the survey: ${surveyUrl}`,
+    '',
+    'VSYC-26 was brought to you by Goodles.',
+    'September 19, 2026 · Dulles Town Center · Sterling, VA',
+  ].join('\n');
+}
+
+// Surveys are anonymous unless someone leaves their email, so a reminder can't
+// fully skip people who already answered — the copy says so up front.
+function buildSurveyReminderHtml(firstName: string, surveyUrl: string): string {
+  const url = esc(surveyUrl);
+  return emailWrap(`
+    <h1 style="font-family:'Playfair Display',Georgia,serif;font-size:1.6rem;color:#ffffff;margin:0 0 16px;">Still time, ${esc(firstName)}.</h1>
+    <p style="font-size:0.95rem;line-height:1.6;margin:0 0 16px;">If you haven&rsquo;t filled out the VSYC-26 survey yet, we&rsquo;d love your thoughts. What worked, what didn&rsquo;t, and what would bring you back: every answer goes straight into planning VSYC-27, and into what we tell our sponsors and the venue.</p>
+    <p style="font-size:0.95rem;line-height:1.6;margin:0 0 24px;">It takes a few minutes. Already done it? Thank you, and you can ignore this email.</p>
+    <a href="${url}" style="display:inline-block;background:#B80000;color:#ffffff;text-decoration:none;font-weight:800;letter-spacing:0.12em;font-size:0.8rem;padding:14px 28px;">TAKE THE SURVEY →</a>
+    <p style="font-size:0.75rem;color:#8090b8;margin:24px 0 0;">Or paste this link: <a href="${url}" style="color:#C9A84C;">${url}</a></p>
+    <p style="font-size:0.75rem;color:#8090b8;margin:16px 0 0;">VSYC-26 was brought to you by Goodles.</p>
+  `);
+}
+
+function buildSurveyReminderText(firstName: string, surveyUrl: string): string {
+  return [
+    `Still time, ${firstName}.`,
+    '',
+    "If you haven't filled out the VSYC-26 survey yet, we'd love your thoughts. What worked, what didn't, and what would bring you back: every answer goes straight into planning VSYC-27, and into what we tell our sponsors and the venue.",
+    '',
+    'It takes a few minutes. Already done it? Thank you, and you can ignore this email.',
     '',
     `Take the survey: ${surveyUrl}`,
     '',

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SURVEYS, SURVEY_TYPES, type SurveyQuestion, type SurveyType } from '@/lib/surveys';
+import SurveyContacts from './SurveyContacts';
 
 interface SurveyRow {
   id: string;
@@ -16,9 +17,11 @@ interface SurveyRow {
 }
 
 interface InviteAudience {
-  audience: 'winner' | 'competitor' | 'spectator' | 'volunteer';
+  audience: 'winner' | 'competitor' | 'spectator' | 'volunteer' | 'sponsor' | 'vendor';
   recipients: number;
+  responded: number;
   lastSentAt: string | null;
+  lastReminderAt: string | null;
   surveyUrl: string;
 }
 
@@ -110,18 +113,18 @@ export default function SurveyResults({ token }: { token: string }) {
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
-  const sendTest = async (a: InviteAudience) => {
-    setSending(`test-${a.audience}`);
+  const sendTest = async (a: InviteAudience, reminder = false) => {
+    setSending(`test-${reminder ? 'reminder-' : ''}${a.audience}`);
     setStatusMsg(null);
     try {
       const res = await fetch('/api/admin/surveys/invites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ audience: a.audience, test: true }),
+        body: JSON.stringify({ audience: a.audience, test: true, reminder }),
       });
       const json = await res.json();
       setStatusMsg(res.ok
-        ? `Test ${TYPE_LABELS[a.audience].toLowerCase()} invite sent to ${json.to}. Check that inbox (and spam).`
+        ? `Test ${TYPE_LABELS[a.audience].toLowerCase()} ${reminder ? 'reminder' : 'invite'} sent to ${json.to}. Check that inbox (and spam).`
         : json.error?.message ?? 'Test send failed.');
     } catch {
       setStatusMsg('Network error sending test.');
@@ -155,6 +158,37 @@ export default function SurveyResults({ token }: { token: string }) {
       }
     } catch {
       setStatusMsg('Network error sending invites.');
+    }
+    setSending(null);
+  };
+
+  const sendReminder = async (a: InviteAudience) => {
+    const label = TYPE_LABELS[a.audience].toLowerCase();
+    const count = a.recipients - a.responded;
+    const again = Boolean(a.lastReminderAt);
+    const prompt = again
+      ? `A reminder already went to ${label} on ${new Date(a.lastReminderAt!).toLocaleString()}. Remind AGAIN ${count} people?`
+      : `Email a survey reminder to ${count} ${label}?${a.responded ? ` (${a.responded} who answered with their email are skipped.)` : ''}`;
+    if (!window.confirm(prompt)) return;
+
+    setSending(`reminder-${a.audience}`);
+    setStatusMsg(null);
+    try {
+      const res = await fetch('/api/admin/surveys/invites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ audience: a.audience, reminder: true, force: again }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setStatusMsg(json.error?.message ?? 'Reminder failed.');
+      } else {
+        const failed = (json.failed as { email: string }[]).length;
+        setStatusMsg(`Sent ${json.sent} of ${json.total} ${label} reminders${json.skipped ? ` · ${json.skipped} skipped (already answered)` : ''}${failed ? ` · ${failed} failed` : ''}.`);
+        await fetchData();
+      }
+    } catch {
+      setStatusMsg('Network error sending reminders.');
     }
     setSending(null);
   };
@@ -352,6 +386,7 @@ export default function SurveyResults({ token }: { token: string }) {
                   <div className="text-white font-semibold">{TYPE_LABELS[a.audience]} · {a.recipients}</div>
                   <div className="text-xs text-text-muted">
                     {a.lastSentAt ? `Sent ${new Date(a.lastSentAt).toLocaleString()}` : 'Not sent yet'}
+                    {a.lastReminderAt && ` · Reminded ${new Date(a.lastReminderAt).toLocaleString()}`}
                   </div>
                 </div>
                 <span className="flex gap-2">
@@ -374,6 +409,29 @@ export default function SurveyResults({ token }: { token: string }) {
                 >
                   {sending === a.audience ? 'SENDING…' : a.lastSentAt ? 'RESEND' : 'SEND'}
                 </button>
+                {a.lastSentAt && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={sending !== null}
+                      onClick={() => void sendTest(a, true)}
+                      title="Send this group's reminder email to the organizer inbox, marked [TEST]"
+                      className="border border-gold px-3 py-2 text-xs font-black tracking-caps text-gold hover:bg-gold hover:text-navy-deep disabled:opacity-40"
+                    >
+                      {sending === `test-reminder-${a.audience}` ? 'SENDING…' : 'TEST REMINDER'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sending !== null || a.recipients - a.responded === 0}
+                      onClick={() => void sendReminder(a)}
+                      className={`px-3 py-2 text-xs font-black tracking-caps disabled:opacity-40 ${
+                        a.lastReminderAt ? 'border border-navy-border text-text-body hover:text-white' : 'bg-red text-white hover:bg-red-dark'
+                      }`}
+                    >
+                      {sending === `reminder-${a.audience}` ? 'SENDING…' : a.lastReminderAt ? 'REMIND AGAIN' : 'REMIND'}
+                    </button>
+                  </>
+                )}
                 </span>
               </li>
             ))}
@@ -382,8 +440,10 @@ export default function SurveyResults({ token }: { token: string }) {
           <p className="text-xs text-text-muted mt-3">
             Winners: top 3 per division from final results, sent the winner survey (competitor questions + prizes) instead of the
             competitor one. Competitors and winners also go to the parent email for minors. Volunteers: confirmed only.
-            Spectators: everyone who RSVP&apos;d. Duplicate addresses get one email.
+            Spectators: everyone who RSVP&apos;d. Sponsors and vendors: the contact list below. Duplicate addresses get one email.
             TEST sends that group&apos;s exact email to the organizer inbox (dmvthrowers@gmail.com) and doesn&apos;t count as sending.
+            REMIND sends a short &ldquo;still time&rdquo; follow-up once the invite has gone out. It skips anyone who answered and left
+            their email; answers are otherwise anonymous, so the email tells people who already answered to ignore it.
           </p>
           {winners.length > 0 && (
             <details className="mt-3 border-t border-navy-border pt-3">
@@ -397,6 +457,7 @@ export default function SurveyResults({ token }: { token: string }) {
               </ul>
             </details>
           )}
+          <SurveyContacts token={token} onChange={() => void fetchData()} />
         </div>
       </section>
 
