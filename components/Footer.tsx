@@ -7,10 +7,13 @@ import Image from 'next/image';
 const SITE_HOME = 'https://dmvthrowers.club/vsyc26-register.html';
 
 // Mirrors the marketing site's footer set (About/Register/Sponsors/Venue/Contact/
-// Terms-equivalent/GitHub) plus app-only utility links (Event Info, Staff).
+// Terms-equivalent/GitHub) plus app-only utility links (Leaderboard, Staff).
+// "Results" (marketing-site podium recap) and "Leaderboard" (this app's full standings)
+// link to each other so visitors can move between the two.
 const FOOTER_LINKS = [
-  { label: 'Event Info',  href: SITE_HOME },
   { label: 'About',       href: 'https://dmvthrowers.club/vsyc26.html' },
+  { label: 'Results',     href: 'https://dmvthrowers.club/vsyc26-results.html' },
+  { label: 'Leaderboard', href: '/results' },
   { label: 'Schedule',    href: 'https://dmvthrowers.club/vsyc26-schedule.html' },
   { label: 'Register',    href: '/' },
   { label: 'Sponsors',    href: 'https://dmvthrowers.club/vsyc26-sponsors.html' },

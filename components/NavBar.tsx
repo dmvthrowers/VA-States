@@ -22,14 +22,15 @@ const NAV_LINKS = [
 ];
 
 // Less-critical / reference links, tucked under a "More" dropdown on desktop so the
-// primary bar stays uncluttered. Rules/FAQ exist on the marketing site; Directory/Results
-// are app-only, DB-backed pages with no static-site equivalent.
+// primary bar stays uncluttered. Rules/FAQ/Podium Results live on the marketing site;
+// Directory/Full Leaderboard are app-only, DB-backed pages.
 const MORE_LINKS = [
   { label: 'Rules',     href: 'https://dmvthrowers.club/vsyc26-rules.html' },
   { label: 'FAQ',       href: 'https://dmvthrowers.club/vsyc26-faq.html' },
   { label: 'Volunteer', href: '/volunteer' },
   { label: 'Directory', href: '/directory' },
-  { label: 'Results',   href: '/results' },
+  { label: 'Podium Results', href: 'https://dmvthrowers.club/vsyc26-results.html' },
+  { label: 'Full Leaderboard', href: '/results' },
   { label: 'Run Order', href: '/results/run-order' },
   { label: 'Budget',    href: '/budget' },
 ];
