@@ -18,6 +18,7 @@ const FOOTER_LINKS = [
   { label: 'FAQ',         href: 'https://dmvthrowers.club/vsyc26-faq.html' },
   { label: 'Policies',    href: '/policies' },
   { label: 'Staff',       href: '/staff' },
+  { label: 'Yo-Yo Resources', href: 'https://dmvthrowers.club/resources.html#links' },
   { label: 'GitHub',      href: 'https://github.com/dmvthrowers' },
 ];
 
