@@ -41,6 +41,11 @@ export default async function ResultsPage() {
                 ? 'Results are being finalized — check back shortly.'
                 : 'Final standings, averaged across all judges.'}
           </p>
+          {resultsPublished && (
+            <p style={{ color: 'var(--text-body)', margin: '0.5rem 0 0' }}>
+              <a href="https://dmvthrowers.club/vsyc26-results.html" style={{ color: 'var(--gold-light)' }}>Podium recap, Virginia State Champions, and contest stats →</a>
+            </p>
+          )}
           <p style={{ color: 'var(--text-body)', margin: '0.5rem 0 0' }}>
             <a href="/results/run-order" style={{ color: 'var(--gold-light)' }}>See who&rsquo;s up next in the live run order →</a>
           </p>
