@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import type { Division } from '@/lib/pricing';
-import { calculateFeePreview, formatCents } from '@/lib/pricing';
+import { calculateFeePreview, displayPrice, formatCents, PRICES_TBD } from '@/lib/pricing';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 
@@ -371,21 +371,21 @@ export default function RegisterPage() {
                 {
                   code: '1A' as Division,
                   name: '1A — Single String',
-                  price: '$30',
+                  price: displayPrice(3000),
                   desc: 'Classic 1-string freestyle. 2-minute routine, judged on technical execution plus trick presentation, performance quality, musicality, and routine construction.',
                   format: '2 min · Scored judging',
                 },
                 {
                   code: 'X' as Division,
                   name: 'X Division',
-                  price: '$25',
+                  price: displayPrice(2500),
                   desc: 'Non-1A styles: 2A (looping), 3A (two strings), 4A (offstring), or 5A (freehand). Pick one.',
                   format: '2 min · Scored judging',
                 },
                 {
                   code: 'SBJ' as Division,
                   name: 'Sport / Beginner / Junior',
-                  price: '$20',
+                  price: displayPrice(2000),
                   desc: 'Open to all skill levels and ages. Relaxed format, simplified judging, great entry point.',
                   format: '90 sec · Simplified scoring',
                 },
@@ -455,7 +455,9 @@ export default function RegisterPage() {
             {/* Combo note */}
             {watchedDivisions.includes('1A') && watchedDivisions.includes('X') && (
               <div className="mt-3 p-3 border border-gold/40 bg-navy text-xs text-gold font-semibold">
-                ★ 1A + X Division combo: $50 (saves $5 vs. registering separately)
+                {PRICES_TBD
+                  ? '★ 1A + X Division combo pricing: TBD'
+                  : '★ 1A + X Division combo: $50 (saves $5 vs. registering separately)'}
               </div>
             )}
 
@@ -801,18 +803,18 @@ export default function RegisterPage() {
                   {watchedDivisions.map(d => (
                     <div key={d} className="flex justify-between text-sm">
                       <span className="text-text-body">{d === 'SBJ' ? 'Sport/Beginner/Junior' : d}</span>
-                      <span className="text-white font-semibold">{formatCents({ '1A': 3000, 'X': 2500, 'SBJ': 2000 }[d] ?? 0)}</span>
+                      <span className="text-white font-semibold">{displayPrice({ '1A': 3000, 'X': 2500, 'SBJ': 2000 }[d] ?? 0)}</span>
                     </div>
                   ))}
                 </div>
 
-                {feePreview.combo_applied && (
+                {feePreview.combo_applied && !PRICES_TBD && (
                   <div className="flex justify-between text-sm text-green-400 mb-2">
                     <span>1A + X combo discount</span>
                     <span>−$5.00</span>
                   </div>
                 )}
-                {feePreview.early_bird_applied && (
+                {feePreview.early_bird_applied && !PRICES_TBD && (
                   <div className="flex justify-between text-sm text-green-400 mb-2">
                     <span>Early bird discount</span>
                     <span>−$5.00</span>
@@ -828,7 +830,7 @@ export default function RegisterPage() {
                 <div className="border-t border-navy-border pt-3 mt-3 flex justify-between">
                   <span className="font-bold text-white text-sm">TOTAL</span>
                   <span className="font-display font-bold text-gold text-xl">
-                    {feePreview.is_comp ? 'FREE' : formatCents(feePreview.fee_cents)}
+                    {feePreview.is_comp ? 'FREE' : displayPrice(feePreview.fee_cents)}
                   </span>
                 </div>
 
@@ -895,7 +897,7 @@ export default function RegisterPage() {
             <div className="text-xs font-black tracking-caps text-gold">TOTAL</div>
             {watchedDivisions.length === 0
               ? <p className="text-sm text-text-body">Select division(s)</p>
-              : <p className="font-display font-bold text-gold text-2xl">{feePreview.is_comp ? 'FREE' : formatCents(feePreview.fee_cents)}</p>
+              : <p className="font-display font-bold text-gold text-2xl">{feePreview.is_comp ? 'FREE' : displayPrice(feePreview.fee_cents)}</p>
             }
           </div>
           {feePreview.early_bird_applied && <span className="text-xs text-green-400 font-semibold">Early bird applied</span>}

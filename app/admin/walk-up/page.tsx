@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { calculateFeePreview, displayPrice, type Division as PricingDivision } from '@/lib/pricing';
 
 type Division = '1A' | 'X' | 'SBJ';
 const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DC','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
@@ -33,16 +34,11 @@ const BLANK: FormState = {
   paid_at_table: false,
 };
 
-const DIVISION_PRICES: Record<Division, number> = { '1A': 25, 'X': 20, 'SBJ': 15 };
-const WALK_UP_SURCHARGE = 10;
-
-function estimateFee(divisions: Division[]): number {
+// Estimates come from lib/pricing (same source the walk-up API charges from), so this
+// screen can't drift from the real fees. Shows "TBD" while PRICES_TBD is on.
+function estimateFeeCents(divisions: Division[]): number {
   if (divisions.length === 0) return 0;
-  const has1A = divisions.includes('1A');
-  const hasX  = divisions.includes('X');
-  const hasSBJ = divisions.includes('SBJ');
-  const fee = (has1A && hasX) ? 40 + (hasSBJ ? 15 : 0) : divisions.reduce((s, d) => s + DIVISION_PRICES[d], 0);
-  return fee + WALK_UP_SURCHARGE;
+  return calculateFeePreview(divisions as PricingDivision[], 0, new Date(), 'walk_up', new Date(0)).fee_cents;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -71,7 +67,7 @@ export default function WalkUpPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; data?: unknown; error?: string } | null>(null);
 
-  const estimatedFee = estimateFee(form.divisions);
+  const estimatedFeeCents = estimateFeeCents(form.divisions);
   const isMinor = parseInt(form.age_on_event, 10) < 18;
 
   function toggle(div: Division) {
@@ -211,7 +207,7 @@ export default function WalkUpPage() {
                     fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer', letterSpacing: '0.05em',
                   }}
                 >
-                  {div} — ${DIVISION_PRICES[div]}
+                  {div} — {displayPrice(calculateFeePreview([div as PricingDivision], 0, new Date(), 'online', new Date(0)).fee_cents)}
                 </button>
               );
             })}
@@ -236,7 +232,7 @@ export default function WalkUpPage() {
           <div style={{ background: '#0d1428', border: '1px solid var(--navy-border)', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Estimated fee (incl. +$10 walk-up)</span>
             <span style={{ fontFamily: "'Playfair Display', serif", color: 'var(--gold)', fontSize: '1.5rem', fontWeight: 700 }}>
-              ${estimatedFee}
+              {displayPrice(estimatedFeeCents)}
             </span>
           </div>
         )}
@@ -299,7 +295,7 @@ export default function WalkUpPage() {
             cursor: submitting || form.divisions.length === 0 ? 'not-allowed' : 'pointer',
           }}
         >
-          {submitting ? 'Registering…' : `Register Walk-Up${estimatedFee > 0 ? ` — $${estimatedFee}` : ''}`}
+          {submitting ? 'Registering…' : `Register Walk-Up${estimatedFeeCents > 0 ? ` — ${displayPrice(estimatedFeeCents)}` : ''}`}
         </button>
       </form>
     </div>

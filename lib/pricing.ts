@@ -82,6 +82,19 @@ export function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+/**
+ * VSYC-26 is over and next year's fees aren't set. While true, published price lists
+ * (home page cards, fee calculator, walk-up desk, meta description) read "TBD".
+ * Checkout amounts from calculateFee are unchanged. Set BASE_PRICE and flip this to
+ * false once fees are decided.
+ */
+export const PRICES_TBD = true;
+
+/** List-price display: "TBD" while PRICES_TBD, otherwise "$30.00". */
+export function displayPrice(cents: number): string {
+  return PRICES_TBD ? 'TBD' : formatCents(cents);
+}
+
 /** Client-side preview (no env vars available — caller passes cutoff). */
 export function calculateFeePreview(
   divisions: Division[],
