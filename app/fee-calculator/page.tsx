@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import type { Division } from '@/lib/pricing';
-import { calculateFeePreview } from '@/lib/pricing';
+import { calculateFeePreview, displayPrice, PRICES_TBD } from '@/lib/pricing';
 
 // ------------------------------------------------------------------
 // Constants
@@ -48,7 +48,7 @@ const DIVISIONS: DivisionInfo[] = [
 // Helpers
 // ------------------------------------------------------------------
 function fmt(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
+  return displayPrice(cents);
 }
 
 function daysUntil(date: Date) {
@@ -351,9 +351,15 @@ export default function FeeCalculatorPage() {
                       1A + X Combo Deal
                     </div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-body)', lineHeight: 1.5 }}>
-                      Entering both 1A and X Division? You get the combo rate:{' '}
-                      <strong style={{ color: '#fff' }}>$50 flat</strong> instead of $55 — saving you{' '}
-                      <strong style={{ color: 'var(--gold)' }}>$5</strong>.
+                      {PRICES_TBD ? (
+                        <>Entering both 1A and X Division? Combo pricing for the next contest is <strong style={{ color: '#fff' }}>TBD</strong>.</>
+                      ) : (
+                        <>
+                          Entering both 1A and X Division? You get the combo rate:{' '}
+                          <strong style={{ color: '#fff' }}>$50 flat</strong> instead of $55 — saving you{' '}
+                          <strong style={{ color: 'var(--gold)' }}>$5</strong>.
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -488,7 +494,7 @@ export default function FeeCalculatorPage() {
                         color: result.is_comp || subtotal === 0 ? '#6adb8a' : 'var(--gold)',
                         lineHeight: 1,
                       }}>
-                        {result.is_comp ? 'FREE' : subtotal === 0 && hasSelections ? '$0.00' : fmt(subtotal)}
+                        {result.is_comp ? 'FREE' : subtotal === 0 && hasSelections && !PRICES_TBD ? '$0.00' : fmt(subtotal)}
                       </span>
                     </div>
                   )}
@@ -586,7 +592,7 @@ export default function FeeCalculatorPage() {
                       <span style={{ color: 'var(--text-body)' }}>{d.name}</span>
                       <span style={{ color: '#fff', fontWeight: 600 }}>
                         {fmt(d.baseCents)}
-                        {isEarlyBird && (
+                        {isEarlyBird && !PRICES_TBD && (
                           <span style={{ color: 'var(--gold)', fontSize: '0.72rem', marginLeft: 6 }}>
                             ({fmt(d.baseCents - 500)} early bird)
                           </span>
@@ -597,8 +603,8 @@ export default function FeeCalculatorPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '0.85rem' }}>
                     <span style={{ color: 'var(--text-body)' }}>1A + X Combo</span>
                     <span style={{ color: '#fff', fontWeight: 600 }}>
-                      $50.00
-                      {isEarlyBird && (
+                      {fmt(5000)}
+                      {isEarlyBird && !PRICES_TBD && (
                         <span style={{ color: 'var(--gold)', fontSize: '0.72rem', marginLeft: 6 }}>
                           ($35.00 early bird)
                         </span>
