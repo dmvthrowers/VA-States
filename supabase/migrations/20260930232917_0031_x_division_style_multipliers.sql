@@ -1,5 +1,7 @@
--- NOT YET APPLIED TO PRODUCTION. Apply with `supabase db push` (or the Supabase SQL editor)
--- before the next contest's live judging.
+-- Applied to production 2026-09-30 (schema_migrations version 20260930232917, name
+-- 0031_x_division_style_multipliers). Published VSYC-26 results were unchanged after
+-- applying (per-division counts and score sums identical); grants and security_invoker
+-- carried over.
 --
 -- ─────────────────────────────────────────────────────────────────────────────
 -- NYYL X Division style multipliers. NYYL multiplies X Division clicker scores
