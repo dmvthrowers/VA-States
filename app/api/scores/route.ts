@@ -11,15 +11,18 @@ type Division = typeof VALID_DIVISIONS[number];
 /** NYYL Tech Execution cap: Sport/SBJ divisions score to /20, 1A/X to /60. */
 const TECH_EXECUTION_CAP: Record<Division, number> = { '1A': 60, X: 60, SBJ: 20 };
 
+/** NYYL Routine Evaluation per-category cap: Sport/SBJ /20 each (Eval /80), 1A/X /10 each (Eval /40). Matches the DB check constraints from migration 0023. */
+const EVAL_CATEGORY_CAP: Record<Division, number> = { '1A': 10, X: 10, SBJ: 20 };
+
 const scoreSubmitSchema = z.object({
   registration_id:       z.string().uuid(),
   division:              z.enum(['1A', 'X', 'SBJ']),
   /** Raw net clicker tally (+ landed elements, - misses), NOT the final 0-60/0-20 score. Normalized server-side. */
   tech_execution_raw:    z.number().min(-200).max(200),
-  trick_presentation:    z.number().min(0).max(10),
-  performance_quality:   z.number().min(0).max(10),
-  musicality:            z.number().min(0).max(10),
-  routine_construction:  z.number().min(0).max(10),
+  trick_presentation:    z.number().min(0).max(20),
+  performance_quality:   z.number().min(0).max(20),
+  musicality:            z.number().min(0).max(20),
+  routine_construction:  z.number().min(0).max(20),
   stop_count:            z.number().int().min(0).optional().default(0),
   discard_count:         z.number().int().min(0).optional().default(0),
   detach_count:          z.number().int().min(0).optional().default(0),
@@ -27,6 +30,12 @@ const scoreSubmitSchema = z.object({
 }).refine(
   (data) => data.division !== 'SBJ' || data.tech_execution_raw >= 0,
   { message: 'Sport/SBJ freestyle does not use negative clicks', path: ['tech_execution_raw'] }
+).refine(
+  (data) => {
+    const cap = EVAL_CATEGORY_CAP[data.division];
+    return [data.trick_presentation, data.performance_quality, data.musicality, data.routine_construction].every((v) => v <= cap);
+  },
+  { message: 'Evaluation categories are scored out of 10 in 1A/X and out of 20 in Sport/SBJ', path: ['trick_presentation'] }
 );
 
 interface RawScoreFields {
@@ -53,7 +62,8 @@ interface ScoreBreakdown {
  * per division — that judge's own highest positive raw score maps to the
  * division cap (60 for 1A/X, 20 for Sport/SBJ), everyone else scales
  * proportionally. SBJ has no major deductions. Final = normalized Tech Exec
- * + the four /10 categories - deduction points, floored at 0.
+ * + the four evaluation categories (/10 each in 1A/X, /20 each in Sport/SBJ)
+ * - deduction points, floored at 0.
  * https://yoyocontest.com/freestyle-rules-for-nyyl-events/#technical-execution
  */
 function computeScoreBreakdown(s: RawScoreFields, maxRawForJudge: number | null): ScoreBreakdown {

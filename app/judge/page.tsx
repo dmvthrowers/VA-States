@@ -39,6 +39,9 @@ interface ScoreEntry {
 /** Tech Execution cap: Sport/SBJ scores to /20, 1A/X to /60 — see NYYL freestyle rules. */
 const TECH_EXECUTION_CAP: Record<Division, number> = { '1A': 60, X: 60, SBJ: 20 };
 
+/** Per-category Routine Evaluation cap: Sport/SBJ is /20 each (Eval /80), 1A/X /10 each (Eval /40). Matches migration 0023. */
+const EVAL_CATEGORY_CAP: Record<Division, number> = { '1A': 10, X: 10, SBJ: 20 };
+
 interface StaffMe {
   auth_user_id: string;
   email: string;
@@ -385,6 +388,7 @@ export default function JudgePage() {
   const categoryTotal = (Number(trickPresentation) || 0) + (Number(performanceQuality) || 0) + (Number(musicality) || 0) + (Number(routineConstruction) || 0);
   const totalDeductionPoints = division === 'SBJ' ? 0 : (Number(stopCount) || 0) * 1 + (Number(discardCount) || 0) * 3 + (Number(detachCount) || 0) * 5;
   const techExecutionCap = TECH_EXECUTION_CAP[division];
+  const evalCategoryCap = EVAL_CATEGORY_CAP[division];
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--navy-deep)' }}>
@@ -546,10 +550,10 @@ export default function JudgePage() {
               </p>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1rem' }}>
-                <ScoreInput label="TRICK PRES." max={10} value={trickPresentation} onChange={setTrickPresentation} disabled={!selectedId || submitting} />
-                <ScoreInput label="PERF. QUALITY" max={10} value={performanceQuality} onChange={setPerformanceQuality} disabled={!selectedId || submitting} />
-                <ScoreInput label="MUSICALITY" max={10} value={musicality} onChange={setMusicality} disabled={!selectedId || submitting} />
-                <ScoreInput label="ROUTINE CONSTR." max={10} value={routineConstruction} onChange={setRoutineConstruction} disabled={!selectedId || submitting} />
+                <ScoreInput label="TRICK PRES." max={evalCategoryCap} value={trickPresentation} onChange={setTrickPresentation} disabled={!selectedId || submitting} />
+                <ScoreInput label="PERF. QUALITY" max={evalCategoryCap} value={performanceQuality} onChange={setPerformanceQuality} disabled={!selectedId || submitting} />
+                <ScoreInput label="MUSICALITY" max={evalCategoryCap} value={musicality} onChange={setMusicality} disabled={!selectedId || submitting} />
+                <ScoreInput label="ROUTINE CONSTR." max={evalCategoryCap} value={routineConstruction} onChange={setRoutineConstruction} disabled={!selectedId || submitting} />
               </div>
 
               {division !== 'SBJ' && (

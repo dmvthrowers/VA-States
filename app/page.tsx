@@ -372,22 +372,22 @@ export default function RegisterPage() {
                   code: '1A' as Division,
                   name: '1A — Single String',
                   price: displayPrice(3000),
-                  desc: 'Classic 1-string freestyle. 2-minute routine, judged on technical execution plus trick presentation, performance quality, musicality, and routine construction.',
+                  desc: 'Classic 1-string freestyle. 2-minute routine, scored out of 100: technical execution (clickers, 60) plus trick presentation, performance quality, musicality, and routine construction (40), minus major deductions.',
                   format: '2 min · Scored judging',
                 },
                 {
                   code: 'X' as Division,
                   name: 'X Division',
                   price: displayPrice(2500),
-                  desc: 'Non-1A styles: 2A (looping), 3A (two strings), 4A (offstring), or 5A (freehand). Pick one.',
+                  desc: 'Non-1A styles: 2A (looping), 3A (two strings), 4A (offstring), or 5A (freehand). Pick one. Scored like 1A: 60 technical execution + 40 evaluation.',
                   format: '2 min · Scored judging',
                 },
                 {
                   code: 'SBJ' as Division,
                   name: 'Sport / Beginner / Junior',
                   price: displayPrice(2000),
-                  desc: 'Open to all skill levels and ages. Relaxed format, simplified judging, great entry point.',
-                  format: '90 sec · Simplified scoring',
+                  desc: 'Open to all skill levels and ages. Relaxed format and a great entry point: no negative clicks, no major deductions, and 80 of 100 points come from evaluation, not trick count.',
+                  format: '90 sec · No negative clicks',
                 },
               ] as const).map(({ code, name, price, desc, format }) => (
                 <button
@@ -469,6 +469,15 @@ export default function RegisterPage() {
                 className="text-xs text-gold/60 hover:text-gold"
               >
                 → View full division rules &amp; judging criteria ↗
+              </a>
+              {' · '}
+              <a
+                href="https://yoyocontest.com/freestyle-rules-for-nyyl-events/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-gold/60 hover:text-gold"
+              >
+                Source: NYYL freestyle rules ↗
               </a>
             </div>
 
