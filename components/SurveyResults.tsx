@@ -441,7 +441,7 @@ export default function SurveyResults({ token }: { token: string }) {
             Winners: top 3 per division from final results, sent the winner survey (competitor questions + prizes) instead of the
             competitor one. Competitors and winners also go to the parent email for minors. Volunteers: confirmed only.
             Spectators: everyone who RSVP&apos;d. Sponsors and vendors: the contact list below. Duplicate addresses get one email.
-            TEST sends that group&apos;s exact email to the organizer inbox (dmvthrowers@gmail.com) and doesn&apos;t count as sending.
+            TEST sends that group&apos;s exact email to the organizer inbox (contact@dmvthrowers.club) and doesn&apos;t count as sending.
             REMIND sends a short &ldquo;still time&rdquo; follow-up once the invite has gone out. It skips anyone who answered and left
             their email; answers are otherwise anonymous, so the email tells people who already answered to ignore it.
           </p>

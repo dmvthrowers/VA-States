@@ -13,7 +13,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowe
 const AUDIT_ACTION = 'survey_invites_sent';
 const REMINDER_ACTION = 'survey_reminders_sent';
 /** Where "Send test" goes. Override with SURVEY_TEST_EMAIL. */
-const TEST_EMAIL = process.env.SURVEY_TEST_EMAIL || 'dmvthrowers@gmail.com';
+const TEST_EMAIL = process.env.SURVEY_TEST_EMAIL || 'contact@dmvthrowers.club';
 
 const AUDIENCES: Record<string, {
   label: string;

@@ -150,7 +150,7 @@ function UploadContent() {
           </ul>
           <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: 0 }}>
             If you have any doubt about your selection, email{' '}
-            <a href="mailto:dmvthrowers@gmail.com" style={{ color: 'var(--gold)' }}>dmvthrowers@gmail.com</a>{' '}
+            <a href="mailto:contact@dmvthrowers.club" style={{ color: 'var(--gold)' }}>contact@dmvthrowers.club</a>{' '}
             for a judgment before the upload deadline.
           </p>
         </div>

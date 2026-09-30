@@ -262,8 +262,8 @@ function ConfirmContent() {
               </dl>
               <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', marginTop: '1.5rem' }}>
                 Questions? Email{' '}
-                <a href="mailto:dmvthrowers@gmail.com" style={{ color: 'var(--gold-light)' }}>
-                  dmvthrowers@gmail.com
+                <a href="mailto:contact@dmvthrowers.club" style={{ color: 'var(--gold-light)' }}>
+                  contact@dmvthrowers.club
                 </a>
               </p>
               <a

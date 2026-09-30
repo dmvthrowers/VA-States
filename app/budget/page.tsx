@@ -128,7 +128,7 @@ export default async function BudgetPage() {
         <footer style={{ borderTop: '1px solid var(--navy-border)', paddingTop: '1.5rem', marginTop: '1rem' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
             Figures are updated by event organizers as funds come in and bills are paid. Questions?{' '}
-            <a href="mailto:dmvthrowers@gmail.com" style={{ color: 'var(--gold-light)' }}>dmvthrowers@gmail.com</a>
+            <a href="mailto:contact@dmvthrowers.club" style={{ color: 'var(--gold-light)' }}>contact@dmvthrowers.club</a>
           </p>
         </footer>
       </main>

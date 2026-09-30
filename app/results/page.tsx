@@ -146,8 +146,16 @@ export default async function ResultsPage() {
 
         <footer style={{ borderTop: '1px solid var(--navy-border)', paddingTop: '1.5rem', marginTop: '1rem' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
-            Scores are averaged across all judges. Questions about results?{' '}
-            <a href="mailto:dmvthrowers@gmail.com" style={{ color: 'var(--gold-light)' }}>dmvthrowers@gmail.com</a>
+            Scores are out of 100 and averaged across all judges. 1A and X: 60 technical execution (clickers) + 40 evaluation, minus
+            major deductions (stop −1, discard −3, detach −5). Sport / Beginner / Junior: 20 technical execution + 80 evaluation, with no
+            negative clicks or deductions. Each judge&rsquo;s top clicker score is normalized to the full 60 (or 20).{' '}
+            <a href="https://dmvthrowers.club/vsyc26-rules.html#scoring" style={{ color: 'var(--gold-light)' }}>How scoring worked</a>
+            {' · '}
+            <a href="https://yoyocontest.com/freestyle-rules-for-nyyl-events/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold-light)' }}>Source: NYYL freestyle rules</a>
+          </p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0.5rem 0 0' }}>
+            Questions about results?{' '}
+            <a href="mailto:contact@dmvthrowers.club" style={{ color: 'var(--gold-light)' }}>contact@dmvthrowers.club</a>
           </p>
         </footer>
       </main>

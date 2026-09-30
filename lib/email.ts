@@ -15,7 +15,7 @@ function getResend() {
 }
 
 const FROM = `${process.env.RESEND_FROM_NAME ?? 'VSYC-26 Registration'} <${process.env.RESEND_FROM_EMAIL ?? 'vastateyoyocontest@dmvthrowers.club'}>`;
-const REPLY_TO = process.env.RESEND_REPLY_TO ?? 'dmvthrowers@gmail.com';
+const REPLY_TO = process.env.RESEND_REPLY_TO ?? 'contact@dmvthrowers.club';
 
 export type EmailResult = { ok: true } | { ok: false; error: string };
 
@@ -195,7 +195,7 @@ function emailWrap(body: string): string {
     <div style="font-size:0.6rem;letter-spacing:0.2em;font-weight:800;color:#C9A84C;margin-bottom:8px;">VSYC-26 · VIRGINIA STATE YO-YO CONTEST 2026</div>
     ${body}
     <div style="margin-top:32px;padding-top:20px;border-top:1px solid #2a3a5a;font-size:0.72rem;color:#3a4a6a;">
-      Questions? Reply to this email or contact <a href="mailto:dmvthrowers@gmail.com" style="color:#C9A84C;">dmvthrowers@gmail.com</a><br/>
+      Questions? Reply to this email or contact <a href="mailto:contact@dmvthrowers.club" style="color:#C9A84C;">contact@dmvthrowers.club</a><br/>
       September 19, 2026 · Dulles Town Center · Sterling, VA
     </div>
   </div>
@@ -280,7 +280,7 @@ function buildConfirmationText(p: ConfirmationParams, fee: string): string {
     `A calendar invite (VSYC-26.ics) is attached.`,
     `View your registration: ${p.confirmUrl}`,
     ``,
-    `Questions? Reply to this email or contact dmvthrowers@gmail.com`,
+    `Questions? Reply to this email or contact contact@dmvthrowers.club`,
     `September 19, 2026 · Dulles Town Center · Sterling, VA`,
   );
   return lines.join('\n');
@@ -309,7 +309,7 @@ function buildMusicReceivedText(p: MusicReceivedParams): string {
     ``,
     `Music deadline was September 12, 2026. You're all set. See you at Dulles Town Center on September 19.`,
     ``,
-    `Questions? Reply to this email or contact dmvthrowers@gmail.com`,
+    `Questions? Reply to this email or contact contact@dmvthrowers.club`,
     `September 19, 2026 · Dulles Town Center · Sterling, VA`,
   ].join('\n');
 }
@@ -342,7 +342,7 @@ function buildPaymentReminderText(p: PaymentReminderParams): string {
     ``,
     `Registration closes September 12. Unpaid registrations may be released after that date. Questions? Reply to this email.`,
     ``,
-    `Questions? Reply to this email or contact dmvthrowers@gmail.com`,
+    `Questions? Reply to this email or contact contact@dmvthrowers.club`,
     `September 19, 2026 · Dulles Town Center · Sterling, VA`,
   ].join('\n');
 }
@@ -385,7 +385,7 @@ function buildSpectatorConfirmationText(p: SpectatorConfirmationParams): string 
     `A calendar invite (VSYC-26.ics) is attached.`,
     `Full event details and schedule: https://dmvthrowers.club/vsyc26-schedule.html`,
     ``,
-    `Questions? Reply to this email or contact dmvthrowers@gmail.com`,
+    `Questions? Reply to this email or contact contact@dmvthrowers.club`,
   ].join('\n');
 }
 
