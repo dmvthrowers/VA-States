@@ -155,7 +155,7 @@ export default async function ResultsPage() {
           </p>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0.5rem 0 0' }}>
             Questions about results?{' '}
-            <a href="mailto:dmvthrowers@gmail.com" style={{ color: 'var(--gold-light)' }}>dmvthrowers@gmail.com</a>
+            <a href="mailto:contact@dmvthrowers.club" style={{ color: 'var(--gold-light)' }}>contact@dmvthrowers.club</a>
           </p>
         </footer>
       </main>

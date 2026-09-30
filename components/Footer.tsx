@@ -138,8 +138,8 @@ export default function Footer() {
             <a href="https://dmvthrowers.club" style={{ color: '#3a4a6a', textDecoration: 'none' }}>
               DMV Throwers
             </a>{' '}
-            · <a href="mailto:dmvthrowers@gmail.com" style={{ color: '#3a4a6a', textDecoration: 'none' }}>
-              dmvthrowers@gmail.com
+            · <a href="mailto:contact@dmvthrowers.club" style={{ color: '#3a4a6a', textDecoration: 'none' }}>
+              contact@dmvthrowers.club
             </a>
           </span>
           <span style={{ fontSize: '0.68rem', color: '#3a4a6a', fontFamily: 'var(--font-body)' }}>

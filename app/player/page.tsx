@@ -444,7 +444,7 @@ export default function PlayerPortalPage() {
               <p className="mt-3 text-xs text-text-body">
                 Music must be appropriate for all audiences — <strong className="text-white">inappropriate music results in disqualification</strong>.
                 Full Music Selection Rules are on the upload page. Questions? Email{' '}
-                <a href="mailto:dmvthrowers@gmail.com" className="text-gold">dmvthrowers@gmail.com</a>.
+                <a href="mailto:contact@dmvthrowers.club" className="text-gold">contact@dmvthrowers.club</a>.
               </p>
             </section>
 

@@ -13,7 +13,7 @@ export default function PoliciesPage() {
           <p className="text-sm text-text-body">
             These policies apply to registration and participation for Virginia State Yo-Yo Contest 2026.
             Questions can be sent to{' '}
-            <a href="mailto:dmvthrowers@gmail.com" className="text-gold hover:text-gold-light">dmvthrowers@gmail.com</a>.
+            <a href="mailto:contact@dmvthrowers.club" className="text-gold hover:text-gold-light">contact@dmvthrowers.club</a>.
           </p>
         </header>
 
@@ -37,7 +37,7 @@ export default function PoliciesPage() {
           </p>
           <p className="text-sm text-text-body">
             To request a review, email{' '}
-            <a href="mailto:dmvthrowers@gmail.com" className="text-gold hover:text-gold-light">dmvthrowers@gmail.com</a>{' '}
+            <a href="mailto:contact@dmvthrowers.club" className="text-gold hover:text-gold-light">contact@dmvthrowers.club</a>{' '}
             with your registration name, division, and reason for the request.
           </p>
         </section>

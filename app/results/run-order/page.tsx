@@ -34,7 +34,7 @@ export default function RunOrderPage() {
         <footer style={{ borderTop: '1px solid var(--navy-border)', paddingTop: '1.5rem', marginTop: '2.5rem' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
             Questions about scheduling?{' '}
-            <a href="mailto:dmvthrowers@gmail.com" style={{ color: 'var(--gold-light)' }}>dmvthrowers@gmail.com</a>
+            <a href="mailto:contact@dmvthrowers.club" style={{ color: 'var(--gold-light)' }}>contact@dmvthrowers.club</a>
           </p>
         </footer>
       </main>

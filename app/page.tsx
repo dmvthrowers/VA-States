@@ -567,7 +567,7 @@ export default function RegisterPage() {
                 <p className="text-sm text-text-body">
                   <strong className="text-white">Public profile is off for competitors under 18.</strong>{' '}
                   This registration stays private — no nickname, photo, bio, or socials are collected. A parent or guardian can email{' '}
-                  <a href="mailto:dmvthrowers@gmail.com" className="text-gold hover:text-gold-light">dmvthrowers@gmail.com</a>{' '}
+                  <a href="mailto:contact@dmvthrowers.club" className="text-gold hover:text-gold-light">contact@dmvthrowers.club</a>{' '}
                   after registering to enable a public listing if you&apos;d like one.
                 </p>
               ) : (
