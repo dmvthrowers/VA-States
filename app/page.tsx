@@ -379,7 +379,7 @@ export default function RegisterPage() {
                   code: 'X' as Division,
                   name: 'X Division',
                   price: displayPrice(2500),
-                  desc: 'Non-1A styles: 2A (looping), 3A (two strings), 4A (offstring), or 5A (freehand). Pick one. Scored like 1A: 60 technical execution + 40 evaluation.',
+                  desc: 'Non-1A styles: 2A (looping), 3A (two strings), 4A (offstring), or 5A (freehand). Pick one. Scored like 1A (60 technical execution + 40 evaluation), with NYYL style multipliers on clicker scores.',
                   format: '2 min · Scored judging',
                 },
                 {

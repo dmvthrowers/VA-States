@@ -547,6 +547,7 @@ export default function JudgePage() {
               <p style={{ color: 'var(--text-muted)', fontSize: '0.68rem', margin: '0 0 1rem' }}>
                 Enter your net clicker tally (+ for landed elements, − for misses{division === 'SBJ' ? ', though Sport/SBJ uses no negative clicks' : ''}).
                 It&rsquo;s normalized to /{techExecutionCap} against your own highest score in this division once saved.
+                {division === 'X' && ' Enter the raw tally only: the style multiplier (2A ×1.40, 3A ×1.50, 4A ×1.30, 5A ×1.60) is applied automatically before normalization, per NYYL.'}
               </p>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1rem' }}>

@@ -11,6 +11,13 @@ type Division = typeof VALID_DIVISIONS[number];
 /** NYYL Tech Execution cap: Sport/SBJ divisions score to /20, 1A/X to /60. */
 const TECH_EXECUTION_CAP: Record<Division, number> = { '1A': 60, X: 60, SBJ: 20 };
 
+/**
+ * NYYL X Division style multipliers, applied to the raw clicker tally before
+ * normalization. Mirrors the vsyc_results view (migration 0031) -- keep in sync.
+ * https://yoyocontest.com/freestyle-rules-for-nyyl-events/#x-division-championship
+ */
+const X_STYLE_MULTIPLIER: Record<string, number> = { '2A': 1.4, '3A': 1.5, '4A': 1.3, '5A': 1.6 };
+
 /** NYYL Routine Evaluation per-category cap: Sport/SBJ /20 each (Eval /80), 1A/X /10 each (Eval /40). Matches the DB check constraints from migration 0023. */
 const EVAL_CATEGORY_CAP: Record<Division, number> = { '1A': 10, X: 10, SBJ: 20 };
 
@@ -40,6 +47,8 @@ const scoreSubmitSchema = z.object({
 
 interface RawScoreFields {
   division: Division;
+  /** X Division style (2A-5A) from the registration; ignored outside X. */
+  x_substyle?: string | null;
   tech_execution_raw: number;
   trick_presentation: number;
   performance_quality: number;
@@ -66,12 +75,21 @@ interface ScoreBreakdown {
  * - deduction points, floored at 0.
  * https://yoyocontest.com/freestyle-rules-for-nyyl-events/#technical-execution
  */
+function styleMultiplier(s: { division: Division; x_substyle?: string | null }): number {
+  return s.division === 'X' ? X_STYLE_MULTIPLIER[s.x_substyle ?? ''] ?? 1 : 1;
+}
+
+/** Raw tally after the X Division style multiplier (1x for 1A and SBJ). */
+function adjustedRaw(s: { division: Division; x_substyle?: string | null; tech_execution_raw: number }): number {
+  return s.tech_execution_raw * styleMultiplier(s);
+}
+
 function computeScoreBreakdown(s: RawScoreFields, maxRawForJudge: number | null): ScoreBreakdown {
   const cap = TECH_EXECUTION_CAP[s.division];
   const techExecutionNormalized =
     maxRawForJudge === null || s.tech_execution_raw <= 0
       ? 0
-      : Math.min(cap, Math.round((s.tech_execution_raw / maxRawForJudge) * cap * 100) / 100);
+      : Math.min(cap, Math.round((adjustedRaw(s) / maxRawForJudge) * cap * 100) / 100);
 
   const totalEval = Math.round((s.trick_presentation + s.performance_quality + s.musicality + s.routine_construction) * 100) / 100;
   const deductionPoints = s.division === 'SBJ' ? 0 : s.stop_count * 1 + s.discard_count * 3 + s.detach_count * 5;
@@ -80,9 +98,9 @@ function computeScoreBreakdown(s: RawScoreFields, maxRawForJudge: number | null)
   return { tech_execution_normalized: techExecutionNormalized, total_eval: totalEval, deduction_points: deductionPoints, final_score: finalScore };
 }
 
-/** Highest positive raw Tech Execution score across a set of rows (this judge's own baseline), or null if none. */
-function maxPositiveRaw(rows: { tech_execution_raw: number }[]): number | null {
-  const positives = rows.map((r) => r.tech_execution_raw).filter((v) => v > 0);
+/** Highest positive raw Tech Execution score (after X multipliers) across a set of rows (this judge's own baseline), or null if none. */
+function maxPositiveRaw(rows: { division: Division; x_substyle?: string | null; tech_execution_raw: number }[]): number | null {
+  const positives = rows.filter((r) => r.tech_execution_raw > 0).map(adjustedRaw);
   return positives.length > 0 ? Math.max(...positives) : null;
 }
 
@@ -150,7 +168,8 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
         last_name,
         preferred_bracket_name,
         city,
-        state
+        state,
+        x_substyle
       )
     `)
     .eq('division', division);
@@ -169,6 +188,8 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   if (mine) {
     const rows = (scores ?? []).map((s) => ({
       ...s,
+      division: div,
+      x_substyle: (Array.isArray(s.vsyc_registrations) ? s.vsyc_registrations[0] : s.vsyc_registrations)?.x_substyle ?? null,
       tech_execution_raw: Number(s.tech_execution_raw),
       trick_presentation: Number(s.trick_presentation),
       performance_quality: Number(s.performance_quality),
@@ -220,6 +241,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 
     const fields: RawScoreFields = {
       division: div,
+      x_substyle: reg?.x_substyle ?? null,
       tech_execution_raw: Number(s.tech_execution_raw),
       trick_presentation: Number(s.trick_presentation),
       performance_quality: Number(s.performance_quality),
@@ -367,7 +389,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   // division, so re-fetch all of this judge's scores here to get an up-to-date baseline.
   const { data: judgeScores, error: judgeScoresError } = await supabase
     .from('vsyc_scores')
-    .select('tech_execution_raw')
+    .select('tech_execution_raw, registration_id, vsyc_registrations ( x_substyle )')
     .eq('division', division)
     .eq('judge_user_id', identity.authUserId);
 
@@ -376,9 +398,16 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('upstream_error', 'Score saved, but failed to compute normalized total', requestId);
   }
 
-  const maxRaw = maxPositiveRaw((judgeScores ?? []).map((r) => ({ tech_execution_raw: Number(r.tech_execution_raw) })));
+  const substyleOf = (reg: { x_substyle: string | null } | { x_substyle: string | null }[] | null) =>
+    (Array.isArray(reg) ? reg[0] : reg)?.x_substyle ?? null;
+  const maxRaw = maxPositiveRaw((judgeScores ?? []).map((r) => ({
+    division,
+    x_substyle: substyleOf(r.vsyc_registrations),
+    tech_execution_raw: Number(r.tech_execution_raw),
+  })));
+  const thisSubstyle = substyleOf((judgeScores ?? []).find((r) => r.registration_id === registration_id)?.vsyc_registrations ?? null);
   const breakdown = computeScoreBreakdown(
-    { division, tech_execution_raw, trick_presentation, performance_quality, musicality, routine_construction, stop_count, discard_count, detach_count },
+    { division, x_substyle: thisSubstyle, tech_execution_raw, trick_presentation, performance_quality, musicality, routine_construction, stop_count, discard_count, detach_count },
     maxRaw
   );
 
