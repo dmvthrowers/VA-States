@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --test 'lib/**/*.test.mjs'"
+    "test": "node --experimental-strip-types --test 'lib/**/*.test.mjs'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",
