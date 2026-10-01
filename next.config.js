@@ -25,7 +25,6 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
-  eslint: { ignoreDuringBuilds: true },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'dmvthrowers.club', pathname: '/assets/images/**' },
