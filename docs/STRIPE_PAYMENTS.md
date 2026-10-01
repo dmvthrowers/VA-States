@@ -16,7 +16,7 @@ manual Venmo/PayPal/check flow remains as a fallback on the confirmation page.
 - `app/api/webhooks/stripe/route.ts` — verifies the Stripe signature and, on
   `checkout.session.completed`, sets `paid = true`, `payment_method = 'stripe'`,
   `paid_at`, `payment_intent_id`, `amount_paid_cents`. Idempotent (safe on replay).
-- `supabase/migrations/20260607_stripe_payment.sql` — adds `'stripe'` to the
+- `supabase/migrations/20260705173425_20260607_stripe_payment.sql` — adds `'stripe'` to the
   `payment_method` enum and the columns/indexes the webhook needs.
 
 **Edited files**
@@ -32,7 +32,7 @@ manual Venmo/PayPal/check flow remains as a fallback on the confirmation page.
 
 ## 1. Run the database migration
 
-In Supabase → SQL Editor, run `supabase/migrations/20260607_stripe_payment.sql`.
+In Supabase → SQL Editor, run `supabase/migrations/20260705173425_20260607_stripe_payment.sql`.
 (The `ALTER TYPE ... ADD VALUE` and `ADD COLUMN IF NOT EXISTS` statements are safe to
 re-run.)
 
