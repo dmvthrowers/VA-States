@@ -43,7 +43,7 @@ re-run.)
 3. **Developers → Webhooks → Add endpoint**:
    - URL: `https://register.dmvthrowers.club/api/webhooks/stripe`
    - Events: `checkout.session.completed` (optionally also
-     `checkout.session.async_payment_succeeded`).
+     `checkout.session.async_payment_succeeded`), and `charge.refunded`.
    - After creating it, copy the **Signing secret** (`whsec_…`).
 
 ## 3. Environment variables (Vercel → Settings → Environment Variables)
@@ -79,8 +79,39 @@ auth, `NEXT_PUBLIC_BASE_URL`, the cutoff dates).
   remain `1A`, `X`, `SBJ`.
 - **Manual Mark Paid** (`/api/admin/mark-paid`) is intentionally kept for walk-ups,
   cash, and check.
-- **Refunds**: issue from the Stripe Dashboard. (A future enhancement could add an
-  admin refund button + a `charge.refunded` webhook handler to flip `paid` back.)
+- **Refunds**: issue from the Stripe Dashboard. The webhook handles `charge.refunded`
+  (see below). An admin refund button is still a possible future enhancement.
 - **Build verification was not run in this session** — the sandbox had a partial npm
   install and a file-sync glitch. Verify locally with `npm install && npm run build`,
   or rely on the Vercel build, before announcing registration is open.
+
+---
+
+## Refunds (`charge.refunded`)
+
+Stripe sends `charge.refunded` for full **and** partial refunds. The handler lives in
+`app/api/webhooks/stripe/route.ts`; the decision logic is the pure function
+`refundTransition` in `lib/stripe-refund.ts` (unit-tested in `lib/stripe-refund.test.mjs`,
+run with `npm test`). It uses the same signature check as the paid handler.
+
+The registration is matched on `payment_intent_id`, which the paid handler stores.
+
+| Refund | How Stripe reports it | Registration after the webhook | Audit action |
+| --- | --- | --- | --- |
+| Full | `charge.refunded = true` (or `amount_refunded >= amount`) | `paid = false`, `paid_at = null` (same as admin "mark unpaid"). `payment_method`, `payment_intent_id` and `amount_paid_cents` are kept as the record of the refunded Stripe payment. | `payment_refunded` |
+| Partial | `charge.refunded = false`, `0 < amount_refunded < amount` | Unchanged: still `paid = true`. There is no column for a partial amount, and a partly refunded competitor is still registered. | `payment_partially_refunded` (amount refunded + original amount) |
+| No payment intent / nothing refunded | — | Unchanged | none |
+
+**Idempotency.** The full-refund update is guarded with `.eq('paid', true)`, so a
+re-delivered event matches no rows and returns 200 without a second audit entry. This is
+the same guard pattern the paid handler uses (`.eq('paid', false)`). A partial-refund
+replay writes a duplicate audit row (harmless; the `event_id` in `details` identifies it).
+
+**Not covered.** If someone re-registers after a full refund, they get a new Checkout Session
+and a new payment intent, so an old refund replay can't touch the new payment. Refunds of
+manual (Venmo/PayPal/cash/check) payments don't go through Stripe; use admin "mark unpaid".
+
+**Deploy step:** add `charge.refunded` to the webhook endpoint's events in the Stripe
+Dashboard (Developers → Webhooks → endpoint → Select events). Test in test mode with
+`stripe trigger charge.refunded` or by refunding a test-mode payment. Never test with
+live refunds.

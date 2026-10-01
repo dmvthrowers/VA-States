@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "node --experimental-strip-types --test 'lib/**/*.test.mjs'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
