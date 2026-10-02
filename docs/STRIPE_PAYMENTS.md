@@ -115,3 +115,57 @@ manual (Venmo/PayPal/cash/check) payments don't go through Stripe; use admin "ma
 Dashboard (Developers → Webhooks → endpoint → Select events). Test in test mode with
 `stripe trigger charge.refunded` or by refunding a test-mode payment. Never test with
 live refunds.
+
+## Confirmation, reconciliation and duplicate payments (Oct 2026)
+
+VSYC-26 had a double payment and missing confirmations. Since migrations
+0033–0036:
+
+- **One payable session per registration.** `/api/checkout` reuses an open
+  Checkout Session. If the last session is already complete, it records the
+  payment and refuses a new one. New sessions use an idempotency key, so two
+  tabs or a double click get the same session.
+- **One way to record a payment.** `applyPaidSession()` (`lib/payments.ts`)
+  is called by the webhook, by the confirm page's status check, and by the
+  reconcile sweep. Whichever sees the payment first marks it paid and queues
+  the "payment received" email. The rest are no-ops. The rules are in
+  `lib/payment-decision.ts`, with unit tests.
+- **Late webhooks.** After Stripe redirects back (`?paid=1`), the confirm page
+  shows "Confirming your payment…" and polls `/api/checkout/status`. That
+  route asks Stripe directly, so the page flips to paid within seconds and
+  never offers a second pay button.
+- **Lost webhooks.** `/api/cron/reconcile-payments` lists completed sessions
+  from the last 3 days and records anything missed. Supabase pg_cron runs it
+  every 15 minutes while a checkout was started in the last 3 days. Vercel
+  cron runs it daily.
+- **Duplicates are flagged, never auto-refunded.** A second payment on a paid
+  registration goes into `vsyc_payment_flags` and the organizer gets an email
+  (`ADMIN_ALERT_EMAIL`). Refunding it in Stripe closes the flag automatically.
+- **Every webhook event is recorded** in `vsyc_stripe_events`.
+
+### One-time setup
+
+1. Apply migrations 0033–0036, in order, **before** deploying this code. The
+   checkout route writes `checkout_created_at`, which 0034 adds.
+2. Set `CRON_SECRET` (16+ characters) in Vercel, and store the same value in
+   Supabase Vault:
+   `select vault.create_secret('<CRON_SECRET>', 'vsyc_cron_secret');`
+3. In Stripe → Webhooks, make sure the endpoint sends
+   `checkout.session.completed`, `checkout.session.async_payment_succeeded`
+   and `charge.refunded`.
+
+### Useful queries
+
+```sql
+-- Open duplicate-payment flags
+select * from vsyc_payment_flags where status = 'open' order by created_at;
+-- Webhook events that failed or are still unprocessed
+select * from vsyc_stripe_events where processed_at is null order by received_at desc;
+-- Emails waiting, or given up on
+select template, to_email, not_before, attempts, last_error, dead_at
+  from email_outbox where sent_at is null order by created_at desc;
+-- Retry an email that was given up on
+update email_outbox set dead_at = null, attempts = 0, not_before = now() where id = '<id>';
+-- Did Supabase's scheduled calls get through?
+select status_code, count(*) from net._http_response group by 1;
+```

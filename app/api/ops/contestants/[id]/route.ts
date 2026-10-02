@@ -3,6 +3,7 @@ import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { z } from 'zod';
+import { logAudit } from '@/lib/audit';
 
 const updateContestantSchema = z.object({
   paid: z.boolean().optional(),
@@ -64,11 +65,24 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest, conte
   if (Object.prototype.hasOwnProperty.call(updatePayload, 'admin_notes')) {
     normalized.admin_notes = updatePayload.admin_notes || null;
   }
-  if (Object.prototype.hasOwnProperty.call(updatePayload, 'paid')) {
-    normalized.paid_at = updatePayload.paid ? new Date().toISOString() : null;
-  }
-
   const supabase = createAdminClient();
+
+  // Only a real change to paid is applied (and audited). A stale dashboard row
+  // sending its old value must not reset a payment that landed since.
+  let paidChange: { from: boolean; to: boolean; payment_method: string | null } | null = null;
+  if (Object.prototype.hasOwnProperty.call(updatePayload, 'paid')) {
+    const { data: current } = await supabase
+      .from('vsyc_registrations')
+      .select('paid, payment_method')
+      .eq('id', id)
+      .maybeSingle();
+    if (current && current.paid === updatePayload.paid) {
+      delete normalized.paid;
+    } else {
+      normalized.paid_at = updatePayload.paid ? new Date().toISOString() : null;
+      paidChange = { from: current?.paid ?? false, to: Boolean(updatePayload.paid), payment_method: current?.payment_method ?? null };
+    }
+  }
   const { error } = await supabase
     .from('vsyc_registrations')
     .update(normalized)
@@ -76,6 +90,14 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest, conte
 
   if (error) {
     return apiError('upstream_error', 'Failed to update contestant', requestId);
+  }
+
+  if (paidChange) {
+    await logAudit(paidChange.to ? 'marked_paid' : 'marked_unpaid', {
+      registrationId: id,
+      actor: auth.email ?? 'admin',
+      details: { via: 'admin_dashboard', previous_payment_method: paidChange.payment_method },
+    });
   }
 
   return NextResponse.json({ ok: true }, { headers: { 'x-request-id': requestId } });
