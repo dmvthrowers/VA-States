@@ -159,8 +159,8 @@ Issues are off on this repo; contest-app work is tracked on the club site repo w
 `[VA-States]` prefix ([umbrella issue #78](https://github.com/dmvthrowers/dmvthrowers.github.io/issues/78)).
 
 The full October 2026 technical audit (security assessment, runbooks, repo specs) lives in the
-club's Google Drive: [Technical docs - Oct 2026](https://drive.google.com/drive/folders/1Jt7amThKNkeVJenksPtA87cBtR-nwZiq)
-(access-restricted — ask the coordinator).
+club's Google Drive: "Technical docs - Oct 2026"
+(ask the coordinator for access).
 
 ## License
 

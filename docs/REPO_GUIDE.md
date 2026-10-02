@@ -179,6 +179,6 @@ in Vercel → Settings → Environment Variables.
 - `docs/ROADMAP.md` — open work, in priority order, with what's already done.
 - `docs/specs/idea-board.md` — the planned public `/ideas` board for VSYC-27.
 - `docs/STRIPE_PAYMENTS.md` — the payment flow end to end.
-- [Technical docs - Oct 2026](https://drive.google.com/drive/folders/1Jt7amThKNkeVJenksPtA87cBtR-nwZiq)
-  (Google Drive, access-restricted) — the full audit this guide came from, including the
+- "Technical docs - Oct 2026"
+  (club Google Drive — ask the coordinator for access) — the full audit this guide came from, including the
   security assessment and runbooks that are kept out of the public repo.

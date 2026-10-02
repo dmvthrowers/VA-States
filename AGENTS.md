@@ -26,8 +26,8 @@ Vercel deployment on `main`.
 As of October 2026 the contest is over and the app is in wrap-up. `docs/REPO_GUIDE.md` is the
 current architecture map and `docs/ROADMAP.md` the prioritized open work; the full October 2026
 audit lives in the club's Google Drive
-([Technical docs - Oct 2026](https://drive.google.com/drive/folders/1Jt7amThKNkeVJenksPtA87cBtR-nwZiq),
-access-restricted). The history below is kept for context.
+("Technical docs - Oct 2026",
+ask the coordinator for access). The history below is kept for context.
 
 ### History (per `docs/REGISTRATION_AUDIT.md`)
 
