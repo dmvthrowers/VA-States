@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
@@ -34,12 +34,6 @@ const VOLUNTEER_COMP_DISCOUNT_PERCENT = 50;
 // before the event itself.
 const VOLUNTEER_COMP_EXPIRES_AT = '2026-09-19T23:59:59-04:00';
 
-async function awaitWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
-  return await Promise.race([
-    promise,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-  ]);
-}
 
 /**
  * Creates a single-use 50%-off comp code for a newly confirmed volunteer and
@@ -172,17 +166,16 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest, conte
         actor: 'admin',
         details: { volunteer_id: id, code, discount_percent: VOLUNTEER_COMP_DISCOUNT_PERCENT },
       });
-      await awaitWithTimeout(
-        sendVolunteerConfirmedEmail({
+      after(async () => {
+        await sendVolunteerConfirmedEmail({
           to: before.email,
           firstName: before.first_name,
           assignedRoleLabel: roleLabel,
           compCode: code,
           discountPercent: VOLUNTEER_COMP_DISCOUNT_PERCENT,
           shiftPreference: before.shift_preference,
-        }),
-        2500,
-      );
+        }, { dedupeKey: `volunteer_confirmed:${id}:${code}` });
+      });
     }
   }
 

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { spectatorSchema } from '@/lib/validation';
@@ -6,12 +6,6 @@ import { logAudit } from '@/lib/audit';
 import { sendSpectatorConfirmationEmail } from '@/lib/email';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-async function awaitWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
-  return await Promise.race([
-    promise,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-  ]);
-}
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   // 1. Rate limit — 5 spectator RSVPs per IP per hour (higher than competitor
@@ -84,16 +78,17 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
   // 6. Confirmation email with .ics calendar attachment
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
-  await awaitWithTimeout(
-    sendSpectatorConfirmationEmail({
+  // Through the outbox (stored, then sent or retried); after() lets it finish
+  // once the response is out.
+  after(async () => {
+    await sendSpectatorConfirmationEmail({
       to: data.email,
       firstName: data.first_name,
       spectatorId: spectator.id,
       isPublic: data.is_public ?? false,
       portalUrl: `${baseUrl}/spectators/portal`,
-    }),
-    2500,
-  );
+    }, { dedupeKey: `spectator:${spectator.id}` });
+  });
 
   return NextResponse.json(
     { id: spectator.id, is_public: data.is_public ?? false },

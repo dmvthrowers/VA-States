@@ -1,23 +1,52 @@
-import { Resend } from 'resend';
 import { buildVsyc26Ics } from './ics';
+import { enqueueEmails, queueEmail, type QueueOptions } from './outbox';
 
-let resendClient: Resend | null = null;
+// Every send* function below renders its email and hands it to the outbox
+// (lib/outbox.ts), which stores it, sends it right away when the daily budget
+// allows, and retries it later otherwise.
 
-function canSendEmail(): boolean {
-  return Boolean(process.env.RESEND_API_KEY);
+export const FROM = `${process.env.RESEND_FROM_NAME ?? 'VSYC-26 Registration'} <${process.env.RESEND_FROM_EMAIL ?? 'vastateyoyocontest@dmvthrowers.club'}>`;
+export const REPLY_TO = process.env.RESEND_REPLY_TO ?? 'contact@dmvthrowers.club';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
+
+/** `queued`: accepted but not sent yet (daily limit or a Resend hiccup); it goes out automatically. */
+export type EmailResult = { ok: true; queued?: boolean } | { ok: false; error: string };
+
+export interface RenderedEmail {
+  to: string;
+  cc?: string[];
+  subject: string;
+  html: string;
+  text: string;
+  /** content is base64 */
+  attachments?: { filename: string; content: string }[];
 }
 
-function getResend() {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) throw new Error('RESEND_API_KEY not set');
-  if (!resendClient) resendClient = new Resend(key);
-  return resendClient;
+/** One variant per template; stored as email_outbox.payload and rendered at send time. */
+export type OutboxEmail =
+  | { template: 'confirmation'; params: ConfirmationParams }
+  | { template: 'music_received'; params: MusicReceivedParams }
+  | { template: 'payment_reminder'; params: PaymentReminderParams }
+  | { template: 'payment_received'; params: PaymentReceivedParams }
+  | { template: 'spectator_confirmation'; params: SpectatorConfirmationParams }
+  | { template: 'volunteer_confirmation'; params: VolunteerConfirmationParams }
+  | { template: 'volunteer_confirmed'; params: VolunteerConfirmedParams }
+  | { template: 'survey_invite'; params: SurveyInviteParams }
+  | { template: 'admin_alert'; params: AdminAlertParams };
+
+export function renderEmail(e: OutboxEmail): RenderedEmail {
+  switch (e.template) {
+    case 'confirmation': return renderConfirmation(e.params);
+    case 'music_received': return renderMusicReceived(e.params);
+    case 'payment_reminder': return renderPaymentReminder(e.params);
+    case 'payment_received': return renderPaymentReceived(e.params);
+    case 'spectator_confirmation': return renderSpectatorConfirmation(e.params);
+    case 'volunteer_confirmation': return renderVolunteerConfirmation(e.params);
+    case 'volunteer_confirmed': return renderVolunteerConfirmed(e.params);
+    case 'survey_invite': return renderSurveyInvite(e.params);
+    case 'admin_alert': return renderAdminAlert(e.params);
+  }
 }
-
-const FROM = `${process.env.RESEND_FROM_NAME ?? 'VSYC-26 Registration'} <${process.env.RESEND_FROM_EMAIL ?? 'vastateyoyocontest@dmvthrowers.club'}>`;
-const REPLY_TO = process.env.RESEND_REPLY_TO ?? 'contact@dmvthrowers.club';
-
-export type EmailResult = { ok: true } | { ok: false; error: string };
 
 /** Escape registrant-supplied values before interpolating into email HTML. */
 function esc(value: string): string {
@@ -43,31 +72,25 @@ interface ConfirmationParams {
   alreadyPaid?: boolean;
 }
 
-export async function sendConfirmationEmail(p: ConfirmationParams): Promise<EmailResult> {
-  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
-  try {
-    const resend = getResend();
-    const fee = p.isComp ? 'FREE (comp pass)' : `$${(p.feeCents / 100).toFixed(2)}`;
-    const ics = buildVsyc26Ics({
-      uid: `competitor-${p.registrationId}`,
-      summary: 'VSYC-26 — You are competing!',
-    });
-    const { error } = await resend.emails.send({
-      from: FROM,
-      to: p.to,
-      replyTo: REPLY_TO,
-      subject: `VSYC-26 Registration Received — ${p.firstName}, here's what's next`,
-      html: buildConfirmationHtml(p, fee),
-      text: buildConfirmationText(p, fee),
-      attachments: [
-        { filename: 'VSYC-26.ics', content: Buffer.from(ics, 'utf-8').toString('base64') },
-      ],
-    });
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: String(e) };
-  }
+export async function sendConfirmationEmail(p: ConfirmationParams, opts?: QueueOptions): Promise<EmailResult> {
+  return queueEmail({ template: 'confirmation', params: p }, opts);
+}
+
+function renderConfirmation(p: ConfirmationParams): RenderedEmail {
+  const fee = p.isComp ? 'FREE (comp pass)' : `$${(p.feeCents / 100).toFixed(2)}`;
+  const ics = buildVsyc26Ics({
+    uid: `competitor-${p.registrationId}`,
+    summary: 'VSYC-26 — You are competing!',
+  });
+  return {
+    to: p.to,
+    subject: `VSYC-26 Registration Received — ${p.firstName}, here's what's next`,
+    html: buildConfirmationHtml(p, fee),
+    text: buildConfirmationText(p, fee),
+    attachments: [
+      { filename: 'VSYC-26.ics', content: Buffer.from(ics, 'utf-8').toString('base64') },
+    ],
+  };
 }
 
 interface MusicReceivedParams {
@@ -77,23 +100,17 @@ interface MusicReceivedParams {
   division: string;
 }
 
-export async function sendMusicReceivedEmail(p: MusicReceivedParams): Promise<EmailResult> {
-  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
-  try {
-    const resend = getResend();
-    const { error } = await resend.emails.send({
-      from: FROM,
-      to: p.to,
-      replyTo: REPLY_TO,
-      subject: `Music received for VSYC-26 — ${p.firstName}`,
-      html: buildMusicReceivedHtml(p),
-      text: buildMusicReceivedText(p),
-    });
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: String(e) };
-  }
+export async function sendMusicReceivedEmail(p: MusicReceivedParams, opts?: QueueOptions): Promise<EmailResult> {
+  return queueEmail({ template: 'music_received', params: p }, opts);
+}
+
+function renderMusicReceived(p: MusicReceivedParams): RenderedEmail {
+  return {
+    to: p.to,
+    subject: `Music received for VSYC-26 — ${p.firstName}`,
+    html: buildMusicReceivedHtml(p),
+    text: buildMusicReceivedText(p),
+  };
 }
 
 interface PaymentReminderParams {
@@ -104,23 +121,17 @@ interface PaymentReminderParams {
   confirmUrl: string;
 }
 
-export async function sendPaymentReminderEmail(p: PaymentReminderParams): Promise<EmailResult> {
-  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
-  try {
-    const resend = getResend();
-    const { error } = await resend.emails.send({
-      from: FROM,
-      to: p.to,
-      replyTo: REPLY_TO,
-      subject: `VSYC-26 Payment Reminder — ${p.firstName}`,
-      html: buildPaymentReminderHtml(p),
-      text: buildPaymentReminderText(p),
-    });
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: String(e) };
-  }
+export async function sendPaymentReminderEmail(p: PaymentReminderParams, opts?: QueueOptions): Promise<EmailResult> {
+  return queueEmail({ template: 'payment_reminder', params: p }, { priority: 2, ...opts });
+}
+
+function renderPaymentReminder(p: PaymentReminderParams): RenderedEmail {
+  return {
+    to: p.to,
+    subject: `VSYC-26 Payment Reminder — ${p.firstName}`,
+    html: buildPaymentReminderHtml(p),
+    text: buildPaymentReminderText(p),
+  };
 }
 
 interface SpectatorConfirmationParams {
@@ -131,30 +142,24 @@ interface SpectatorConfirmationParams {
   portalUrl?: string;
 }
 
-export async function sendSpectatorConfirmationEmail(p: SpectatorConfirmationParams): Promise<EmailResult> {
-  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
-  try {
-    const resend = getResend();
-    const ics = buildVsyc26Ics({
-      uid: `spectator-${p.spectatorId}`,
-      summary: 'VSYC-26 — Virginia State Yo-Yo Contest (Spectator RSVP)',
-    });
-    const { error } = await resend.emails.send({
-      from: FROM,
-      to: p.to,
-      replyTo: REPLY_TO,
-      subject: `You're on the list for VSYC-26, ${p.firstName}!`,
-      html: buildSpectatorConfirmationHtml(p),
-      text: buildSpectatorConfirmationText(p),
-      attachments: [
-        { filename: 'VSYC-26.ics', content: Buffer.from(ics, 'utf-8').toString('base64') },
-      ],
-    });
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: String(e) };
-  }
+export async function sendSpectatorConfirmationEmail(p: SpectatorConfirmationParams, opts?: QueueOptions): Promise<EmailResult> {
+  return queueEmail({ template: 'spectator_confirmation', params: p }, opts);
+}
+
+function renderSpectatorConfirmation(p: SpectatorConfirmationParams): RenderedEmail {
+  const ics = buildVsyc26Ics({
+    uid: `spectator-${p.spectatorId}`,
+    summary: 'VSYC-26 — Virginia State Yo-Yo Contest (Spectator RSVP)',
+  });
+  return {
+    to: p.to,
+    subject: `You're on the list for VSYC-26, ${p.firstName}!`,
+    html: buildSpectatorConfirmationHtml(p),
+    text: buildSpectatorConfirmationText(p),
+    attachments: [
+      { filename: 'VSYC-26.ics', content: Buffer.from(ics, 'utf-8').toString('base64') },
+    ],
+  };
 }
 
 interface VolunteerConfirmationParams {
@@ -166,23 +171,78 @@ interface VolunteerConfirmationParams {
   otherRoleDescription?: string;
 }
 
-export async function sendVolunteerConfirmationEmail(p: VolunteerConfirmationParams): Promise<EmailResult> {
-  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
-  try {
-    const resend = getResend();
-    const { error } = await resend.emails.send({
-      from: FROM,
-      to: p.to,
-      replyTo: REPLY_TO,
-      subject: `Volunteer application received — VSYC-26, ${p.firstName}`,
-      html: buildVolunteerConfirmationHtml(p),
-      text: buildVolunteerConfirmationText(p),
-    });
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: String(e) };
-  }
+export async function sendVolunteerConfirmationEmail(p: VolunteerConfirmationParams, opts?: QueueOptions): Promise<EmailResult> {
+  return queueEmail({ template: 'volunteer_confirmation', params: p }, opts);
+}
+
+function renderVolunteerConfirmation(p: VolunteerConfirmationParams): RenderedEmail {
+  return {
+    to: p.to,
+    subject: `Volunteer application received — VSYC-26, ${p.firstName}`,
+    html: buildVolunteerConfirmationHtml(p),
+    text: buildVolunteerConfirmationText(p),
+  };
+}
+
+interface PaymentReceivedParams {
+  to: string;
+  firstName: string;
+  amountCents: number;
+  registrationId: string;
+  confirmUrl: string;
+}
+
+/** Sent once per registration when Stripe confirms payment (dedupe key payment:<id>). */
+export async function sendPaymentReceivedEmail(p: PaymentReceivedParams, opts?: QueueOptions): Promise<EmailResult> {
+  return queueEmail({ template: 'payment_received', params: p }, opts);
+}
+
+function renderPaymentReceived(p: PaymentReceivedParams): RenderedEmail {
+  const amount = `$${(p.amountCents / 100).toFixed(2)}`;
+  return {
+    to: p.to,
+    subject: `Payment received for VSYC-26 — you're all set, ${p.firstName}`,
+    html: emailWrap(`
+      <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Payment received</h1>
+      <p style="font-size:0.9rem;margin:0 0 24px;">Thanks, ${esc(p.firstName)}. We received your ${amount} VSYC-26 entry payment. You don't need to pay again.</p>
+      <a href="${esc(p.confirmUrl)}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;">VIEW YOUR REGISTRATION →</a>
+      <p style="font-size:0.75rem;color:#6a7a9a;margin:16px 0 0;">Registration ID: ${esc(p.registrationId)}</p>
+    `),
+    text: [
+      `Payment received — VSYC-26`,
+      ``,
+      `Thanks, ${p.firstName}. We received your ${amount} VSYC-26 entry payment. You don't need to pay again.`,
+      ``,
+      `View your registration: ${p.confirmUrl}`,
+      `Registration ID: ${p.registrationId}`,
+      ``,
+      `Questions? Reply to this email or contact contact@dmvthrowers.club`,
+    ].join('\n'),
+  };
+}
+
+interface AdminAlertParams {
+  subject: string;
+  /** Plain-text lines; rendered one per paragraph. */
+  lines: string[];
+}
+
+/** Organizer alert, e.g. a duplicate payment that needs a refund decision. */
+export async function sendAdminAlertEmail(p: AdminAlertParams, opts?: QueueOptions): Promise<EmailResult> {
+  return queueEmail({ template: 'admin_alert', params: p }, { priority: 1, ...opts });
+}
+
+function renderAdminAlert(p: AdminAlertParams): RenderedEmail {
+  return {
+    to: process.env.ADMIN_ALERT_EMAIL || 'contact@dmvthrowers.club',
+    subject: `[VSYC admin] ${p.subject}`,
+    html: emailWrap(`
+      <h1 style="font-family:Georgia,serif;font-size:1.4rem;color:#C9A84C;margin:0 0 16px;">${esc(p.subject)}</h1>
+      ${p.lines.map((l) => `<p style="font-size:0.85rem;margin:0 0 10px;">${esc(l)}</p>`).join('')}
+      <a href="${BASE_URL}/admin-dashboard" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;margin-top:8px;">OPEN ADMIN DASHBOARD →</a>
+    `),
+    text: [p.subject, '', ...p.lines, '', `Admin dashboard: ${BASE_URL}/admin-dashboard`].join('\n'),
+  };
 }
 
 // ─── HTML builders ───────────────────────────────────────────────────────────
@@ -444,23 +504,17 @@ interface VolunteerConfirmedParams {
   shiftPreference?: string;
 }
 
-export async function sendVolunteerConfirmedEmail(p: VolunteerConfirmedParams): Promise<EmailResult> {
-  if (!canSendEmail()) return { ok: false, error: 'resend_not_configured' };
-  try {
-    const resend = getResend();
-    const { error } = await resend.emails.send({
-      from: FROM,
-      to: p.to,
-      replyTo: REPLY_TO,
-      subject: `You're confirmed for VSYC-26, ${p.firstName} — plus your discount code`,
-      html: buildVolunteerConfirmedHtml(p),
-      text: buildVolunteerConfirmedText(p),
-    });
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: String(e) };
-  }
+export async function sendVolunteerConfirmedEmail(p: VolunteerConfirmedParams, opts?: QueueOptions): Promise<EmailResult> {
+  return queueEmail({ template: 'volunteer_confirmed', params: p }, opts);
+}
+
+function renderVolunteerConfirmed(p: VolunteerConfirmedParams): RenderedEmail {
+  return {
+    to: p.to,
+    subject: `You're confirmed for VSYC-26, ${p.firstName} — plus your discount code`,
+    html: buildVolunteerConfirmedHtml(p),
+    text: buildVolunteerConfirmedText(p),
+  };
 }
 
 function buildVolunteerConfirmedHtml(p: VolunteerConfirmedParams): string {
@@ -522,55 +576,71 @@ interface SurveyInviteBatchParams {
   reminder?: boolean;
 }
 
+interface SurveyInviteParams extends SurveyInviteRecipient {
+  audienceLabel: string;
+  surveyUrl: string;
+  extraLine?: string;
+  isTest?: boolean;
+  reminder?: boolean;
+}
+
 export interface SurveyInviteBatchResult {
+  /** Sent during this request. */
   sent: number;
+  /** Stored in the outbox; they go out as the daily email limit allows. */
+  queued: number;
   failed: { email: string; error: string }[];
 }
 
 /**
- * Sends the post-event survey link to a list of recipients using Resend's
- * batch endpoint (100 emails per request), so a few hundred invites finish
- * well inside the serverless function timeout. One email per recipient —
- * nobody sees anyone else's address.
+ * Queues the survey link for each recipient, one email per person so nobody
+ * sees anyone else's address. Invites are bulk email: the outbox sends them at
+ * up to 2 a second within the daily limit shared with the YoYo Map, and
+ * whatever doesn't fit today goes out after the 00:00 UTC reset. A test send
+ * is priority 0 and goes out right away.
  */
 export async function sendSurveyInviteBatch(p: SurveyInviteBatchParams): Promise<SurveyInviteBatchResult> {
-  if (!canSendEmail()) {
-    return { sent: 0, failed: p.recipients.map((r) => ({ email: r.to, error: 'resend_not_configured' })) };
-  }
-  const resend = getResend();
-  const result: SurveyInviteBatchResult = { sent: 0, failed: [] };
+  const emails: OutboxEmail[] = p.recipients.map((r) => ({
+    template: 'survey_invite',
+    params: {
+      ...r,
+      audienceLabel: p.audienceLabel,
+      surveyUrl: p.surveyUrl,
+      extraLine: p.extraLine,
+      isTest: p.isTest,
+      reminder: p.reminder,
+    },
+  }));
 
-  for (let i = 0; i < p.recipients.length; i += 100) {
-    const chunk = p.recipients.slice(i, i + 100);
-    try {
-      const { error } = await resend.batch.send(
-        chunk.map((r) => ({
-          from: FROM,
-          to: r.to,
-          ...(r.cc?.length ? { cc: r.cc } : {}),
-          replyTo: REPLY_TO,
-          subject: `${p.isTest ? '[TEST] ' : ''}${p.reminder
-            ? 'Still time: tell us what you thought of VSYC-26'
-            : 'How was VSYC-26? A few minutes to shape VSYC-27'}`,
-          html: p.reminder
-            ? buildSurveyReminderHtml(r.firstName, p.surveyUrl)
-            : buildSurveyInviteHtml(r.firstName, p.audienceLabel, p.surveyUrl, p.extraLine),
-          text: p.reminder
-            ? buildSurveyReminderText(r.firstName, p.surveyUrl)
-            : buildSurveyInviteText(r.firstName, p.audienceLabel, p.surveyUrl, p.extraLine),
-        })),
-      );
-      if (error) {
-        result.failed.push(...chunk.map((r) => ({ email: r.to, error: error.message })));
-      } else {
-        result.sent += chunk.length;
-      }
-    } catch (e) {
-      result.failed.push(...chunk.map((r) => ({ email: r.to, error: String(e) })));
+  if (p.isTest) {
+    const result: SurveyInviteBatchResult = { sent: 0, queued: 0, failed: [] };
+    for (const [i, email] of emails.entries()) {
+      const r = await queueEmail(email, { priority: 0 });
+      if (!r.ok) result.failed.push({ email: p.recipients[i].to, error: r.error });
+      else if (r.queued) result.queued += 1;
+      else result.sent += 1;
     }
+    return result;
   }
 
-  return result;
+  const { queued, failed } = await enqueueEmails(emails, { priority: 2 });
+  return { sent: 0, queued, failed };
+}
+
+function renderSurveyInvite(p: SurveyInviteParams): RenderedEmail {
+  return {
+    to: p.to,
+    ...(p.cc?.length ? { cc: p.cc } : {}),
+    subject: `${p.isTest ? '[TEST] ' : ''}${p.reminder
+      ? 'Still time: tell us what you thought of VSYC-26'
+      : 'How was VSYC-26? A few minutes to shape VSYC-27'}`,
+    html: p.reminder
+      ? buildSurveyReminderHtml(p.firstName, p.surveyUrl)
+      : buildSurveyInviteHtml(p.firstName, p.audienceLabel, p.surveyUrl, p.extraLine),
+    text: p.reminder
+      ? buildSurveyReminderText(p.firstName, p.surveyUrl)
+      : buildSurveyInviteText(p.firstName, p.audienceLabel, p.surveyUrl, p.extraLine),
+  };
 }
 
 function buildSurveyInviteHtml(firstName: string, audienceLabel: string, surveyUrl: string, extraLine?: string): string {

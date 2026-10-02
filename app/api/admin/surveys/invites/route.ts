@@ -161,7 +161,9 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 /**
  * POST /api/admin/surveys/invites
  *
- * Emails the survey link to one audience. Body: { audience, force?, test?, reminder? }.
+ * Queues the survey link for one audience in the email outbox, which sends it
+ * within the daily email limit shared with the YoYo Map (anything over today's
+ * limit goes out after 00:00 UTC). Body: { audience, force?, test?, reminder? }.
  * test: true sends only that audience's email to TEST_EMAIL, marked [TEST].
  * reminder: true sends the "still time" follow-up instead, skipping anyone who
  * already answered with their email; it needs the invite to have gone out first.
@@ -192,12 +194,15 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     });
     await logAudit('survey_invite_test_sent', {
       actor: auth.email ?? 'admin',
-      details: { audience, to: TEST_EMAIL, ok: result.sent === 1, reminder },
+      details: { audience, to: TEST_EMAIL, ok: result.sent + result.queued === 1, queued: result.queued === 1, reminder },
     });
-    if (result.sent !== 1) {
+    if (result.sent + result.queued !== 1) {
       return apiError('upstream_error', `Test email failed: ${result.failed[0]?.error ?? 'unknown error'}`, requestId);
     }
-    return NextResponse.json({ ok: true, test: true, audience, to: TEST_EMAIL, reminder }, { headers: { 'x-request-id': requestId } });
+    return NextResponse.json(
+      { ok: true, test: true, audience, to: TEST_EMAIL, reminder, queued: result.queued === 1 },
+      { headers: { 'x-request-id': requestId } },
+    );
   }
 
   const action = reminder ? REMINDER_ACTION : AUDIT_ACTION;
@@ -235,7 +240,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     details: {
       audience,
       total_recipients: recipients.length,
-      sent: result.sent,
+      queued: result.queued,
       failed: result.failed.length,
       failed_emails: result.failed.map((f) => f.email),
       resend: Boolean(previous),
@@ -244,7 +249,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   });
 
   return NextResponse.json(
-    { ok: true, audience, reminder, total: recipients.length, skipped, sent: result.sent, failed: result.failed },
+    { ok: true, audience, reminder, total: recipients.length, skipped, queued: result.queued, failed: result.failed },
     { headers: { 'x-request-id': requestId } },
   );
 });

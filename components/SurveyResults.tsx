@@ -124,7 +124,9 @@ export default function SurveyResults({ token }: { token: string }) {
       });
       const json = await res.json();
       setStatusMsg(res.ok
-        ? `Test ${TYPE_LABELS[a.audience].toLowerCase()} ${reminder ? 'reminder' : 'invite'} sent to ${json.to}. Check that inbox (and spam).`
+        ? json.queued
+          ? `Test ${TYPE_LABELS[a.audience].toLowerCase()} ${reminder ? 'reminder' : 'invite'} queued for ${json.to}: today's email limit is reached, so it sends after midnight UTC.`
+          : `Test ${TYPE_LABELS[a.audience].toLowerCase()} ${reminder ? 'reminder' : 'invite'} sent to ${json.to}. Check that inbox (and spam).`
         : json.error?.message ?? 'Test send failed.');
     } catch {
       setStatusMsg('Network error sending test.');
@@ -153,7 +155,7 @@ export default function SurveyResults({ token }: { token: string }) {
         setStatusMsg(json.error?.message ?? 'Send failed.');
       } else {
         const failed = (json.failed as { email: string }[]).length;
-        setStatusMsg(`Sent ${json.sent} of ${json.total} ${label} invites${failed ? ` · ${failed} failed` : ''}.`);
+        setStatusMsg(`Queued ${json.queued} of ${json.total} ${label} invites${failed ? ` · ${failed} failed` : ''}. They send within the daily email limit; any over today's limit go out after midnight UTC.`);
         await fetchData();
       }
     } catch {
@@ -184,7 +186,7 @@ export default function SurveyResults({ token }: { token: string }) {
         setStatusMsg(json.error?.message ?? 'Reminder failed.');
       } else {
         const failed = (json.failed as { email: string }[]).length;
-        setStatusMsg(`Sent ${json.sent} of ${json.total} ${label} reminders${json.skipped ? ` · ${json.skipped} skipped (already answered)` : ''}${failed ? ` · ${failed} failed` : ''}.`);
+        setStatusMsg(`Queued ${json.queued} of ${json.total} ${label} reminders${json.skipped ? ` · ${json.skipped} skipped (already answered)` : ''}${failed ? ` · ${failed} failed` : ''}. They send within the daily email limit; any over today's limit go out after midnight UTC.`);
         await fetchData();
       }
     } catch {

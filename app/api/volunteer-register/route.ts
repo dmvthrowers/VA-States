@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { volunteerSchema } from '@/lib/validation';
@@ -7,12 +7,6 @@ import { sendVolunteerConfirmationEmail } from '@/lib/email';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getVolunteerRole } from '@/lib/volunteer-roles';
 
-async function awaitWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
-  return await Promise.race([
-    promise,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-  ]);
-}
 
 /**
  * POST /api/volunteer-register
@@ -98,17 +92,18 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     details: { volunteer_id: volunteer.id, role_choice_1: data.role_choice_1, role_choice_2: data.role_choice_2 || null },
   });
 
-  await awaitWithTimeout(
-    sendVolunteerConfirmationEmail({
+  // Through the outbox (stored, then sent or retried); after() lets it finish
+  // once the response is out.
+  after(async () => {
+    await sendVolunteerConfirmationEmail({
       to: data.email,
       firstName: data.first_name,
       volunteerId: volunteer.id,
       roleChoice1Label: roleChoice1.label,
       roleChoice2Label: roleChoice2?.label,
       otherRoleDescription: data.other_role_description || undefined,
-    }),
-    2500,
-  );
+    }, { dedupeKey: `volunteer_application:${volunteer.id}` });
+  });
 
   return NextResponse.json(
     { id: volunteer.id },

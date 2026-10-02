@@ -22,12 +22,17 @@ function ConfirmContent() {
   const params = useSearchParams();
   const id = params.get('id');
   const canceled = params.get('canceled') === '1';
+  // Stripe only redirects here with paid=1 after a successful payment. The
+  // webhook can lag a few seconds (or longer), so poll until it's recorded
+  // instead of showing a pay button that invites a second payment.
+  const returnedFromStripe = params.get('paid') === '1';
 
   const [data, setData] = useState<ConfirmData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<'polling' | 'timeout' | null>(null);
 
   const payNow = async () => {
     if (!id) return;
@@ -59,6 +64,34 @@ function ConfirmContent() {
       .then((d: ConfirmData) => { setData(d); setLoading(false); })
       .catch((e: string) => { setError(e); setLoading(false); });
   }, [id]);
+
+  const awaitingStripe = Boolean(returnedFromStripe && data && data.fee_cents > 0 && !data.paid);
+  useEffect(() => {
+    if (!awaitingStripe || !id) return;
+    let cancelled = false;
+    let tries = 0;
+    setConfirming('polling');
+    const poll = async () => {
+      if (cancelled) return;
+      tries += 1;
+      try {
+        const res = await fetch(`/api/checkout/status?id=${encodeURIComponent(id)}`, { cache: 'no-store' });
+        const json = await res.json() as { paid?: boolean };
+        if (!cancelled && json.paid) {
+          setData((d) => (d ? { ...d, paid: true } : d));
+          setConfirming(null);
+          return;
+        }
+      } catch {
+        // Network blip: keep polling.
+      }
+      if (cancelled) return;
+      if (tries >= 20) setConfirming('timeout'); // ~60 seconds
+      else setTimeout(poll, 3000);
+    };
+    poll();
+    return () => { cancelled = true; };
+  }, [awaitingStripe, id]);
 
   const musicNeedsUpload = data && data.divisions.some(d => ['1A', '2A', '3A', '4A', '5A'].includes(d));
   const canUploadMusic = Boolean(data?.music_upload_url);
@@ -123,8 +156,22 @@ function ConfirmContent() {
               </ol>
             </section>
 
+            {/* Back from Stripe, payment not recorded yet: confirm, never offer to pay again */}
+            {awaitingStripe && (
+              <section role="status" aria-live="polite" style={{ background: 'var(--navy)', border: '2px solid var(--gold)', padding: '2rem', marginBottom: '2rem' }}>
+                <h2 style={{ color: 'var(--gold)', fontFamily: "'Playfair Display', serif", margin: '0 0 1rem', fontSize: '1.3rem' }}>
+                  {confirming === 'timeout' ? 'Payment received by Stripe, still confirming' : 'Confirming your payment…'}
+                </h2>
+                <p style={{ color: 'var(--text-body)', margin: 0 }}>
+                  {confirming === 'timeout'
+                    ? "Stripe hasn't confirmed your payment to us yet. That's usually a short delay on their side. Don't pay again. We'll email you as soon as it clears, and this page will show it when you reload."
+                    : "This usually takes a few seconds. Please don't pay again or close this page."}
+                </p>
+              </section>
+            )}
+
             {/* Payment block */}
-            {data.fee_cents > 0 && !data.paid && (
+            {data.fee_cents > 0 && !data.paid && !awaitingStripe && (
               <section aria-labelledby="payment-heading" style={{ background: 'var(--navy)', border: '2px solid var(--gold)', padding: '2rem', marginBottom: '2rem' }}>
                 <h2 id="payment-heading" style={{ color: 'var(--gold)', fontFamily: "'Playfair Display', serif", margin: '0 0 1rem', fontSize: '1.3rem' }}>
                   Step 1 — Pay your entry fee

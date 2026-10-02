@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { isCodeLocked, recordFailedCodeAttempt } from '@/lib/comp-code-guard';
@@ -13,12 +13,6 @@ import type { Division, RegistrationSource } from '@/lib/pricing';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
 
-async function awaitWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
-  return await Promise.race([
-    promise,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-  ]);
-}
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   // 1. Rate limit — 3 registrations per IP per hour
@@ -62,23 +56,24 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
   // 5. Comp code validation
   let compDiscountPercent = 0;
+  let compCodeRedeemed = false;
   if (data.comp_code) {
     if (await isCodeLocked(data.comp_code)) {
       return apiError('unprocessable', 'Comp code is invalid, expired, or has reached its usage limit.', requestId);
     }
 
-    const { data: code, error } = await supabase
-      .from('vsyc_comp_codes')
-      .select('uses_count, max_uses, expires_at, active, discount_percent')
-      .eq('code', data.comp_code)
-      .single();
+    // Claims one use atomically (only while active, unexpired and under
+    // max_uses), so two registrations can't both take a code's last use.
+    // Released below if the registration insert fails.
+    const { data: discount, error } = await supabase.rpc('redeem_comp_code', { p_code: data.comp_code });
 
-    if (error || !code || !code.active || code.uses_count >= code.max_uses || new Date(code.expires_at) < now) {
+    if (error || discount === null || discount === undefined) {
       await recordFailedCodeAttempt(data.comp_code);
       await logAudit('comp_code_invalid_attempt', { actor: 'anonymous', details: { ip, code: data.comp_code, via: 'register' } });
       return apiError('unprocessable', 'Comp code is invalid, expired, or has reached its usage limit.', requestId);
     }
-    compDiscountPercent = code.discount_percent;
+    compDiscountPercent = discount as number;
+    compCodeRedeemed = true;
   }
 
   // 6. Calculate fee
@@ -150,39 +145,28 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
   if (insertError || !reg) {
     console.error('[register] insert error:', insertError);
+    if (compCodeRedeemed && data.comp_code) {
+      await supabase.rpc('release_comp_code', { p_code: data.comp_code });
+    }
     return apiError('upstream_error', 'Failed to save registration. Please try again.', requestId);
   }
 
-  // 9. Increment comp code usage (read-then-write; races are acceptable given small caps)
-  const compCodeValid = compDiscountPercent > 0;
-  if (data.comp_code && compCodeValid) {
-    const { data: currentCode } = await supabase
-      .from('vsyc_comp_codes')
-      .select('uses_count')
-      .eq('code', data.comp_code)
-      .single();
-    if (currentCode) {
-      await supabase
-        .from('vsyc_comp_codes')
-        .update({ uses_count: currentCode.uses_count + 1 })
-        .eq('code', data.comp_code);
-    }
-  }
-
-  // 10. Audit
+  // 9. Audit (the comp code use was already claimed in step 5)
+  const compCodeValid = compCodeRedeemed;
   await logAudit('created', {
     registrationId: reg.id,
     actor: 'system',
     details: { source, fee_cents: feeResult.fee_cents, divisions: data.divisions, comp_code: compCodeValid ? data.comp_code : null },
   });
 
-  // 11. Send confirmation email (bounded wait so email provider issues do not
-  // extend request duration and consume serverless execution budget).
+  // 10. Confirmation email. It goes through the outbox (stored, then sent;
+  // retried later if Resend is slow or the daily limit is hit), and after()
+  // lets it finish once the response is out so the registrant isn't kept waiting.
   const confirmUrl = `${BASE_URL}/confirm?id=${reg.id}`;
   const musicUploadUrl = `${BASE_URL}/upload?token=${musicUploadToken}`;
 
-  const emailJobs: Array<Promise<unknown>> = [
-    sendConfirmationEmail({
+  const emailJobs: Array<() => Promise<unknown>> = [
+    () => sendConfirmationEmail({
       to: data.email,
       firstName: data.first_name,
       lastName: data.last_name,
@@ -192,14 +176,15 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       confirmUrl,
       musicUploadUrl,
       registrationId: reg.id,
-    }),
+    }, { dedupeKey: `confirmation:${reg.id}:${data.email.toLowerCase()}` }),
   ];
 
   // BCC parent if minor
   if (data.age_on_event < 18 && data.parent_email) {
+    const parentEmail = data.parent_email;
     emailJobs.push(
-      sendConfirmationEmail({
-        to: data.parent_email,
+      () => sendConfirmationEmail({
+        to: parentEmail,
         firstName: data.first_name,
         lastName: data.last_name,
         divisions: data.divisions,
@@ -208,11 +193,13 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
         confirmUrl,
         musicUploadUrl,
         registrationId: reg.id,
-      })
+      }, { dedupeKey: `confirmation:${reg.id}:${parentEmail.toLowerCase()}` })
     );
   }
 
-  await awaitWithTimeout(Promise.allSettled(emailJobs), 2500);
+  after(async () => {
+    await Promise.allSettled(emailJobs.map((job) => job()));
+  });
 
   return NextResponse.json(
     {
