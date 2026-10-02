@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { getStripe, hasStripeCredentials } from '@/lib/stripe';
 import { logAudit } from '@/lib/audit';
 import { applyPaidSession } from '@/lib/payments';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -29,6 +30,14 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowe
  * never need to hit Stripe.
  */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
+  // Every call can create a real Stripe Checkout Session, so cap it per IP.
+  // A real payer needs one or two tries; 10 per 15 minutes leaves room for a
+  // shared network (a family registering several kids) without allowing spam.
+  const ip = getClientIp(req.headers);
+  if (!(await checkRateLimit(ip, 'checkout', 10, 15))) {
+    return apiError('rate_limited', 'Too many payment attempts. Please wait a few minutes and try again.', requestId, { 'Retry-After': '900' });
+  }
+
   if (!hasStripeCredentials()) {
     return apiError('upstream_error', 'Online card payment is not configured yet.', requestId);
   }

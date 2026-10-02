@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const signupSchema = z.object({
   registration_id: z.string().uuid('Invalid registration ID'),
@@ -10,6 +11,13 @@ const signupSchema = z.object({
 });
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
+  // Each call checks a registration id + email pair and can create an auth
+  // user, so cap it per IP like the other public write routes.
+  const ip = getClientIp(req.headers);
+  if (!(await checkRateLimit(ip, 'player-signup', 5, 60))) {
+    return apiError('rate_limited', 'Too many sign-up attempts. Please try again later.', requestId, { 'Retry-After': '3600' });
+  }
+
   let body: unknown;
   try {
     body = await req.json();
