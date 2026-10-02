@@ -3,6 +3,7 @@ import { withErrorHandling } from '@/lib/api-error';
 import { requireCronOrAdmin } from '@/lib/auth/cron';
 import { drainOutbox } from '@/lib/outbox';
 import { isSignedByQstash } from '@/lib/qstash';
+import { heartbeat } from '@/lib/heartbeat';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,14 @@ async function handle(requestId: string, req: NextRequest) {
     if (denied) return denied;
   }
 
-  const summary = await drainOutbox(60);
+  let summary;
+  try {
+    summary = await drainOutbox(60);
+  } catch (e) {
+    await heartbeat('vsyc-drain-email', 'fail');
+    throw e;
+  }
+  await heartbeat('vsyc-drain-email', summary.claimFailed ? 'fail' : 'ok');
   return NextResponse.json({ ok: true, ...summary }, { headers: { 'x-request-id': requestId } });
 }
 
