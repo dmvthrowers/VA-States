@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- next.config.js is CommonJS
+const { withSentryConfig } = require('@sentry/nextjs/config');
+
 /** @type {import('next').NextConfig} */
 const csp = [
   "default-src 'self'",
@@ -5,7 +8,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://dmvthrowers.club https://*.dmvthrowers.club",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -35,4 +38,10 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+// Source maps upload only when SENTRY_AUTH_TOKEN, SENTRY_ORG and
+// SENTRY_PROJECT are set; builds without them skip the upload.
+module.exports = withSentryConfig(nextConfig, {
+  silent: !process.env.CI,
+  telemetry: false,
+  widenClientFileUpload: true,
+});
