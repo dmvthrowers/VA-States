@@ -1,0 +1,93 @@
+name: Database backup
+
+# Nightly encrypted dump of the VSYC-26 registration Supabase database, kept as a 30-day
+# workflow artifact. The dump holds personal data, so it is encrypted with
+# an age public key before upload; only the matching private key, which
+# never touches GitHub, can read it.
+#
+# Off until these are set (Settings → Secrets and variables → Actions):
+#   secret   SUPABASE_DB_URL        Session pooler connection string
+#                                   (Supabase → Connect → Session pooler;
+#                                   the direct host is IPv6-only)
+#   variable BACKUP_AGE_RECIPIENT   age public key (age1...)
+#   secret   HEALTHCHECKS_PING_KEY  optional; alerts when a backup fails
+#                                   or stops running
+#
+# Restore: age -d -i key.txt db-backup-*.tar.gz.age | tar -xz, then load
+# roles.sql, schema.sql and data.sql with psql (see Supabase's
+# "Backup and restore using the CLI" guide).
+
+on:
+  schedule:
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+      HC_PING_KEY: ${{ secrets.HEALTHCHECKS_PING_KEY }}
+      HC_SLUG: vsyc-db-backup
+    steps:
+      - name: Check configuration
+        id: config
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$AGE_RECIPIENT" ]; then
+            echo "::notice::SUPABASE_DB_URL or BACKUP_AGE_RECIPIENT not set; skipping backup."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$AGE_RECIPIENT" != age1* ]]; then
+            echo "::error::BACKUP_AGE_RECIPIENT must be an age public key (age1...)."
+            exit 1
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: supabase/setup-cli@v3
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          version: latest
+
+      - name: Install age
+        if: steps.config.outputs.enabled == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+
+      - name: Dump and encrypt
+        if: steps.config.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          umask 077
+          work="$(mktemp -d)"
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$work/roles.sql" --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$work/schema.sql"
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$work/data.sql" --use-copy --data-only
+          out="db-backup-$(date -u +%Y-%m-%d).tar.gz.age"
+          tar -czf - -C "$work" roles.sql schema.sql data.sql | age -r "$AGE_RECIPIENT" -o "$out"
+          rm -rf "$work"
+          echo "BACKUP_FILE=$out" >> "$GITHUB_ENV"
+          ls -l "$out"
+
+      - uses: actions/upload-artifact@v7
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          name: ${{ env.BACKUP_FILE }}
+          path: ${{ env.BACKUP_FILE }}
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Report to Healthchecks.io
+        if: always() && steps.config.outputs.enabled == 'true' && env.HC_PING_KEY != ''
+        run: |
+          suffix=""
+          [ "${{ job.status }}" = "success" ] || suffix="/fail"
+          curl -fsS -m 10 --retry 3 -X POST "https://hc-ping.com/$HC_PING_KEY/$HC_SLUG$suffix?create=1" > /dev/null || true

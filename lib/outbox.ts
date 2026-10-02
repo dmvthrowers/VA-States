@@ -1,4 +1,5 @@
 import { after } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { createAdminClient } from './supabase/admin';
 import { FROM, REPLY_TO, renderEmail, type EmailResult, type OutboxEmail, type RenderedEmail } from './email';
 import {
@@ -141,6 +142,11 @@ async function settleRow(row: Pick<OutboxRow, 'id' | 'attempts'>, result: SendRe
       .update({ attempts, dead_at: now.toISOString(), last_error: result.error })
       .eq('id', row.id);
     console.error('[outbox] gave up on email', row.id, result.error);
+    // Ids only: the error text and row can hold registrant addresses.
+    Sentry.captureMessage('Email gave up after retries', {
+      level: 'error',
+      tags: { outbox_id: row.id, result: result.kind },
+    });
     return 'dead';
   }
   await supabase.from('email_outbox')
@@ -248,6 +254,8 @@ export interface DrainSummary {
   sent: number;
   requeued: number;
   dead: number;
+  /** Set when the database couldn't be asked for due rows. */
+  claimFailed?: boolean;
 }
 
 /**
@@ -263,7 +271,8 @@ export async function drainOutbox(limit = 60, timeBudgetMs = 40_000): Promise<Dr
   const { data: rows, error } = await supabase.rpc('claim_email_outbox', { p_limit: limit });
   if (error || !rows) {
     console.error('[outbox] claim failed:', error);
-    return summary;
+    Sentry.captureException(error ?? new Error('claim_email_outbox returned no rows'));
+    return { ...summary, claimFailed: true };
   }
   summary.claimed = rows.length;
 
@@ -301,6 +310,7 @@ export async function drainOutbox(limit = 60, timeBudgetMs = 40_000): Promise<Dr
       else summary.dead += 1;
     } catch (e) {
       console.error('[outbox] drain row failed:', row.id, e);
+      Sentry.captureException(e, { tags: { outbox_id: row.id } });
       await release(row.id);
     }
   }
