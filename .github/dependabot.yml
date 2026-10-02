@@ -1,0 +1,39 @@
+version: 2
+
+updates:
+  # Group non-breaking npm updates into one prod PR + one dev PR; majors stay
+  # individual so they're reviewed on their own.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    groups:
+      npm-prod:
+        dependency-type: production
+        update-types:
+          - patch
+          - minor
+      npm-dev:
+        dependency-type: development
+        update-types:
+          - patch
+          - minor
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      patch-and-minor:
+        update-types:
+          - patch
+          - minor
