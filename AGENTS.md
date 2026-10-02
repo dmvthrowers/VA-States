@@ -36,15 +36,16 @@ fixes, comp-code desync fix. Treat this as actively developed, not finished-and-
 app/              pages + API routes -- admin, admin-dashboard, budget, competitors, confirm,
                   directory, dj, fee-calculator, judge, player, policies, portal, results,
                   spectate, spectators, staff, upload, volunteer
-components/       BudgetManager, DirectoryClient, Footer, NavBar, RunOrderManager,
-                  VolunteerManager
+components/       BudgetManager, DirectoryClient, Footer, NavBar, RunOrderBoard,
+                  RunOrderManager, SurveyContacts, SurveyForm, SurveyResults, VolunteerManager
 lib/              pricing.ts, stripe.ts, email.ts, rate-limit.ts, event-flags.ts,
                   comp-code-guard.ts, audit.ts, tokens.ts, validation.ts, ics.ts,
                   auth/staff.ts, auth/admin-request.ts, supabase/client.ts, supabase/admin.ts
-supabase/migrations/   21+ real schema/RLS migrations -- read the newest few before touching
-                  schema, this is a live database with real registrant data
-docs/             REGISTRATION_AUDIT.md, STRIPE_PAYMENTS.md -- read both before touching
-                  payment or registration-status code
+supabase/migrations/   41 real schema/RLS migrations -- read the README and the newest few
+                  before touching schema, this is a live database with real registrant data
+docs/             REPO_GUIDE.md (start here), ROADMAP.md (open work), specs/,
+                  REGISTRATION_AUDIT.md, STRIPE_PAYMENTS.md -- read STRIPE_PAYMENTS.md
+                  before touching payment or registration-status code
 ```
 
 ## Standing rules / things that will bite you if assumed wrong
@@ -52,10 +53,12 @@ docs/             REGISTRATION_AUDIT.md, STRIPE_PAYMENTS.md -- read both before 
 - **This is a live app with real user data and real payments flowing through it.** Treat
   `supabase/migrations/` changes and anything touching `lib/stripe.ts` or the webhook route
   with production-change care, not prototype care.
-- **Auth fails closed by design.** Admin pages and `/api/admin` routes 401 until
-  `ADMIN_PASSWORD` is set — don't "fix" a local 401 by loosening that check. `DJ_PIN` and
-  `JUDGE_PIN` gate the day-of dashboards the same way; each is meant to be shared narrowly
-  (different pin per station) — don't consolidate them into one shared secret.
+- **Auth fails closed by design.** Staff and admins sign in with Supabase Auth; every
+  `/api/admin` route calls `requireAdminRequest()`, which needs a valid bearer token *and* an
+  active `admin` row in `vsyc_staff_accounts` (judge/DJ/audio-tech roles get the day-of
+  portals). Don't "fix" a local 401 by loosening that check — add yourself a staff row instead.
+  There is no shared admin password or PIN: `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DJ_PIN` and
+  `JUDGE_PIN` are not read by any code.
 - **Never commit live secrets** — `.env.local.example` is the template; real values live in
   `.env.local` (gitignored) and Vercel env vars. The README says to treat any credential that
   ever hit git history as compromised and rotate it.
@@ -81,6 +84,8 @@ cp .env.local.example .env.local   # fill Supabase/Stripe/email/auth secrets
 npm run dev                        # local dev server
 npm run build                      # production build validation
 npm run lint                       # ESLint
+npm run typecheck                  # tsc --noEmit (CI gate)
+npm test                           # pure-logic tests for the money paths
 ```
 
 Post-deploy checklist is in `README.md`'s "Deployment" section — public registration/RSVP
