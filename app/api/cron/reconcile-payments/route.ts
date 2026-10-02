@@ -20,7 +20,7 @@ const LOOKBACK_SECONDS = 3 * 24 * 60 * 60;
  * second payment on a paid registration is flagged for the organizer.
  *
  * Called every 15 minutes by Supabase pg_cron while a checkout was started in
- * the last 3 days (migration 0035), daily by Vercel cron, or by an admin.
+ * the last 3 days (migration 0036), daily by Vercel cron, or by an admin.
  */
 async function handle(requestId: string, req: NextRequest) {
   const denied = await requireCronOrAdmin(req, requestId);

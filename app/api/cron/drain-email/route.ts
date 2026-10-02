@@ -10,7 +10,7 @@ export const maxDuration = 60;
 
 /**
  * Send due email_outbox rows. Called every 5 minutes by Supabase pg_cron
- * while a row is due (migration 0035), once a day by Vercel cron just after
+ * while a row is due (migration 0036), once a day by Vercel cron just after
  * the 00:00 UTC quota reset, or by an admin.
  */
 async function handle(requestId: string, req: NextRequest) {

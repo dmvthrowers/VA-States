@@ -24,7 +24,7 @@ import {
 // and sends it right away when today's budget allows; anything that can't go
 // now is retried by drainOutbox(), which runs:
 //   - after each successful send (a few due rows, via after()),
-//   - every 5 minutes from Supabase pg_cron while a row is due (0035),
+//   - every 5 minutes from Supabase pg_cron while a row is due (0036),
 //   - once a day from Vercel cron just after the 00:00 UTC reset.
 // Rules and limits live in lib/email-policy.ts.
 // =============================================================================
