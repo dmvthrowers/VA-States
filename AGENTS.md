@@ -21,7 +21,15 @@ from `yoyo-player-map`'s Supabase** — see `.env.local.example`'s comment), Str
 webhooks for payment, Resend for email, Upstash/Vercel KV for rate limiting, Tailwind CSS,
 Vercel deployment on `main`.
 
-## Real current state (per `docs/REGISTRATION_AUDIT.md`, since built out further)
+## Real current state
+
+As of October 2026 the contest is over and the app is in wrap-up. `docs/REPO_GUIDE.md` is the
+current architecture map and `docs/ROADMAP.md` the prioritized open work; the full October 2026
+audit lives in the club's Google Drive
+([Technical docs - Oct 2026](https://drive.google.com/drive/folders/1Jt7amThKNkeVJenksPtA87cBtR-nwZiq),
+access-restricted). The history below is kept for context.
+
+### History (per `docs/REGISTRATION_AUDIT.md`)
 
 As of the last audit doc in this repo, ~80% of the target feature set was built and the one
 major gap (integrated online payment) has since been closed — `docs/STRIPE_PAYMENTS.md`

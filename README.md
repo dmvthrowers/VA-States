@@ -1,22 +1,28 @@
 # VA-States (VSYC-26 Registration)
 
-Production registration and operations app for the Virginia State Yo-Yo Contest 2026.
+Production registration and operations app for the Virginia State Yo-Yo Contest 2026
+(held September 19, 2026 at Dulles Town Center). Now in post-event wrap-up and VSYC-27 planning.
 
 Primary domain: <https://register.dmvthrowers.club>
 
+**New here?** Read [`docs/REPO_GUIDE.md`](docs/REPO_GUIDE.md) (how the app works) and
+[`AGENTS.md`](AGENTS.md) (standing rules), then [`docs/ROADMAP.md`](docs/ROADMAP.md) (open work).
+
 ## Stack
 
-- Next.js App Router (TypeScript)
-- Supabase (auth + Postgres)
+- Next.js 15 App Router (TypeScript), Node 22
+- Supabase (Auth + Postgres + Storage) — its own project, separate from the YoYo Map's
 - Stripe Checkout + webhooks
-- Vercel deployment
+- Resend email through an outbox table
+- Upstash rate limiting; optional Sentry, Healthchecks.io and QStash
+- Vercel deployment (`main` only, region `iad1`)
 - Tailwind CSS
 
 ## Core Features
 
 - Competitor registration flow with pricing engine and discount codes
 - Spectator RSVP flow with optional public profile
-- Staff/admin auth and event operations dashboard
+- Staff/admin auth (Supabase Auth + `vsyc_staff_accounts` roles) and event operations dashboard
 - Run-order management and results publishing controls
 - Stripe payment capture with webhook reconciliation
 - Policy page and event metadata for discoverability
@@ -50,6 +56,11 @@ npm run dev
 - npm run build: production build validation
 - npm run start: run production build locally
 - npm run lint: ESLint checks
+- npm run typecheck: `tsc --noEmit`
+- npm test: unit tests for the payment and email logic
+
+CI (`.github/workflows/ci.yml`) runs typecheck → lint → test → build on every PR and push to
+`main`. Dependabot opens grouped npm and GitHub Actions updates weekly.
 
 ## Environment and Secrets
 
@@ -78,17 +89,21 @@ The app includes:
 
 - app/robots.ts: crawler directives and sitemap pointer
 - app/sitemap.ts: static route sitemap for key pages
-- app/layout.tsx metadata with canonical support via NEXT_PUBLIC_BASE_URL
+- app/layout.tsx: site-wide metadata (`metadataBase` from NEXT_PUBLIC_BASE_URL, title template
+  `%s · VSYC-26`, post-event Event JSON-LD)
+- a small `layout.tsx` beside each page sets that page's title
 
-`/survey/*` pages are intentionally unlisted: `noindex`, not in the sitemap or nav.
+Personal and day-of pages (`/portal`, `/player`, `/staff`, `/judge`, `/dj`, `/upload`, `/confirm`,
+`/admin-dashboard`, `/spectators/portal`) and `/survey/*` are `noindex` and not in the sitemap.
 
 If the base domain changes, update NEXT_PUBLIC_BASE_URL and redeploy.
 
 ## Security Notes
 
 - CSP and security headers are configured in next.config.js
-- Rate limiting is applied to sensitive API routes
-- Admin/staff route guards enforce role checks server-side
+- Rate limiting is applied to public write routes, including checkout and player signup
+- Admin/staff route guards enforce role checks server-side (no shared admin password or PIN)
+- Errors go to Sentry when `NEXT_PUBLIC_SENTRY_DSN` is set
 - Stripe webhook verifies signatures using STRIPE_WEBHOOK_SECRET
 
 ## Free Tier Stability Profile
@@ -128,12 +143,24 @@ This project is tuned for free tiers across Vercel, Supabase, Redis/KV, and Rese
 - components/: UI and dashboard components
 - lib/: pricing, auth, Supabase, Stripe, and utility modules
 - supabase/migrations/: schema and policy migrations
-- docs/: ops and payment documentation
+- docs/: guides, roadmap, specs, payment documentation
+- .github/workflows/db-backup.yml: nightly age-encrypted database dump (off until its secrets are set)
 
-## Operational Docs
+## Docs
 
-- docs/REGISTRATION_AUDIT.md
-- docs/STRIPE_PAYMENTS.md
+- [docs/REPO_GUIDE.md](docs/REPO_GUIDE.md) — architecture and file map for new contributors
+- [docs/ROADMAP.md](docs/ROADMAP.md) — open work and owner actions, in priority order
+- [docs/STRIPE_PAYMENTS.md](docs/STRIPE_PAYMENTS.md) — payment flow, refunds, reconciliation
+- [docs/specs/idea-board.md](docs/specs/idea-board.md) — planned `/ideas` board for VSYC-27
+- [supabase/migrations/README.md](supabase/migrations/README.md) — how migrations are named and applied
+- [docs/REGISTRATION_AUDIT.md](docs/REGISTRATION_AUDIT.md), [docs/claude-code-specs.md](docs/claude-code-specs.md) — historical (June and Sept 2026)
+
+Issues are off on this repo; contest-app work is tracked on the club site repo with a
+`[VA-States]` prefix ([umbrella issue #78](https://github.com/dmvthrowers/dmvthrowers.github.io/issues/78)).
+
+The full October 2026 technical audit (security assessment, runbooks, repo specs) lives in the
+club's Google Drive: [Technical docs - Oct 2026](https://drive.google.com/drive/folders/1Jt7amThKNkeVJenksPtA87cBtR-nwZiq)
+(access-restricted — ask the coordinator).
 
 ## License
 

@@ -33,7 +33,7 @@ preview deployments are disabled in `vercel.json`.
 | Language | TypeScript 5.9 | `npm run typecheck` = `tsc --noEmit`, gated in CI |
 | Database / auth | Supabase (Postgres + RLS + Auth + Storage) | Its own project, separate from the YoYo Map's |
 | Payments | Stripe 17 (hosted Checkout + webhooks) | See `docs/STRIPE_PAYMENTS.md` |
-| Email | Resend 4 via an outbox table | `vsyc_email_outbox`: daily budget, dedupe keys, drained by cron |
+| Email | Resend 4 via an outbox table | `email_outbox`: daily budget, dedupe keys, drained by cron |
 | Rate limiting | `@upstash/ratelimit` on `@vercel/kv` | Sliding window per IP; **fails open** if KV is down (deliberate) |
 | Errors | Sentry (`@sentry/nextjs`) | Off when `NEXT_PUBLIC_SENTRY_DSN` is unset |
 | Job monitoring | Healthchecks.io check-ins (`lib/heartbeat.ts`) | Off when `HEALTHCHECKS_PING_KEY` is unset |
@@ -179,3 +179,6 @@ in Vercel → Settings → Environment Variables.
 - `docs/ROADMAP.md` — open work, in priority order, with what's already done.
 - `docs/specs/idea-board.md` — the planned public `/ideas` board for VSYC-27.
 - `docs/STRIPE_PAYMENTS.md` — the payment flow end to end.
+- [Technical docs - Oct 2026](https://drive.google.com/drive/folders/1Jt7amThKNkeVJenksPtA87cBtR-nwZiq)
+  (Google Drive, access-restricted) — the full audit this guide came from, including the
+  security assessment and runbooks that are kept out of the public repo.
