@@ -6,6 +6,7 @@
   3. Migration numbering            -> #22: files renamed to match production versions; labels documented, not renumbered
   4. Lint gates the production build -> merged in #21
   The "no GitHub token" delivery note is outdated: PRs were opened from the session.
+  Still-open follow-ups from the same audit are tracked in docs/ROADMAP.md.
 -->
 
 ---

@@ -154,6 +154,14 @@ VSYC-26 had a double payment and missing confirmations. Since migrations
    `checkout.session.completed`, `checkout.session.async_payment_succeeded`
    and `charge.refunded`.
 
+### Not handled yet
+
+- **Disputes / chargebacks** (`charge.dispute.*`): no handler. A dispute leaves the
+  registration `paid=true` and nobody is alerted — watch the Stripe Dashboard. Tracked in
+  `docs/ROADMAP.md`.
+- **Previews:** preview deployments are off (`vercel.json`), so there's no preview webhook
+  endpoint. Test locally with Stripe test keys and `stripe listen`.
+
 ### Useful queries
 
 ```sql

@@ -1,3 +1,7 @@
+> **Historical (June 7, 2026).** Kept for context. The payment gap it describes has since been
+> closed with Stripe Checkout — see `STRIPE_PAYMENTS.md`. For current state see `REPO_GUIDE.md`
+> and `ROADMAP.md`.
+
 # VSYC-26 Registration App — Readiness Audit
 
 **Date:** June 7, 2026
