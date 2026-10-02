@@ -9,7 +9,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/',
     '/spectate',
     '/policies',
-    '/portal',
     '/fee-calculator',
     '/competitors',
     '/results',

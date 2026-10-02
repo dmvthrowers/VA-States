@@ -8,7 +8,7 @@ import { SURVEYS, SURVEY_SOURCES, isSurveyType, type SurveySource } from '@/lib/
 // Unlisted: reachable only by link (email, QR, live share). Not in the nav,
 // sitemap, or search results.
 export const metadata: Metadata = {
-  title: 'VSYC-26 Feedback · Brought to You by Goodles',
+  title: 'Feedback',
   description: 'Tell us how VSYC-26 went. About 4 minutes.',
   robots: { index: false, follow: false },
 };

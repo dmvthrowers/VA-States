@@ -6,12 +6,16 @@ const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowe
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'Register · VSYC-26 · Brought to You by Goodles',
-  description: 'Competitor registration for VSYC-26 — brought to you by Goodles. September 19, 2026 · Dulles Town Center · Sterling, VA. Competitor fees for the next contest: TBD.',
-  alternates: { canonical: '/' },
+  // Each route sets its own title (see the per-route layout.tsx files); the
+  // template keeps the contest name on every tab.
+  title: {
+    default: 'VSYC-26 · Virginia State Yo-Yo Contest · Brought to You by Goodles',
+    template: '%s · VSYC-26',
+  },
+  description: 'Registration, results and run order for VSYC-26, the Virginia State Yo-Yo Contest — brought to you by Goodles. Held September 19, 2026 · Dulles Town Center · Sterling, VA.',
   openGraph: {
-    title: 'Register · VSYC-26 · Brought to You by Goodles',
-    description: 'Competitor registration — September 19, 2026 · Dulles Town Center · Sterling, VA',
+    title: 'VSYC-26 · Virginia State Yo-Yo Contest',
+    description: 'Results and run order — held September 19, 2026 · Dulles Town Center · Sterling, VA',
     url: SITE_URL,
     siteName: 'DMV Throwers',
     images: [{ url: 'https://dmvthrowers.club/assets/images/vsyc26-va-logo-512.png', alt: 'VA State Yo-Yo Competition logo' }],
@@ -20,8 +24,8 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     site: '@dmv_throwers',
-    title: 'Register · VSYC-26 · Brought to You by Goodles',
-    description: 'Competitor registration — September 19, 2026 · Dulles Town Center',
+    title: 'VSYC-26 · Virginia State Yo-Yo Contest',
+    description: 'Results and run order — held September 19, 2026 · Dulles Town Center',
     images: ['https://dmvthrowers.club/assets/images/vsyc26-va-logo-512.png'],
   },
   robots: { index: true, follow: true },
@@ -54,11 +58,6 @@ const eventJsonLd = {
     name: 'Goodles',
     url: 'https://www.goodles.com/shop/?collection=twirly-mac',
   },
-  offers: [
-    { '@type': 'Offer', name: '1A — Single String', price: '30', priceCurrency: 'USD', url: 'https://register.dmvthrowers.club', availability: 'https://schema.org/InStock' },
-    { '@type': 'Offer', name: 'X Division', price: '25', priceCurrency: 'USD', url: 'https://register.dmvthrowers.club', availability: 'https://schema.org/InStock' },
-    { '@type': 'Offer', name: 'Sport / Beginner / Junior', price: '20', priceCurrency: 'USD', url: 'https://register.dmvthrowers.club', availability: 'https://schema.org/InStock' },
-  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

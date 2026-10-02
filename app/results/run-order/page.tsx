@@ -3,7 +3,7 @@ import Footer from '@/components/Footer';
 import RunOrderBoard from '@/components/RunOrderBoard';
 
 export const metadata = {
-  title: 'Run Order — VSYC-26 Results',
+  title: 'Run Order',
 };
 
 export default function RunOrderPage() {
