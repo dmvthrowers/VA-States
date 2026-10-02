@@ -1047,7 +1047,14 @@ function ContestantRow({
         <button
           type="button"
           disabled={busy}
-          onClick={() => onSave(contestant.id, { paid, is_public: isPublic, music_filename: musicFilename, admin_notes: adminNotes })}
+          // Only send paid when the checkbox changed: a row loaded before a
+          // Stripe payment landed would otherwise reset it to unpaid on save.
+          onClick={() => onSave(contestant.id, {
+            ...(paid !== contestant.paid ? { paid } : {}),
+            is_public: isPublic,
+            music_filename: musicFilename,
+            admin_notes: adminNotes,
+          })}
           className="bg-gold text-navy-deep font-black tracking-caps px-3 py-2 text-xs disabled:opacity-60"
         >
           Save
