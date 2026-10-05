@@ -3,7 +3,7 @@ import { getEventFlagBoolean } from '@/lib/event-flags';
 import { isPublished, publishedDivisions, visibilityFrom, type ResultsVisibility } from '@/lib/results-visibility';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
-import { fetchStandings, type Division, type DivisionStandings, type StandingRow } from '@/lib/standings';
+import { fetchStandings, stateChampions, type Division, type DivisionStandings, type StandingRow } from '@/lib/standings';
 import { contest, competition, monthDay, bannerLine } from '@/contest.config';
 import { formatSummary } from '@/lib/divisions-core';
 import { DIVISION_PLAYLIST_URLS, LIVESTREAM_URL, WINNERS_PLAYLIST_URL } from '@/lib/contest-videos';
@@ -28,12 +28,28 @@ async function getVisibility(): Promise<ResultsVisibility> {
 // Refresh at most once per minute once published.
 export const revalidate = 60;
 
+/** 1 → "1st", 13 → "13th" */
+function ordinal(n: number): string {
+  const t = n % 100;
+  const suffix = t >= 11 && t <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
+  return `${n}${suffix}`;
+}
+
 const PLACE_COLORS = ['var(--gold)', '#c7c7d1', '#cd7f32']; // 1st gold · 2nd silver · 3rd bronze
 
 const subHeading = { fontSize: '0.65rem', letterSpacing: '0.12em', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', margin: '0 0 0.5rem' } as const;
 
 /** One ranked list: place, name, location, the formatted value and an optional detail line. */
-function StandingsList({ rows, label }: { rows: StandingRow[]; label: string }) {
+/** Badge for a home-state champion (contest.stateChampion). */
+function ChampionBadge() {
+  return (
+    <span style={{ display: 'inline-block', marginLeft: '0.5rem', padding: '0.05rem 0.4rem', border: '1px solid var(--gold)', color: 'var(--gold)', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', verticalAlign: 'middle' }}>
+      {contest.stateChampion.title}
+    </span>
+  );
+}
+
+function StandingsList({ rows, label, champions }: { rows: StandingRow[]; label: string; champions?: Set<string> }) {
   if (rows.length === 0) {
     return (
       <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0, paddingLeft: '1rem' }}>
@@ -69,6 +85,7 @@ function StandingsList({ rows, label }: { rows: StandingRow[]; label: string }) 
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: '0.95rem', fontWeight: 700, color: top ? 'var(--gold)' : '#fff', overflow: 'hidden', textOverflow: 'ellipsis', overflowWrap: 'anywhere' }}>
                   {c.display_name}
+                  {champions?.has(c.registration_id) && <ChampionBadge />}
                 </div>
                 {(c.city || c.state) && (
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
@@ -166,6 +183,7 @@ export default async function ResultsPage() {
             const finalOut = full.rounds.length <= 1 || isPublished(vis, code, full.rounds.length);
             const ds = { ...full, rounds, final: finalOut ? full.final : [] };
             const multiRound = full.rounds.length > 1;
+            const champs = stateChampions(ds.final, contest.stateChampion.state);
             return (
               <section key={code} aria-labelledby={`div-${code}`} style={{ marginBottom: '2.5rem' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '0.25rem 0.75rem', marginBottom: '0.35rem' }}>
@@ -199,7 +217,13 @@ export default async function ResultsPage() {
                 ) : (
                   <>
                     {multiRound && finalOut && <h3 style={subHeading}>Final standings</h3>}
-                    {finalOut && <StandingsList rows={ds.final} label={`${d.name} standings`} />}
+                    {finalOut && champs.length > 0 && (
+                      <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: '0 0 0.6rem' }}>
+                        <strong style={{ color: 'var(--gold)' }}>{contest.stateChampion.title}:</strong>{' '}
+                        {champs.map((c) => `${c.display_name} · ${[c.city, c.state].filter(Boolean).join(', ')} · ${c.value_label} · ${ordinal(c.place)} overall`).join('; ')}
+                      </p>
+                    )}
+                    {finalOut && <StandingsList rows={ds.final} label={`${d.name} standings`} champions={new Set(champs.map((c) => c.registration_id))} />}
                     {ds.format === 'bracket' && (
                       <p style={{ margin: '0.6rem 0 0', fontSize: '0.8rem' }}>
                         <a href={`/results/bracket?division=${encodeURIComponent(code)}`} style={{ color: 'var(--gold-light)', fontWeight: 700 }}>

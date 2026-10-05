@@ -321,6 +321,20 @@ export function divisionStandings(def: DivisionDef, input: StandingsInput): Divi
   }
 }
 
+/**
+ * Home-state champions for one division: the best-placed finisher(s) whose state matches
+ * `state` (2-letter code, case-insensitive). Ties for that place all count. Empty when `state`
+ * is '' or nobody from that state placed.
+ */
+export function stateChampions(rows: StandingRow[], state: string): StandingRow[] {
+  const want = state.trim().toUpperCase();
+  if (!want) return [];
+  const from = rows.filter((r) => (r.state ?? '').trim().toUpperCase() === want);
+  if (from.length === 0) return [];
+  const best = Math.min(...from.map((r) => r.place));
+  return from.filter((r) => r.place === best);
+}
+
 /** Pure: standings for every division from already-loaded rows. */
 export function computeStandings(input: StandingsInput, divisions: DivisionDef[] = competition.divisions): Record<Division, DivisionStandings> {
   return Object.fromEntries(divisions.map((d) => [d.code, divisionStandings(d, input)]));
