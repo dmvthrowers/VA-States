@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { DIVISION_CODES, divisionByCode } from '@/contest.config';
+import { roundsOf } from '@/lib/divisions-core';
 
-const DIVISIONS = ['1A', 'X', 'SBJ'] as const;
-type Division = typeof DIVISIONS[number];
+const DIVISIONS = DIVISION_CODES;
+type Division = string;
 type TimePref = 'no_pref' | 'early' | 'late' | 'conflict' | null;
 
 interface ScheduledRow {
@@ -32,6 +34,7 @@ interface UnscheduledRow {
 
 interface AdminRunOrderData {
   division: Division;
+  round?: number;
   ordered: ScheduledRow[];
   unscheduled: UnscheduledRow[];
 }
@@ -56,7 +59,13 @@ const PREF_COLORS: Record<string, string> = {
  * which accept admin, dj, and audio_tech roles.
  */
 export default function RunOrderManager({ token }: { token: string }) {
-  const [division, setDivision] = useState<Division>('1A');
+  const [division, setDivision] = useState<Division>(DIVISIONS[0] ?? '');
+  const [round, setRound] = useState(1);
+  const rounds = roundsOf(divisionByCode(division));
+  const nextRound = rounds[round] ?? null;
+  const advanceCount = rounds[round - 1]?.advance;
+  const [promoting, setPromoting] = useState(false);
+  const [promoteMsg, setPromoteMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [data, setData] = useState<AdminRunOrderData | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -69,10 +78,10 @@ export default function RunOrderManager({ token }: { token: string }) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-  const fetchData = useCallback(async (div: Division) => {
+  const fetchData = useCallback(async (div: Division, rnd: number) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/run-order?division=${div}`, {
+      const res = await fetch(`/api/admin/run-order?division=${encodeURIComponent(div)}&round=${rnd}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -84,7 +93,7 @@ export default function RunOrderManager({ token }: { token: string }) {
     setLoading(false);
   }, [token]);
 
-  useEffect(() => { fetchData(division); }, [division, fetchData]);
+  useEffect(() => { fetchData(division, round); }, [division, round, fetchData]);
 
   function isLocked(id: string): boolean {
     const currentStatus = data?.ordered.find((r) => r.registration_id === id)?.status;
@@ -177,12 +186,12 @@ export default function RunOrderManager({ token }: { token: string }) {
       const res = await fetch('/api/admin/run-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ division, registration_ids: orderedIds }),
+        body: JSON.stringify({ division, round, registration_ids: orderedIds }),
       });
       const json = await res.json();
       if (res.ok) {
         setSaveMsg({ ok: true, text: `Saved ${json.count} competitors.` });
-        fetchData(division);
+        fetchData(division, round);
       } else {
         setSaveMsg({ ok: false, text: json.error?.message ?? 'Save failed.' });
       }
@@ -199,12 +208,12 @@ export default function RunOrderManager({ token }: { token: string }) {
       const res = await fetch('/api/admin/run-order/advance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ division }),
+        body: JSON.stringify({ division, round }),
       });
       const json = await res.json();
       if (res.ok) {
         setAdvanceMsg(json.division_complete ? 'Division complete!' : `Now performing: ${json.now_performing ?? '—'}`);
-        fetchData(division);
+        fetchData(division, round);
       } else {
         setAdvanceMsg(json.error?.message ?? 'Advance failed.');
       }
@@ -215,13 +224,40 @@ export default function RunOrderManager({ token }: { token: string }) {
   }
 
   async function handleReset() {
-    if (!confirm(`Reset all statuses in ${division} to 'upcoming'?`)) return;
+    if (!confirm(`Reset all statuses in ${division}${rounds.length > 1 ? ` (${rounds[round - 1].name})` : ''} to 'upcoming'?`)) return;
     await fetch('/api/admin/run-order/advance', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ division }),
+      body: JSON.stringify({ division, round }),
     });
-    fetchData(division);
+    fetchData(division, round);
+  }
+
+  /** Build the next round's run order from this round's standings (admin only). */
+  async function handlePromote() {
+    if (!nextRound || !advanceCount) return;
+    setPromoting(true);
+    setPromoteMsg(null);
+    const send = (replace: boolean) => fetch('/api/admin/rounds/advance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ division, from_round: round, replace }),
+    });
+    try {
+      let res = await send(false);
+      let json = await res.json();
+      if (res.status === 409 && /replace/i.test(json.error?.message ?? '')
+        && confirm(`${nextRound.name} already has a run order. Replace it with the top ${advanceCount} from ${rounds[round - 1].name}?`)) {
+        res = await send(true);
+        json = await res.json();
+      }
+      setPromoteMsg(res.ok
+        ? { ok: true, text: `${json.count} advanced to ${json.to_round_name}.` }
+        : { ok: false, text: json.error?.message ?? 'Advance failed.' });
+    } catch {
+      setPromoteMsg({ ok: false, text: 'Network error.' });
+    }
+    setPromoting(false);
   }
 
   async function handleMusicUpload(registration_id: string, file: File) {
@@ -241,7 +277,7 @@ export default function RunOrderManager({ token }: { token: string }) {
       });
       if (!up.ok) { setUploadStatus((s) => ({ ...s, [registration_id]: 'error' })); return; }
       setUploadStatus((s) => ({ ...s, [registration_id]: 'done' }));
-      fetchData(division);
+      fetchData(division, round);
     } catch {
       setUploadStatus((s) => ({ ...s, [registration_id]: 'error' }));
     }
@@ -256,12 +292,13 @@ export default function RunOrderManager({ token }: { token: string }) {
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <h2 className="font-display text-2xl text-gold font-bold m-0">Run Order</h2>
-        <nav className="flex gap-2">
+        <nav aria-label="Division" className="flex gap-2 flex-wrap">
           {DIVISIONS.map((div) => (
             <button
               key={div}
               type="button"
-              onClick={() => { setDivision(div); setData(null); setSaveMsg(null); setAdvanceMsg(null); }}
+              onClick={() => { setDivision(div); setRound(1); setData(null); setSaveMsg(null); setAdvanceMsg(null); setPromoteMsg(null); }}
+              aria-pressed={division === div}
               className={`px-4 py-1.5 text-xs font-black tracking-caps border ${
                 division === div ? 'bg-gold text-navy-deep border-gold' : 'bg-transparent text-text-body border-navy-border'
               }`}
@@ -271,6 +308,24 @@ export default function RunOrderManager({ token }: { token: string }) {
           ))}
         </nav>
       </div>
+
+      {rounds.length > 1 && (
+        <nav aria-label="Round" className="flex gap-2 flex-wrap mb-6 -mt-2">
+          {rounds.map((r, i) => (
+            <button
+              key={r.name}
+              type="button"
+              aria-pressed={round === i + 1}
+              onClick={() => { setRound(i + 1); setData(null); setSaveMsg(null); setAdvanceMsg(null); setPromoteMsg(null); }}
+              className={`px-3 py-1 text-xs font-bold tracking-caps border ${
+                round === i + 1 ? 'border-gold text-gold' : 'bg-transparent text-text-muted border-navy-border'
+              }`}
+            >
+              {i + 1}. {r.name}{r.advance ? ` · top ${r.advance}` : ''}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {loading && <p className="text-text-muted">Loading…</p>}
 
@@ -398,6 +453,24 @@ export default function RunOrderManager({ token }: { token: string }) {
               </button>
               {advanceMsg && <span className="text-sm text-text-body font-bold">{advanceMsg}</span>}
             </div>
+
+            {nextRound && advanceCount && (
+              <div className="mt-3 bg-navy border border-navy-border p-4 flex gap-3 items-center flex-wrap">
+                <div className="text-xs font-black tracking-caps text-text-muted">ROUNDS</div>
+                <button
+                  type="button"
+                  onClick={handlePromote}
+                  disabled={promoting}
+                  className={`px-5 py-2 font-black text-xs tracking-caps ${promoting ? 'bg-navy-border text-text-muted' : 'bg-gold text-navy-deep'}`}
+                >
+                  {promoting ? 'Working…' : `Advance top ${advanceCount} to ${nextRound.name}`}
+                </button>
+                <span className="text-xs text-text-muted">From this round&rsquo;s standings; ties at the cut go through; best seed performs last. Admins only.</span>
+                {promoteMsg && (
+                  <span role="status" className={`text-sm font-bold ${promoteMsg.ok ? 'text-[#7fff7f]' : 'text-[#ff6b6b]'}`}>{promoteMsg.text}</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Right: unscheduled */}
@@ -407,7 +480,7 @@ export default function RunOrderManager({ token }: { token: string }) {
             </div>
             <div className="border border-navy-border max-h-[500px] overflow-y-auto">
               {unscheduledPaid.length === 0 ? (
-                <div className="p-4 text-text-muted text-sm">All paid competitors scheduled.</div>
+                <div className="p-4 text-text-muted text-sm">{round > 1 ? `Everyone from ${rounds[round - 2].name} is scheduled (or nobody has advanced yet).` : 'All paid competitors scheduled.'}</div>
               ) : (
                 unscheduledPaid.map((u) => (
                   <div key={u.registration_id} className="flex items-center gap-2 px-3 py-2.5 border-b border-navy-border last:border-b-0 bg-navy">

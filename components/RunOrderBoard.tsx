@@ -2,13 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const DIVISIONS = [
-  { code: '1A',  label: '1A — Single String' },
-  { code: 'X',   label: 'X Division' },
-  { code: 'SBJ', label: 'Sport / Beginner / Junior' },
-] as const;
+import { DIVISIONS } from '@/lib/standings';
+import { divisionByCode } from '@/contest.config';
+import { roundsOf } from '@/lib/divisions-core';
 
-type Division = typeof DIVISIONS[number]['code'];
+type Division = string;
 type Status = 'upcoming' | 'performing' | 'done';
 
 interface Performer {
@@ -29,15 +27,17 @@ const STATUS_LABEL: Record<Status, string> = {
 const POLL_MS = 15000;
 
 export default function RunOrderBoard() {
-  const [division, setDivision] = useState<Division>('1A');
+  const [division, setDivision] = useState<Division>(DIVISIONS[0]?.code ?? '');
+  const [round, setRound] = useState(1);
+  const rounds = roundsOf(divisionByCode(division));
   const [performers, setPerformers] = useState<Performer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchRunOrder = useCallback(async (div: Division) => {
+  const fetchRunOrder = useCallback(async (div: Division, rnd: number) => {
     try {
-      const res = await fetch(`/api/run-order?division=${div}`, { cache: 'no-store' });
+      const res = await fetch(`/api/run-order?division=${encodeURIComponent(div)}&round=${rnd}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('bad response');
       const data = await res.json();
       const list: Performer[] = (data.performers ?? []).map((p: Performer) => ({
@@ -58,15 +58,15 @@ export default function RunOrderBoard() {
 
   useEffect(() => {
     setLoading(true);
-    fetchRunOrder(division);
+    fetchRunOrder(division, round);
 
     if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(() => fetchRunOrder(division), POLL_MS);
+    pollRef.current = setInterval(() => fetchRunOrder(division, round), POLL_MS);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [division, fetchRunOrder]);
+  }, [division, round, fetchRunOrder]);
 
   return (
     <div>
@@ -75,7 +75,8 @@ export default function RunOrderBoard() {
           <button
             key={code}
             type="button"
-            onClick={() => setDivision(code)}
+            onClick={() => { setDivision(code); setRound(1); }}
+            aria-pressed={division === code}
             style={{
               padding: '0.5rem 1rem',
               fontSize: '0.75rem',
@@ -93,6 +94,32 @@ export default function RunOrderBoard() {
         ))}
       </div>
 
+      {rounds.length > 1 && (
+        <div role="group" aria-label="Round" style={{ display: 'flex', gap: '0.5rem', marginTop: '-0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          {rounds.map((r, i) => (
+            <button
+              key={r.name}
+              type="button"
+              onClick={() => setRound(i + 1)}
+              aria-pressed={round === i + 1}
+              style={{
+                padding: '0.35rem 0.8rem',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                border: `1px solid ${round === i + 1 ? 'var(--gold)' : 'var(--navy-border)'}`,
+                background: 'transparent',
+                color: round === i + 1 ? 'var(--gold)' : 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              {r.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading run order…</p>
       ) : error ? (
@@ -101,7 +128,7 @@ export default function RunOrderBoard() {
         </p>
       ) : performers.length === 0 ? (
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          No run order set for this division yet.
+          {round > 1 ? `No one has advanced to ${rounds[round - 1]?.name ?? 'this round'} yet.` : 'No run order set for this division yet.'}
         </p>
       ) : (
         <div style={{ border: '1px solid var(--navy-border)' }}>
