@@ -8,7 +8,7 @@ const BOT_UA_RE = /(bot|crawler|spider|scrapy|curl|wget|python-requests|httpclie
  * Security enforcement for all admin APIs is now handled at the route level
  * via bearer token validation and admin role checks.
  */
-export function middleware(req: NextRequest) {
+export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isApi = pathname.startsWith('/api/');
