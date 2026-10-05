@@ -12,6 +12,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/fee-calculator',
     '/competitors',
     '/results',
+    '/schedule',
+    '/side-events',
     '/spectators',
   ];
 

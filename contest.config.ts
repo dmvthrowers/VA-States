@@ -1,0 +1,443 @@
+/**
+ * VSYC-26 contest settings: the divisions, the day-of schedule and side events, plus the
+ * name/date/venue those features show. Most of the app still keeps VSYC values in place
+ * (lib/pricing.ts, lib/ics.ts, ...); new features read them from here. The shape matches
+ * dmvthrowers/yoyo-registration-template's contest.config.ts so its code ports straight over.
+ *
+ * Safe to import from both server and browser code: nothing secret belongs in this file.
+ */
+
+export const contest = {
+  name: 'Virginia State Yo-Yo Contest',
+  shortName: 'VSYC-26',
+  nextShortName: 'VSYC-27',
+  tagline: 'All ages, all levels. Free to watch.',
+
+  date: '2026-09-19',
+  startTime: '10:00',
+  endTime: '19:00',
+  doorsNote: 'doors open 10am',
+  timeZone: 'America/New_York',
+
+  venue: {
+    name: 'Dulles Town Center',
+    streetAddress: '21100 Dulles Town Cir',
+    city: 'Sterling',
+    region: 'VA',
+    postalCode: '20166',
+    country: 'US',
+  },
+
+  deadlines: {
+    earlyBird: process.env.NEXT_PUBLIC_EARLY_BIRD_CUTOFF_ISO || '2026-06-01T00:00:00-04:00',
+    onlineRegistration: process.env.NEXT_PUBLIC_ONLINE_REG_CUTOFF_ISO || '2026-09-17T23:59:59-04:00',
+    musicUpload: process.env.NEXT_PUBLIC_MUSIC_DEADLINE_ISO || '2026-09-17T23:59:59-04:00',
+    compCodes: process.env.NEXT_PUBLIC_COMP_CODE_EXPIRY_ISO || '2026-09-17T23:59:59-04:00',
+  },
+
+  organizer: {
+    name: 'DMV Throwers',
+    url: 'https://dmvthrowers.club/',
+  },
+
+  presentedBy: {
+    name: 'Goodles',
+    url: '',
+    logoUrl: '',
+  },
+
+  contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contact@dmvthrowers.club',
+
+  links: {
+    home: 'https://dmvthrowers.club/vsyc26.html',
+    about: 'https://dmvthrowers.club/vsyc26.html',
+    schedule: 'https://dmvthrowers.club/vsyc26-schedule.html',
+    rules: process.env.NEXT_PUBLIC_RULES_URL || 'https://dmvthrowers.club/vsyc26-rules.html',
+    sponsors: 'https://dmvthrowers.club/vsyc26-sponsors.html',
+    venue: 'https://dmvthrowers.club/vsyc26-venue.html',
+    faq: 'https://dmvthrowers.club/vsyc26-faq.html',
+    codeOfConduct: 'https://dmvthrowers.club/code-of-conduct.html',
+    events: 'https://dmvthrowers.club/events.html',
+    results: 'https://dmvthrowers.club/vsyc26-results.html',
+    resources: 'https://dmvthrowers.club/resources.html',
+    sourceCode: 'https://github.com/dmvthrowers/VA-States',
+  },
+
+  videos: {
+    winnersPlaylist: '',
+    livestream: '',
+    divisions: {} as Record<string, string>,
+  },
+
+  logos: {
+    small: '/logo-32.png',
+    icon: '/logo-180.png',
+    large: '/logo-512.png',
+    alt: 'VSYC-26 logo',
+  },
+} as const;
+
+// ---------------------------------------------------------------- divisions & scoring
+
+/** A style inside a division, e.g. X Division's 2A–5A, or a kendama "ken / no ken" category. */
+export interface StyleDef {
+  code: string;
+  label: string;
+  description?: string;
+  /** Freestyle only: raw clicks are multiplied by this before normalizing (1 = none). */
+  multiplier?: number;
+}
+
+/**
+ * "freestyle": NYYL-style sheet. A clicker tally (Technical Execution, normalized per judge to
+ * techCap) + four evaluation categories (0–evalCap each) − deductions.
+ */
+export interface FreestyleScoring {
+  format: 'freestyle';
+  techCap: number;
+  evalCap: number;
+  /** Can a judge click below zero (misses)? */
+  negativeClicks: boolean;
+  /** Points per stop / discard / detach. null = no deductions. */
+  deductions: { stop: number; discard: number; detach: number } | null;
+}
+
+/**
+ * "manual": a judge types in a number from 0 to max — a total from a paper sheet, seconds
+ * spun, catches, a speed time. With several judges, scores are averaged.
+ */
+export interface ManualScoring {
+  format: 'manual';
+  max: number;
+  /** "lower" for speed runs and other timed events. Default "higher". */
+  better?: 'higher' | 'lower';
+  /** Shown next to the number, e.g. "seconds", "catches". Default "points". */
+  unit?: string;
+  /** Best of N attempts (1 = a single score). The best attempt counts. */
+  attempts?: number;
+}
+
+/**
+ * "panel": judges score each of your criteria (0–max each); the total is their sum and judges
+ * are averaged. Use it for Artistic Performance, doubles, juggling acts, best trick.
+ */
+export interface PanelScoring {
+  format: 'panel';
+  criteria: { key: string; label: string; max: number }[];
+}
+
+/**
+ * "ladder": a fixed list of tricks in order. A player gets attemptsPerTrick tries at each and
+ * moves up until they miss one on every try. Rank by highest rung (ties: fewest attempts used),
+ * or by points if tricks carry points.
+ */
+export interface LadderScoring {
+  format: 'ladder';
+  tricks: { name: string; points?: number }[];
+  attemptsPerTrick: number;
+  /** "rung" (default): stop at the first missed trick. "points": try every trick, add up points. */
+  rankBy?: 'rung' | 'points';
+}
+
+/**
+ * "bracket": single-elimination battles. Judges vote each match; an admin confirms the winner.
+ * Byes fill the bracket to a power of two.
+ */
+export interface BracketScoring {
+  format: 'bracket';
+  /** How first-round matchups are made: random draw, or the order entrants registered. */
+  seeding: 'random' | 'registration';
+  thirdPlaceMatch: boolean;
+  /** e.g. "30-second rounds, two rounds each" — shown to players and judges */
+  matchFormat?: string;
+  /**
+   * Who picks each winner. "judges" (default) vote in the app. "audience": a crowd or stream
+   * poll (e.g. a YouTube/Twitch chat poll); an admin enters each poll's vote counts.
+   */
+  decidedBy?: 'judges' | 'audience';
+  /** With no third-place match: rank the two semifinal losers by their vote totals instead of tying. */
+  thirdPlaceByVotes?: boolean;
+  /** Extra battle rules shown to players, e.g. "Music is random", "No repeating a routine". */
+  rules?: string[];
+}
+
+/** "showcase": performances in a run order, not judged (exhibitions, guest acts, kids' showcase). */
+export interface ShowcaseScoring {
+  format: 'showcase';
+}
+
+export type Scoring = FreestyleScoring | ManualScoring | PanelScoring | LadderScoring | BracketScoring | ShowcaseScoring;
+
+/** Solo entries, or teams (doubles, groups, acts) where every member registers themselves. */
+export type EntryDef =
+  | { type: 'solo' }
+  | {
+      type: 'team';
+      /** e.g. "Doubles", "Group", "Act" */
+      label: string;
+      min: number;
+      max: number;
+      /** "person": every member pays priceCents. "team": the captain pays once, members pay $0. */
+      pricing: 'person' | 'team';
+    };
+
+/** A round, e.g. { name: 'Prelims', advance: 8 } then { name: 'Finals' }. */
+export interface RoundDef {
+  name: string;
+  /** How many move on to the next round (leave out on the last round) */
+  advance?: number;
+}
+
+export interface DivisionDef {
+  /** Short, permanent ID stored in the database: letters, numbers, - or _. Never rename one in use. */
+  code: string;
+  name: string;
+  description: string;
+  /** Entry fee in cents */
+  priceCents: number;
+  /** Does this division perform to uploaded music? */
+  music: boolean;
+  /** Optional styles. Registrants pick between min and max of them. */
+  styles?: { options: StyleDef[]; min: number; max: number };
+  /** Division codes this one can't be entered together with */
+  cannotCombineWith?: string[];
+  scoring: Scoring;
+  /** Solo (default) or team entries */
+  entry?: EntryDef;
+  /** Rounds for freestyle, panel and manual divisions. Default: one round. */
+  rounds?: RoundDef[];
+}
+
+/**
+ * The toy, the divisions and how they're judged. Edit this block for a kendama, diabolo,
+ * spintop or mixed contest. After changing divisions, run `npm run divisions` and apply
+ * supabase/divisions.sql (see docs/SETUP.md) so the database matches.
+ */
+export const competition: {
+  toy: { singular: string; plural: string };
+  /** Labels for the three optional "setup" fields on profiles. "" hides a field. */
+  gear: { yoyo: string; string: string; counterweight: string };
+  divisions: DivisionDef[];
+  /** Bundle prices: entering every listed division costs priceCents instead of the sum. */
+  combos: { divisions: string[]; priceCents: number }[];
+  pricing: {
+    earlyBirdDiscountCents: number;
+    walkUpSurchargeCents: number;
+    /** true shows "TBD" instead of prices on public pages (checkout still charges the real amount). */
+    pricesTbd: boolean;
+  };
+} = {
+  toy: { singular: 'yo-yo', plural: 'yo-yos' },
+  gear: { yoyo: 'Yo-yo', string: 'String', counterweight: 'Counterweight' },
+
+  divisions: [
+    {
+      code: '1A',
+      name: '1A — Single String',
+      description: 'One yo-yo on one string. The classic string-trick style.',
+      priceCents: 3000,
+      music: true,
+      scoring: { format: 'freestyle', techCap: 60, evalCap: 10, negativeClicks: true, deductions: { stop: 1, discard: 3, detach: 5 } },
+    },
+    {
+      code: 'X',
+      name: 'X Division',
+      description: 'The other four styles compete together, with a per-style multiplier.',
+      priceCents: 2500,
+      music: true,
+      styles: {
+        min: 1,
+        max: 2,
+        options: [
+          { code: '2A', label: '2A — Looping', description: 'Two looping yo-yos focused on rhythm and control.', multiplier: 1.4 },
+          { code: '3A', label: '3A — Two-Handed String', description: 'Two string-trick yo-yos, one in each hand.', multiplier: 1.5 },
+          { code: '4A', label: '4A — Offstring', description: 'The yo-yo is not attached to the string.', multiplier: 1.3 },
+          { code: '5A', label: '5A — Freehand', description: 'Counterweight instead of a finger loop.', multiplier: 1.6 },
+        ],
+      },
+      scoring: { format: 'freestyle', techCap: 60, evalCap: 10, negativeClicks: true, deductions: { stop: 1, discard: 3, detach: 5 } },
+    },
+    {
+      code: 'SBJ',
+      name: 'Sport / Beginner / Junior',
+      description: 'For newer players. Shorter routines, no negative clicks or deductions.',
+      priceCents: 2000,
+      music: true,
+      cannotCombineWith: ['1A', 'X'],
+      scoring: { format: 'freestyle', techCap: 20, evalCap: 20, negativeClicks: false, deductions: null },
+    },
+  ],
+
+  combos: [{ divisions: ['1A', 'X'], priceCents: 5000 }],
+
+  pricing: { earlyBirdDiscountCents: 500, walkUpSurchargeCents: 1000, pricesTbd: false },
+};
+
+// ---------------------------------------------------------------- day of: schedule & side events
+
+/**
+ * One block on the day's schedule. Items tied to a division (and round) are run from the
+ * admin schedule screen: Start → Close judging → Publish results. Publishing makes that
+ * division's results public, and every later item's estimated time moves with the real ones.
+ */
+export interface ScheduleItem {
+  /** Short, permanent ID, e.g. "1a-prelims" */
+  id: string;
+  title: string;
+  /** Planned start, 24-hour "HH:MM" on contest day in contest.timeZone */
+  start: string;
+  /** Planned length in minutes */
+  minutes: number;
+  /** The division (and round, default 1) this block judges */
+  division?: string;
+  round?: number;
+  kind?: 'event' | 'break' | 'ceremony' | 'side' | 'other';
+  /** Fixed blocks (lunch, awards, venue close) never move later or earlier */
+  fixed?: boolean;
+  note?: string;
+}
+
+/**
+ * Quick crowd events that need no registration or fee: longest sleeper, most loops in 60
+ * seconds, longest kendama juggle. Staff type a name and use a stopwatch or tap counter.
+ */
+export interface SideEventDef {
+  code: string;
+  name: string;
+  description: string;
+  /** "timer": a stopwatch (seconds). "counter": tap +1 per catch, loop or trick. */
+  kind: 'timer' | 'counter';
+  better: 'higher' | 'lower';
+  /** Shown next to the number, e.g. "seconds", "loops" */
+  unit: string;
+  /** Counter only: stop counting after this many seconds (e.g. 60 for "most loops in a minute") */
+  timeLimitSeconds?: number;
+}
+
+export const dayOf: {
+  schedule: ScheduleItem[];
+  /** Let blocks start before their planned time when the day runs ahead (default: no) */
+  allowEarlyStarts: boolean;
+  sideEvents: SideEventDef[];
+} = {
+  allowEarlyStarts: false,
+  schedule: [
+    { id: 'doors', title: 'Doors open & kick off', start: '10:00', minutes: 30, kind: 'other', note: 'Registration desk open. Welcome and rules briefing.' },
+    { id: 'sbj', title: 'Sport / Beginner / Junior', start: '10:30', minutes: 90, division: 'SBJ' },
+    { id: 'duel', title: 'Stella Duellum · Prismatic Stars', start: '12:00', minutes: 60, kind: 'event', note: 'One-minute routines, random music, crowd vote.' },
+    { id: '1a', title: 'Pro Division (1A)', start: '13:00', minutes: 120, division: '1A' },
+    { id: 'x', title: 'X Division', start: '15:00', minutes: 120, division: 'X' },
+    { id: 'awards', title: 'Closing ceremony & awards', start: '17:00', minutes: 60, kind: 'ceremony', fixed: true },
+    { id: 'wrap', title: 'Wrap up & breakdown', start: '18:00', minutes: 60, kind: 'other', fixed: true },
+  ],
+  sideEvents: [
+    {
+      code: 'SLEEPER', name: 'Longest Sleeper', description: 'One throw. The yo-yo that spins longest wins.',
+      kind: 'timer', better: 'higher', unit: 'seconds',
+    },
+    {
+      code: 'LOOPS60', name: 'Loop Challenge', description: 'Most inside loops in 60 seconds.',
+      kind: 'counter', better: 'higher', unit: 'loops', timeLimitSeconds: 60,
+    },
+  ],
+};
+
+/** Look up a division by code */
+export const divisionByCode = (code: string): DivisionDef | undefined =>
+  competition.divisions.find((d) => d.code === code);
+
+/** All division codes, in display order */
+export const DIVISION_CODES: string[] = competition.divisions.map((d) => d.code);
+
+
+// ---------------------------------------------------------------- derived helpers
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+  'September', 'October', 'November', 'December'];
+
+function parts(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return { y, m, d };
+}
+
+/** "March 13, 2027" for any YYYY-MM-DD (defaults to the contest date) */
+export function longDate(iso: string = contest.date): string {
+  const { y, m, d } = parts(iso);
+  return `${MONTHS[m - 1]} ${d}, ${y}`;
+}
+
+/** "March 13" (no year) */
+export function monthDay(iso: string = contest.date): string {
+  const { m, d } = parts(iso);
+  return `${MONTHS[m - 1]} ${d}`;
+}
+
+/** "Mar 13" */
+export function shortMonthDay(iso: string = contest.date): string {
+  const { m, d } = parts(iso);
+  return `${MONTHS[m - 1].slice(0, 3)} ${d}`;
+}
+
+/** Contest year as a number */
+export const contestYear = parts(contest.date).y;
+
+/** "Springfield, IL" */
+export const venueCity = `${contest.venue.city}, ${contest.venue.region}`;
+
+/** "Springfield Civic Center · Springfield, IL" */
+export const venueLine = `${contest.venue.name} · ${venueCity}`;
+
+/** "200 Capitol Ave, Springfield, IL 62701" */
+export const venueAddress =
+  `${contest.venue.streetAddress}, ${contest.venue.city}, ${contest.venue.region} ${contest.venue.postalCode}`.trim();
+
+/** "March 13, 2027 · Springfield Civic Center · Springfield, IL" — the standard footer line */
+export const whenWhere = `${longDate()} · ${venueLine}`;
+
+/** "Springfield Yo-Yo Open 2027" */
+export const fullTitle = `${contest.name} ${contestYear}`;
+
+/** "Brought to you by X" or "" */
+export const presentedLine = contest.presentedBy.name ? `Brought to you by ${contest.presentedBy.name}` : '';
+
+/** "MARCH 13, 2027 · SPRINGFIELD CIVIC CENTER" for page banners */
+export const bannerLine = `${longDate()} · ${contest.venue.name}`.toUpperCase();
+
+/** A deadline as a Date */
+export const deadlineDate = (key: keyof typeof contest.deadlines) => new Date(contest.deadlines[key]);
+
+/** Format an ISO timestamp (or YYYY-MM-DD) from an env var as "March 11, 2027", or fall back */
+export function deadlineLabel(iso: string | undefined, fallback = 'the deadline'): string {
+  if (!iso) return fallback;
+  const day = iso.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? longDate(day) : fallback;
+}
+
+/** UTC offset (ms) of `timeZone` at instant `utcMs`, via Intl (handles daylight saving). */
+function zoneOffsetMs(utcMs: number, timeZone: string): number {
+  const f = new Intl.DateTimeFormat('en-US', {
+    timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+  const v: Record<string, number> = {};
+  for (const part of f.formatToParts(new Date(utcMs))) {
+    if (part.type !== 'literal') v[part.type] = Number(part.value);
+  }
+  return Date.UTC(v.year, v.month - 1, v.day, v.hour, v.minute, v.second) - utcMs;
+}
+
+/** "2027-03-13" + "10:00" in a time zone → the matching instant as a Date. */
+export function zonedDate(dateIso: string, hhmm: string, timeZone: string): Date {
+  const [y, m, d] = dateIso.split('-').map(Number);
+  const [hh, mm, ss = 0] = hhmm.split(':').map(Number);
+  const wall = Date.UTC(y, m - 1, d, hh, mm, ss);
+  // Two passes settle the offset correctly on daylight-saving change days.
+  let utc = wall - zoneOffsetMs(wall, timeZone);
+  utc = wall - zoneOffsetMs(utc, timeZone);
+  return new Date(utc);
+}
+
+/** "2027-03-13" + "10:00" in a time zone → iCalendar UTC stamp "20270313T160000Z". */
+export function zonedStamp(dateIso: string, hhmm: string, timeZone: string): string {
+  return zonedDate(dateIso, hhmm, timeZone).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+}

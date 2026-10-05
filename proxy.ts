@@ -28,7 +28,10 @@ export default function proxy(req: NextRequest) {
     return res;
   }
 
-  const isLegacyAdminPage = pathname === '/admin' || pathname.startsWith('/admin/');
+  // Newer admin tools live under /admin/ too; everything else there is the legacy UI.
+  const CURRENT_ADMIN_PAGES = ['/admin/schedule'];
+  const isCurrentAdminPage = CURRENT_ADMIN_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const isLegacyAdminPage = !isCurrentAdminPage && (pathname === '/admin' || pathname.startsWith('/admin/'));
   if (isLegacyAdminPage) {
     const url = req.nextUrl.clone();
     url.pathname = '/admin-dashboard';

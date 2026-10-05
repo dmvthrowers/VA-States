@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
-import { getEventFlagBoolean } from '@/lib/event-flags';
+import { isPublished, publishedDivisions } from '@/lib/results-visibility';
 import { z } from 'zod';
 
 const VALID_DIVISIONS = ['1A', 'X', 'SBJ'] as const;
@@ -119,7 +119,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   }
   const div = division as Division;
 
-  const resultsPublished = await getEventFlagBoolean('results_published', process.env.RESULTS_PUBLISHED === 'true');
+  const resultsPublished = isPublished(await publishedDivisions(createAdminClient()), division);
 
   if (!mine && !resultsPublished) {
     return NextResponse.json(

@@ -1,14 +1,26 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getEventFlagBoolean } from '@/lib/event-flags';
+import { isPublished, publishedDivisions, visibilityFrom, type ResultsVisibility } from '@/lib/results-visibility';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import { DIVISIONS, fetchStandings, type Division, type Standing } from '@/lib/standings';
 import { DIVISION_PLAYLIST_URLS, LIVESTREAM_URL, WINNERS_PLAYLIST_URL } from '@/lib/contest-videos';
 
-// Public results are gated with an admin-toggleable flag and env fallback.
+// Public results are gated by the results_published flag (admin toggle, env fallback) or, per
+// division, by Publish results on the admin schedule (lib/results-visibility.ts).
 
 async function getStandings(): Promise<Record<Division, Standing[]>> {
   return fetchStandings(createAdminClient());
+}
+
+/** Which results are public. Without database credentials (e.g. a CI build), only the global flag counts. */
+async function getVisibility(): Promise<ResultsVisibility> {
+  try {
+    return await publishedDivisions(createAdminClient());
+  } catch (e) {
+    console.error('[results] visibility check failed:', e);
+    return visibilityFrom(await getEventFlagBoolean('results_published', process.env.RESULTS_PUBLISHED === 'true'), []);
+  }
 }
 
 // Refresh at most once per minute once published.
@@ -17,10 +29,13 @@ export const revalidate = 60;
 const PLACE_COLORS = ['var(--gold)', '#c7c7d1', '#cd7f32']; // 1st gold · 2nd silver · 3rd bronze
 
 export default async function ResultsPage() {
-  const resultsPublished = await getEventFlagBoolean('results_published', process.env.RESULTS_PUBLISHED === 'true');
+  const vis = await getVisibility();
+  // Divisions released so far: all of them once results_published is on.
+  const shown = DIVISIONS.filter(({ code }) => isPublished(vis, code));
+  const resultsPublished = shown.length > 0;
   const standings = resultsPublished ? await getStandings() : null;
   const total = standings
-    ? Object.values(standings).reduce((s, arr) => s + arr.length, 0)
+    ? shown.reduce((s, { code }) => s + standings[code].length, 0)
     : 0;
 
   return (
@@ -39,7 +54,9 @@ export default async function ResultsPage() {
               ? 'Final standings will be posted here after the contest.'
               : total === 0
                 ? 'Results are being finalized — check back shortly.'
-                : 'Final standings, averaged across all judges.'}
+                : vis.all
+                  ? 'Final standings, averaged across all judges.'
+                  : 'Results so far. More divisions post here as judging wraps up.'}
           </p>
           {resultsPublished && (
             <p style={{ color: 'var(--text-body)', margin: '0.5rem 0 0' }}>
@@ -68,7 +85,7 @@ export default async function ResultsPage() {
             </p>
           </section>
         ) : (
-          DIVISIONS.map(({ code, label }) => {
+          shown.map(({ code, label }) => {
             const comps = standings[code];
             return (
               <section key={code} style={{ marginBottom: '2.5rem' }}>

@@ -32,6 +32,8 @@ const MORE_LINKS = [
   { label: 'Podium Results', href: 'https://dmvthrowers.club/vsyc26-results.html' },
   { label: 'Full Leaderboard', href: '/results' },
   { label: 'Run Order', href: '/results/run-order' },
+  { label: 'Live Schedule', href: '/schedule' },
+  { label: 'Side Events', href: '/side-events' },
   { label: 'Budget',    href: '/budget' },
 ];
 
