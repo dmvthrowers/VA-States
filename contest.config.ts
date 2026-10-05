@@ -40,6 +40,16 @@ export const contest = {
     url: 'https://dmvthrowers.club/',
   },
 
+  /**
+   * Home-state champion: in each division, the top finisher from this state gets this title on
+   * the results page, even if they finished off the podium. Matched on the 2-letter state
+   * competitors enter when they register. Set state to '' to turn it off.
+   */
+  stateChampion: {
+    state: 'VA',
+    title: 'VA State Champion',
+  },
+
   presentedBy: {
     name: 'Goodles',
     url: '',

@@ -29,7 +29,7 @@ export default function proxy(req: NextRequest) {
   }
 
   // Newer admin tools live under /admin/ too; everything else there is the legacy UI.
-  const CURRENT_ADMIN_PAGES = ['/admin/schedule'];
+  const CURRENT_ADMIN_PAGES = ['/admin/brackets', '/admin/schedule'];
   const isCurrentAdminPage = CURRENT_ADMIN_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const isLegacyAdminPage = !isCurrentAdminPage && (pathname === '/admin' || pathname.startsWith('/admin/'));
   if (isLegacyAdminPage) {
