@@ -2,6 +2,12 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+/* Tailwind v4 changed the default border color from gray-200 to currentColor.
+   Restore the v3 default so the 300+ bare `border` utilities render as before. */
+@theme {
+  --default-border-color: var(--color-gray-200);
+}
+
 /*
  * DMV Throwers Design System — VSYC-26 token layer
  * Canonical font stack: Playfair Display (display) · DM Sans (body) · Barlow Condensed (labels/nav)
