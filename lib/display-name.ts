@@ -49,8 +49,10 @@ export function handleWithLegalName(parts: DisplayNameParts): string {
  * first name + last initial. Never exposes a full legal name.
  */
 export function restrictedDisplayName(parts: DisplayNameParts): string {
+  // A "handle" that is just their legal name (e.g. a bracket name typed as "Sam Rivera")
+  // must not leak it, so it doesn't count. Matches the vsyc_results view's rule.
   const handle = handleOf(parts);
-  if (handle) return handle;
+  if (handle && handle.toLowerCase() !== legalName(parts).toLowerCase()) return handle;
 
   const first = clean(parts.first_name);
   const lastInitial = clean(parts.last_name).charAt(0);
