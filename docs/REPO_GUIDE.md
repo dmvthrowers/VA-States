@@ -193,6 +193,52 @@ overwrites a track). The lo-fi pool is the `lofi/` folder of the `vsyc26-music` 
 tracks you have the right to play there. A fallback is a `vsyc_music` row with `source =
 'fallback'`; staff see "LO-FI (no upload)", and a player's own upload replaces it.
 
+### Battles on the DJ page
+
+A bracket division (`scoring.format: 'bracket'`) gets a battle view on `/dj` instead of a run order.
+`GET /api/dj/battle?division=…` (DJ, audio tech, admin) returns the bracket in play order (third
+place just before the final), both entrants' names and whether each has the battle track
+(`playSlotFor`: the first extra when the division has `music: { routine: false, extra: [...] }`),
+and `cue_id`: the live match, else the next undecided one (`lib/battle-cue.ts`). The page shows
+the two entrants side by side with Play and Download for each (through `/api/dj/music-url`), the
+division's battle rules, and an "Up next" list where staff can cue any other match. Setting a match
+live and confirming winners stays on the admin bracket screen.
+
+### Rounds by entrant count (site issue #80)
+
+A division lists every round it could have (`rounds`) and a `roundPlan` of tiers: the first tier
+whose `upTo` is at least the number of entrants wins, and its `rounds` (by round key) are the ones
+that run, with how many advance from each. Skipped rounds keep their numbers, so music tracks,
+scores and run orders never need renumbering. Pure rules and tests: `lib/round-plan.ts`.
+
+```ts
+// 1A and X, as decided in #80. Sport has no extra rounds (one 1-minute routine).
+rounds: [{ name: 'Prelims', seconds: 60 }, { name: 'Semi-final', seconds: 90 }, { name: 'Final', seconds: 180 }],
+roundPlan: [
+  { upTo: 25, rounds: [{ key: 'final' }] },
+  { upTo: 50, rounds: [{ key: 'prelims', advance: 15 }, { key: 'final' }] },
+  { rounds: [{ key: 'prelims', advance: 20 }, { key: 'semi-final', advance: 10 }, { key: 'final' }] },
+],
+music: { perRound: true },   // optional: a track per round
+```
+
+Flow on contest day: when registration closes, the **Round plans** panel (admin, on the run order
+screen) shows how many entered and the suggested plan; an organizer confirms it
+(`POST /api/admin/rounds/plan`, migration 0045 `vsyc_round_plans`, audit `round_plan_confirmed`) or
+picks another tier. Until a division is confirmed every round counts, and the advance button is
+refused. After that:
+
+- Round tabs on `/judge`, `/dj`, the run order screens and the public run order show only rounds
+  that run (`GET /api/rounds/plan` is the public read), and `/api/scores` refuses a skipped round.
+- **Advance** (`POST /api/admin/rounds/advance`) takes the confirmed count and writes the next
+  running round's run order, best seed last, which is also the DJ queue. A tie across the cut asks
+  first: advance everyone tied or pick exactly the open spots (`dry_run` previews; audit
+  `round_advanced` records the choice). A stale plan (entrants changed tier since) is flagged.
+- Results show each played round, with how many advanced, and "Out in Prelims" style detail on the
+  overall order. Players see the plan on the registration card.
+
+The shipped VSYC-26 config has no `roundPlan`, so nothing above changes for it.
+
 ## 5. Config and environments
 
 All config is env vars; `.env.local.example` lists every name with notes. Production values live

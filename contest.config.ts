@@ -207,6 +207,19 @@ export interface RoundDef {
   seconds?: number;
 }
 
+/**
+ * How many rounds a division runs depends on how many entered. Tiers are checked in order and the
+ * first whose `upTo` is at least the entrant count wins; leave `upTo` off the last tier to catch
+ * everyone else. `rounds` names the division's rounds that run (by round key, see RoundDef.key)
+ * and how many advance from each. Rounds a tier leaves out are skipped, and keep their numbers.
+ * Example (1A): ≤25 → Final only; ≤50 → Prelims (top 15) + Final; more → Prelims (top 20) +
+ * Semi-final (top 10) + Final. The organizer confirms the plan before it's applied.
+ */
+export interface RoundTier {
+  upTo?: number;
+  rounds: { key: string; advance?: number }[];
+}
+
 /** One music track a player uploads for a division, e.g. { key: 'battle', label: 'Battle music' }. */
 export interface MusicSlotDef {
   /** Stable ID: lowercase letters, numbers, - or _ (up to 30). "main" is reserved for the single routine track. */
@@ -250,6 +263,8 @@ export interface DivisionDef {
   entry?: EntryDef;
   /** Rounds for freestyle, panel and manual divisions. Default: one round. */
   rounds?: RoundDef[];
+  /** Which rounds run, by how many entered. Needs `rounds`. Without it every round always runs. */
+  roundPlan?: RoundTier[];
   /**
    * How long a routine runs, in seconds. The DJ page shows it and times it so a track isn't cut
    * early. A round's own `seconds` wins. Leave out when it varies or doesn't matter.

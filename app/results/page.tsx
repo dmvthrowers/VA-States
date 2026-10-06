@@ -182,7 +182,9 @@ export default async function ResultsPage() {
             const rounds = full.rounds.filter((_, i) => isPublished(vis, code, i + 1));
             const finalOut = full.rounds.length <= 1 || isPublished(vis, code, full.rounds.length);
             const ds = { ...full, rounds, final: finalOut ? full.final : [] };
-            const multiRound = full.rounds.length > 1;
+            // A round a division skipped (final only under 25 entrants) has no rows and isn't shown.
+            const played = ds.rounds.filter((r) => r.rows.length > 0);
+            const multiRound = full.rounds.filter((r) => r.rows.length > 0).length > 1;
             const champs = stateChampions(ds.final, contest.stateChampion.state);
             return (
               <section key={code} aria-labelledby={`div-${code}`} style={{ marginBottom: '2.5rem' }}>
@@ -231,10 +233,10 @@ export default async function ResultsPage() {
                         </a>
                       </p>
                     )}
-                    {multiRound && ds.rounds.map((r) => (
+                    {multiRound && played.map((r, i) => (
                       <details key={r.name} style={{ marginTop: '0.9rem' }}>
                         <summary style={{ ...subHeading, cursor: 'pointer', margin: 0, padding: '0.25rem 0' }}>
-                          {r.name} ({r.rows.length})
+                          {r.name} ({r.rows.length}){played[i + 1] ? ` · ${played[i + 1].rows.length} advanced to ${played[i + 1].name}` : ''}
                         </summary>
                         <div style={{ marginTop: '0.5rem' }}>
                           <StandingsList rows={r.rows} label={`${d.name} ${r.name}`} />

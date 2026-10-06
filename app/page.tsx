@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import type { Division } from '@/lib/pricing';
 import { calculateFeePreview, displayPrice, formatCents, PRICES_TBD } from '@/lib/pricing';
+import { describeRoundPlan } from '@/lib/round-plan';
 import { cleanStyles, selectionIssues, entryOf, formatSummary, freeTeamJoins, styleCap, type DivisionStyles } from '@/lib/divisions-core';
 import { JOIN_CODE_RE, TEAM_NAME_MAX, entrySummary, normalizeJoinCode, teamPricingNote, type TeamChoice } from '@/lib/team-entries';
 import NavBar from '@/components/NavBar';
@@ -521,6 +522,11 @@ export default function RegisterPage() {
                           <div className="font-bold text-white text-sm">{d.name}</div>
                           <div className="text-xs text-text-body mt-0.5">{d.description}</div>
                           <div className="text-xs text-gold/60 mt-1">{divisionFacts(d)}</div>
+                          {d.roundPlan && (
+                            <div className="text-xs text-gold/60 mt-1">
+                              <strong>Rounds depend on how many enter.</strong> {describeRoundPlan(d).join(' ')} We confirm the rounds when registration closes and post who advances after each one.
+                            </div>
+                          )}
                         </div>
                       </div>
                       <span className="font-display font-bold text-gold text-lg flex-shrink-0 text-right">

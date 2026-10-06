@@ -6,6 +6,8 @@ import RunOrderManager from '@/components/RunOrderManager';
 import DjBattleView from '@/components/DjBattleView';
 import { DIVISION_CODES, divisionByCode } from '@/contest.config';
 import { formatRoutineTime } from '@/lib/divisions-core';
+import { roundTabs } from '@/lib/round-plan';
+import { useRoundPlans } from '@/lib/use-round-plans';
 
 const DIVISIONS = DIVISION_CODES;
 type Division = string;
@@ -56,6 +58,13 @@ export default function DJPage() {
 
   const [division, setDivision] = useState<Division>(DIVISIONS[0]);
   const [round, setRound] = useState(1);
+  const plans = useRoundPlans();
+  const tabs = roundTabs(divisionByCode(division), plans[division]);
+  const firstRound = tabs[0]?.round;
+  const onRunningRound = tabs.some((t) => t.round === round);
+  useEffect(() => {
+    if (firstRound !== undefined && !onRunningRound) setRound(firstRound);
+  }, [firstRound, onRunningRound]);
   const [data, setData] = useState<RunOrderResponse | null>(null);
 
   // Routine timer: started when the track starts, so nobody cuts it before the routine ends.
@@ -400,23 +409,23 @@ export default function DJPage() {
           <DjBattleView token={token} division={division} />
         ) : (
         <>
-        {(data?.rounds?.length ?? 0) > 1 && (
+        {tabs.length > 1 && (
           <nav aria-label="Round" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-            {data!.rounds!.map((name, i) => (
+            {tabs.map((t) => (
               <button
-                key={name}
+                key={t.name}
                 type="button"
-                aria-pressed={round === i + 1}
-                onClick={() => { setRound(i + 1); setData(null); setTimerStart(null); }}
+                aria-pressed={round === t.round}
+                onClick={() => { setRound(t.round); setData(null); setTimerStart(null); }}
                 style={{
-                  background: round === i + 1 ? 'var(--gold)' : 'transparent',
-                  color: round === i + 1 ? 'var(--navy-deep)' : 'var(--text-body)',
+                  background: round === t.round ? 'var(--gold)' : 'transparent',
+                  color: round === t.round ? 'var(--navy-deep)' : 'var(--text-body)',
                   border: '1px solid',
-                  borderColor: round === i + 1 ? 'var(--gold)' : 'var(--navy-border)',
+                  borderColor: round === t.round ? 'var(--gold)' : 'var(--navy-border)',
                   padding: '0.3rem 0.75rem', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.05em', cursor: 'pointer',
                 }}
               >
-                {name}
+                {t.name}
               </button>
             ))}
           </nav>
