@@ -2,16 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminRequest } from '@/lib/auth/admin-request';
-import { contest, competition } from '@/contest.config';
+import { competition } from '@/contest.config';
+import { slotKey } from '@/lib/music';
+import { slotsOf } from '@/lib/music-config';
 
-// One music column per music division (a player has one track per division).
-const MUSIC_DIVISIONS = competition.divisions.filter((d) => d.music).map((d) => d.code);
-const musicColumn = (code: string) => `music_${code}`;
+// One music column per track a division asks for: music_1A for a division's single track,
+// music_1A_prelims / music_1A_final when it has several (rounds, battle music...).
+const MUSIC_COLUMNS = competition.divisions.flatMap((d) => {
+  const defs = slotsOf(d.code);
+  return defs.map((def) => ({ column: defs.length > 1 ? `music_${d.code}_${def.key}` : `music_${d.code}`, division: d.code, slot: def.key }));
+});
 
 const COLUMNS = [
   'id', 'created_at', 'last_name', 'first_name', 'preferred_bracket_name',
   'age_on_event', 'divisions', 'division_styles', 'fee_cents', 'paid',
-  'payment_method', 'comp_code', ...MUSIC_DIVISIONS.map(musicColumn), 'music_uploaded_at',
+  'payment_method', 'comp_code', ...MUSIC_COLUMNS.map((m) => m.column), 'music_uploaded_at',
   'email', 'phone', 'parent_email', 'registration_source', 'bracket_seed', 'admin_notes',
 ];
 
@@ -27,7 +32,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 
   const { data, error } = await supabase
     .from('vsyc_registrations')
-    .select(COLUMNS.filter((c) => !c.startsWith('music_') || c === 'music_uploaded_at').join(','))
+    .select(COLUMNS.filter((c) => !MUSIC_COLUMNS.some((m) => m.column === c)).join(','))
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -37,19 +42,19 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 
   const { data: tracks, error: tracksError } = await supabase
     .from('vsyc_music')
-    .select('registration_id, division, filename, is_fallback');
+    .select('registration_id, division, slot, filename, is_fallback');
   if (tracksError) {
     console.error('[export-csv] music query error:', tracksError);
     return apiError('upstream_error', 'Failed to query music', requestId);
   }
-  // "<registration id>:<division>" → what the CSV shows. Lo-fi fallbacks are marked.
-  const trackLabel = new Map((tracks ?? []).map((t) => [`${t.registration_id}:${t.division}`, t.is_fallback ? `LO-FI (no upload): ${t.filename}` : t.filename]));
+  // "<registration id>:<division>:<slot>" → what the CSV shows. Lo-fi fallbacks are marked.
+  const trackLabel = new Map((tracks ?? []).map((t) => [`${t.registration_id}:${slotKey(t.division, t.slot)}`, t.is_fallback ? `LO-FI (no upload): ${t.filename}` : t.filename]));
 
   const rows = (data ?? []).map(row =>
     csvRow(COLUMNS.map(col => {
       const rec = row as unknown as Record<string, unknown>;
-      const musicDivision = MUSIC_DIVISIONS.find((code) => musicColumn(code) === col);
-      if (musicDivision) return trackLabel.get(`${rec.id}:${musicDivision}`) ?? '';
+      const music = MUSIC_COLUMNS.find((m) => m.column === col);
+      if (music) return trackLabel.get(`${rec.id}:${slotKey(music.division, music.slot)}`) ?? '';
       const val = rec[col];
       if (Array.isArray(val)) return val.join(';');
       // division_styles {"X": ["2A", "3A"]} → "X: 2A 3A"

@@ -49,7 +49,7 @@ interface Contestant {
   paid_at: string | null;
   music_uploaded_at: string | null;
   /** One track per division (from /api/ops/dashboard) */
-  music?: { division: string; filename: string; is_fallback: boolean }[];
+  music?: { division: string; slot: string; filename: string; is_fallback: boolean }[];
   is_public: boolean;
   admin_notes: string | null;
   registration_source: string;
@@ -1048,13 +1048,13 @@ function ContestantRow({
         <input aria-label="Show contestant publicly" title="Show contestant publicly" type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="w-4 h-4 accent-gold" />
       </td>
       <td className="py-2 pr-3 min-w-[170px] text-xs">
-        {/* Read-only: one track per division. Staff upload or replace them on the run order page. */}
+        {/* Read-only: one track per division and slot. Staff upload or replace them on the run order page. */}
         {(contestant.music ?? []).length === 0 ? (
           <span className="text-text-muted">no music</span>
         ) : (
           (contestant.music ?? []).map((m) => (
-            <div key={m.division} className={m.is_fallback ? 'text-gold' : 'text-[#7fff7f]'}>
-              <span className="font-bold">{m.division}</span>{' '}
+            <div key={`${m.division}:${m.slot}`} className={m.is_fallback ? 'text-gold' : 'text-[#7fff7f]'}>
+              <span className="font-bold">{m.division}{m.slot !== 'main' ? ` ${m.slot}` : ''}</span>{' '}
               {m.is_fallback ? 'LO-FI (no upload)' : m.filename}
             </div>
           ))

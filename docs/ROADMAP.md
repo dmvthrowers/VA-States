@@ -45,6 +45,8 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 7. **Music, the rest of site issue #79.** Per-division tracks, the lo-fi fallback and the
    reminder emails are built, and so is routine length for the DJ view (`routineSeconds` /
    round `seconds` in `contest.config.ts`, a start/clear timer on `/dj`, and a round selector).
+   Music is stored per slot (routine, one per round, extras such as battle music), so prelims and
+   finals tracks for several divisions are supported once the config asks for them.
    Still open: fill `vsyc26-music/lofi/` with tracks cleared for public play, a scheduled run of
    the reminders (today staff press the button on the Music tab), and dropping the old
    `music_path` / `music_filename` columns. The rest of site issue #80 (round formats chosen by

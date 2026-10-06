@@ -2,7 +2,8 @@ import { buildVsyc26Ics } from './ics';
 import { enqueueEmails, queueEmail, type QueueOptions } from './outbox';
 import { divisionByCode } from '@/contest.config';
 import type { TeamSummary } from './team-entries';
-import { joinDivisions, musicDivisions } from './music';
+import { joinDivisions, playerSlots } from './music';
+import { slotsOf } from './music-config';
 
 // Every send* function below renders its email and hands it to the outbox
 // (lib/outbox.ts), which stores it, sends it right away when the daily budget
@@ -79,10 +80,12 @@ interface ConfirmationParams {
   teams?: TeamSummary[];
 }
 
-/** ", one track for each of 1A and X" when a player entered more than one music division. */
+/** ": one track for each of 1A Prelims, 1A Final and X Prelims" when a player has more than one track to upload. */
 function musicSlotsNote(divisions: string[]): string {
-  const codes = musicDivisions(divisions, (c) => divisionByCode(c)?.music === true);
-  return codes.length > 1 ? `: one track for each of ${joinDivisions(codes)}` : '';
+  const slots = playerSlots(divisions, slotsOf);
+  if (slots.length < 2) return '';
+  const names = slots.map((s) => (s.labelled ? `${s.division} ${s.label}` : s.division));
+  return `: one track for each of ${joinDivisions(names)}`;
 }
 
 /** "Pair", "Act"… for a team division (falls back to "team"). */
@@ -125,6 +128,8 @@ interface MusicReceivedParams {
   firstName: string;
   filename: string;
   division: string;
+  /** "Prelims", "Battle music"... when the division has more than one track */
+  slotLabel?: string;
 }
 
 export async function sendMusicReceivedEmail(p: MusicReceivedParams, opts?: QueueOptions): Promise<EmailResult> {
@@ -145,8 +150,8 @@ export interface MusicReminderParams {
   /** Parent or guardian of a minor */
   cc?: string[];
   firstName: string;
-  /** Division codes that still have no track */
-  divisions: string[];
+  /** The tracks still missing, e.g. { division: '1A', label: 'Prelims', labelled: true } */
+  missing: { division: string; label: string; labelled: boolean }[];
   uploadUrl: string;
   deadlineLabel: string;
   /** Say that an empty slot gets a lo-fi track (only when the lo-fi pool exists) */
@@ -154,11 +159,11 @@ export interface MusicReminderParams {
 }
 
 function renderMusicReminder(p: MusicReminderParams): RenderedEmail {
-  const names = p.divisions.map((d) => divisionByCode(d)?.name ?? d);
-  const list = joinDivisions(p.divisions);
+  const names = p.missing.map((m) => `${divisionByCode(m.division)?.name ?? m.division}${m.labelled ? ` · ${m.label}` : ''}`);
+  const list = joinDivisions(p.missing.map((m) => (m.labelled ? `${m.division} ${m.label}` : m.division)));
   const fallback = p.lofiFallback
-    ? 'If a division is still empty at the deadline, a lo-fi track plays for that routine instead.'
-    : 'If a division is still empty at the deadline, we cannot play music for that routine.';
+    ? 'If a slot is still empty at the deadline, a lo-fi track plays instead.'
+    : 'If a slot is still empty at the deadline, we cannot play music for it.';
   return {
     to: p.to,
     ...(p.cc?.length ? { cc: p.cc } : {}),
@@ -172,7 +177,7 @@ function renderMusicReminder(p: MusicReminderParams): RenderedEmail {
       <div style="font-size:0.85rem;margin-top:12px;"><strong style="color:#fff;">Deadline:</strong> ${esc(p.deadlineLabel)}</div>
       <a href="${p.uploadUrl}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:12px 24px;text-decoration:none;margin-top:12px;">UPLOAD MUSIC →</a>
     </div>
-    <p style="font-size:0.82rem;color:#6a7a9a;">You upload one track for each division you entered. ${esc(fallback)}</p>
+    <p style="font-size:0.82rem;color:#6a7a9a;">You upload one track for each slot below. ${esc(fallback)}</p>
   `),
     text: [
       `Music Reminder — VSYC-26`,
@@ -183,7 +188,7 @@ function renderMusicReminder(p: MusicReminderParams): RenderedEmail {
       `Deadline: ${p.deadlineLabel}`,
       `Upload: ${p.uploadUrl}`,
       ``,
-      `You upload one track for each division you entered. ${fallback}`,
+      `You upload one track for each slot below. ${fallback}`,
       ``,
       `Questions? Reply to this email or contact contact@dmvthrowers.club`,
     ].join('\n'),
@@ -445,7 +450,7 @@ function buildMusicReceivedHtml(p: MusicReceivedParams): string {
     <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Music Received</h1>
     <p style="font-size:0.9rem;margin:0 0 24px;">Got it, ${esc(p.firstName)}. Your music is in.</p>
     <div style="background:#0d1428;padding:20px;margin-bottom:16px;">
-      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Division:</strong> ${esc(p.division)}</div>
+      <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Division:</strong> ${esc(p.division)}${p.slotLabel ? ` · ${esc(p.slotLabel)}` : ''}</div>
       <div style="font-size:0.85rem;"><strong style="color:#fff;">File saved as:</strong> <span style="font-family:monospace;color:#C9A84C;">${esc(p.filename)}</span></div>
     </div>
     <p style="font-size:0.82rem;color:#6a7a9a;">Music deadline was September 17, 2026. You're all set. See you at Dulles Town Center on September 19.</p>
@@ -458,7 +463,7 @@ function buildMusicReceivedText(p: MusicReceivedParams): string {
     ``,
     `Got it, ${p.firstName}. Your music is in.`,
     ``,
-    `Division: ${p.division}`,
+    `Division: ${p.division}${p.slotLabel ? ` · ${p.slotLabel}` : ''}`,
     `File saved as: ${p.filename}`,
     ``,
     `Music deadline was September 12, 2026. You're all set. See you at Dulles Town Center on September 19.`,

@@ -150,23 +150,44 @@ validates the bearer token with Supabase and looks up an active `admin` row in
 
 ### Music upload
 
-One track per division the player entered (`vsyc_music`, unique on registration + division; a
-1A + X player has two slots). `GET /api/upload?token=…` lists the slots. `/upload?token=…` (token
-minted at registration) → `POST /api/upload {action:'sign', division}` checks payment, deadline
-(`MUSIC_DEADLINE_ISO`), division, mime (mp3/wav/m4a) and size (128 MB) and returns a signed upload
-URL for bucket `vsyc26-music` (file `DIVISION_Last_First.ext`) → browser PUTs the file →
-`{action:'confirm', division}` re-derives the filename server-side, checks the object exists,
-records the track, emails a receipt and writes `music_received` / `music_replaced` to the audit
-log. A slot that already holds the player's own track is refused (409) unless the request says
-`replace: true`, and the page asks first. Staff upload through `/api/admin/music-upload` (POST then
-PATCH) on the run order screens, per division. The DJ queue, run order, player page and CSV export
-all resolve the track per division (`lib/music.ts` has the pure helpers). The old single slot
-(`vsyc_registrations.music_path` / `music_filename`) is no longer read; a later migration drops
-it. `vsyc_registrations.music_uploaded_at` is kept current by a trigger ("has a real track").
+Music is stored per **slot**: one track per player, per division, per slot (`vsyc_music`, unique on
+registration + division + slot). `contest.config.ts` says which slots a division has
+(`musicSlotsOf`):
+
+| `music:` in the division | Slots |
+| --- | --- |
+| `true` | `main`: one routine track for the division (VSYC-26 today) |
+| `{ perRound: true }` | one per round, e.g. `prelims`, `semi-final`, `final` (needs `rounds`; a round may set its own `key`) |
+| `{ extra: [{ key: 'battle', label: 'Battle music' }] }` | the routine track plus battle music |
+| `{ routine: false, extra: [...] }` | extras only, e.g. a battle division |
+| `false` | none |
+
+So a 1A + X player in a contest with prelims and finals uploads four tracks (1A prelims, 1A
+final, X prelims, X final), plus a battle track if a battle division asks for one. Nothing in the
+code is yo-yo specific: a kendama or juggling contest sets its own divisions, rounds and extras.
+
+`GET /api/upload?token=…` lists a player's slots. `/upload?token=…` (token minted at registration)
+→ `POST /api/upload {action:'sign', division, slot}` checks payment, deadline
+(`MUSIC_DEADLINE_ISO`), that (division, slot) is one of the player's, mime (mp3/wav/m4a) and size
+(128 MB) and returns a signed upload URL for bucket `vsyc26-music` (file `DIVISION_Last_First.ext`;
+`DIVISION_SLOT_Last_First.ext` for rounds and extras) → browser PUTs the file →
+`{action:'confirm', division, slot}` re-derives the filename server-side, checks the object
+exists, records the track, emails a receipt and writes `music_received` / `music_replaced` to the
+audit log. `slot` may be left out when a division has one track. A slot that already holds the
+player's own track is refused (409) unless the request says `replace: true`, and the page asks
+first. Staff upload through `/api/admin/music-upload` (POST then PATCH) on the run order screens,
+for the track the round shown plays. The DJ queue plays the slot for the round on screen
+(`playSlotFor`; the run-order API returns it as `music_slot`), and the player page, CSV export
+(`music_1A`, or `music_1A_prelims`... when a division has several) and admin Music tab all resolve
+tracks per slot (`lib/music.ts` has the pure helpers). The old single slot
+(`vsyc_registrations.music_path` / `music_filename`) is no longer read; a later migration drops it.
+`vsyc_registrations.music_uploaded_at` is kept current by a trigger ("has a real track").
+Switching a division from `music: true` to per-round later leaves its existing `main` tracks in
+place but unused: have players upload the round tracks, or re-file the old ones by hand.
 
 Empty slots: the admin dashboard's **Music** tab shows slots per division, sends per-division
 reminder emails (`/api/admin/music-reminders`, dry-run by default, once a day per person and set
-of divisions, before the deadline) and assigns a random lo-fi track to every still-empty slot
+of divisions, before the deadline) and assigns a random lo-fi track to every still-empty slot (a slot is a division and track)
 (`/api/admin/music-fallback`, dry-run by default, after the deadline unless forced, never
 overwrites a track). The lo-fi pool is the `lofi/` folder of the `vsyc26-music` bucket: put only
 tracks you have the right to play there. A fallback is a `vsyc_music` row with `source =

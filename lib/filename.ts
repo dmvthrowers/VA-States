@@ -1,5 +1,6 @@
 /**
- * Enforces the required music filename format: DIVISION_LastName_FirstName.ext
+ * Enforces the required music filename format: DIVISION_LastName_FirstName.ext, or
+ * DIVISION_SLOT_LastName_FirstName.ext for a round or extra track (DIVISION_PRELIMS_...).
  * Normalizes Unicode (strips diacritics), replaces spaces/hyphens with underscores,
  * and rejects path traversal characters.
  */
@@ -32,6 +33,8 @@ export function buildMusicFilename(
   lastName: string,
   firstName: string,
   originalFilename: string,
+  /** The track within the division; leave out (or "main") for the division's single routine track */
+  slot?: string,
 ): FilenameResult {
   const ext = getExt(originalFilename);
   if (!ext) {
@@ -46,7 +49,12 @@ export function buildMusicFilename(
     return { filename: '', error: 'Division, last name, and first name are required for filename.' };
   }
 
-  return { filename: `${divPart}_${lastPart}_${firstPart}.${ext}` };
+  const slotPart = slot && slot !== 'main' ? normalize(slot).toUpperCase() : '';
+  if (slot && slot !== 'main' && !slotPart) {
+    return { filename: '', error: 'The music track name is not usable in a filename.' };
+  }
+
+  return { filename: `${[divPart, slotPart, lastPart, firstPart].filter(Boolean).join('_')}.${ext}` };
 }
 
 /** Returns true if a filename is safe (no path traversal). */

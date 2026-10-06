@@ -3,10 +3,11 @@ import { withErrorHandling, apiError } from '@/lib/api-error';
 import { logAudit } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminRequest } from '@/lib/auth/admin-request';
-import { contest, divisionByCode } from '@/contest.config';
+import { contest } from '@/contest.config';
 import type { OutboxEmail } from '@/lib/email';
 import { enqueueEmails } from '@/lib/outbox';
 import { emptySlotsByPlayer } from '@/lib/music';
+import { divisionName, slotsOf } from '@/lib/music-config';
 import { listLofiPool } from '@/lib/music-pool';
 
 export const runtime = 'nodejs';
@@ -16,9 +17,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowe
 /**
  * POST /api/admin/music-reminders  { dry_run?: boolean (default true) }
  *
- * Emails every paid (or free) entrant who still has an empty music slot, listing the divisions
- * that need a track and their upload link (parents are copied for minors). Before the music
- * deadline only. At most one reminder per person per day for the same set of divisions, so
+ * Emails every paid (or free) entrant who still has an empty music slot, listing the tracks
+ * (division and round or extra) that are missing and their upload link (parents are copied for minors). Before the music
+ * deadline only. At most one reminder per person per day for the same set of tracks, so
  * pressing it twice doesn't email anyone twice. `dry_run` (the default) just reports who would
  * get one.
  */
@@ -41,7 +42,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     supabase
       .from('vsyc_registrations')
       .select('id, email, first_name, last_name, divisions, paid, fee_cents, music_upload_token, is_minor, parent_email'),
-    supabase.from('vsyc_music').select('registration_id, division'),
+    supabase.from('vsyc_music').select('registration_id, division, slot'),
   ]);
   if (regsRes.error || tracksRes.error) {
     console.error('[music-reminders] load error:', regsRes.error ?? tracksRes.error);
@@ -52,7 +53,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   const empty = emptySlotsByPlayer(
     entrants.map((r) => ({ id: r.id, divisions: r.divisions as string[] })),
     tracksRes.data ?? [],
-    (code) => divisionByCode(code)?.music === true,
+    slotsOf,
   );
   const byId = new Map(entrants.map((r) => [r.id, r]));
 
@@ -66,7 +67,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
   const emails: OutboxEmail[] = [];
   const dedupeKeys: string[] = [];
-  const recipients: { name: string; divisions: string[] }[] = [];
+  const recipients: { name: string; missing: string[] }[] = [];
   for (const e of empty) {
     const reg = byId.get(e.id)!;
     const parent = reg.is_minor && reg.parent_email && reg.parent_email !== reg.email ? [reg.parent_email] : undefined;
@@ -76,14 +77,14 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
         to: reg.email,
         cc: parent,
         firstName: reg.first_name,
-        divisions: e.divisions,
+        missing: e.slots.map((m) => ({ division: m.division, label: m.label, labelled: m.labelled })),
         uploadUrl: `${BASE_URL}/upload?token=${reg.music_upload_token}`,
         deadlineLabel,
         lofiFallback,
       },
     });
-    dedupeKeys.push(`music_reminder:${reg.id}:${today}:${e.divisions.join('+')}`);
-    recipients.push({ name: `${reg.first_name} ${reg.last_name}`, divisions: e.divisions });
+    dedupeKeys.push(`music_reminder:${reg.id}:${today}:${e.slots.map((m) => `${m.division}.${m.slot}`).join('+')}`);
+    recipients.push({ name: `${reg.first_name} ${reg.last_name}`, missing: e.slots.map((m) => (m.labelled ? `${m.division} ${m.label}` : divisionName(m.division))) });
   }
 
   if (dryRun || emails.length === 0) {
