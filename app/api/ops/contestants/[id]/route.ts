@@ -14,6 +14,8 @@ const updateContestantSchema = z.object({
   /** Style codes per division, e.g. { "X": ["2A"] }. The database checks they exist. */
   division_styles: z.record(z.string().max(20), z.array(z.string().max(20)).max(20)).optional(),
   is_public: z.boolean().optional(),
+  /** Home-state champion eligibility: true/false overrides the automatic answer, null goes back to automatic */
+  home_state_override: z.boolean().nullable().optional(),
   admin_notes: z.string().trim().max(2000).optional().or(z.literal('')),
 }).strict();
 
@@ -98,6 +100,14 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest, conte
 
   if (error) {
     return apiError('upstream_error', 'Failed to update contestant', requestId);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updatePayload, 'home_state_override')) {
+    await logAudit('home_state_override_set', {
+      registrationId: id,
+      actor: auth.email ?? 'admin',
+      details: { override: updatePayload.home_state_override ?? null },
+    });
   }
 
   if (paidChange) {

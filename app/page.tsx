@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import type { Division } from '@/lib/pricing';
 import { calculateFeePreview, displayPrice, formatCents, PRICES_TBD } from '@/lib/pricing';
+import { US_STATES } from '@/lib/residency';
 import { describeRoundPlan } from '@/lib/round-plan';
 import { cleanStyles, selectionIssues, entryOf, formatSummary, freeTeamJoins, styleCap, type DivisionStyles } from '@/lib/divisions-core';
 import { JOIN_CODE_RE, TEAM_NAME_MAX, entrySummary, normalizeJoinCode, teamPricingNote, type TeamChoice } from '@/lib/team-entries';
@@ -23,6 +24,9 @@ type FormValues = {
   phone: string;
   city: string;
   state: string;
+  home_address: string;
+  home_zip: string;
+  home_state_confirmed: boolean;
   club_affiliation: string;
   parent_name: string;
   parent_email: string;
@@ -189,6 +193,8 @@ export default function RegisterPage() {
   const watchedDivisions = watch('divisions') as Division[];
   const watchedStyles = (watch('division_styles') ?? {}) as DivisionStyles;
   const watchedAge = parseInt(watch('age_on_event') || '0', 10);
+  const championState = contest.stateChampion.state;
+  const watchedState = watch('state');
   const watchedCompCode = watch('comp_code');
   const isMinor = watchedAge > 0 && watchedAge < 18;
   const styledSelected = competition.divisions.filter(d => d.styles && watchedDivisions.includes(d.code));
@@ -481,9 +487,34 @@ export default function RegisterPage() {
                 </Field>
               </div>
               <Field label="State *" error={errors.state?.message}>
-                <input {...register('state', { required: 'Required', maxLength: { value: 2, message: '2-letter code' } })} className={inputCls(!!errors.state)} placeholder={contest.venue.region} maxLength={2} />
+                <select {...register('state', { required: 'Choose your state' })} className={inputCls(!!errors.state)} defaultValue="">
+                  <option value="" disabled>Choose…</option>
+                  {US_STATES.map((st) => <option key={st.code} value={st.code}>{st.name}</option>)}
+                </select>
               </Field>
             </div>
+            {championState && watchedState === championState && (
+              <div className="mt-4 border border-navy-border p-4">
+                <p className="text-sm text-text-body mb-3">
+                  <strong>{contest.stateChampion.title}.</strong> The title goes to the best-placed competitor in each division who lives in {stateName(championState)}, based on their home address. We keep your address private; it&rsquo;s only used to check eligibility.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2">
+                    <Field label="Home Street Address *" error={errors.home_address?.message}>
+                      <input {...register('home_address', { required: 'Required' })} autoComplete="street-address" className={inputCls(!!errors.home_address)} />
+                    </Field>
+                  </div>
+                  <Field label="ZIP *" error={errors.home_zip?.message}>
+                    <input {...register('home_zip', { required: 'Required', pattern: { value: /^\d{5}(-\d{4})?$/, message: '5-digit ZIP' } })} autoComplete="postal-code" inputMode="numeric" className={inputCls(!!errors.home_zip)} />
+                  </Field>
+                </div>
+                <label className="flex gap-3 items-start mt-3 cursor-pointer">
+                  <input {...register('home_state_confirmed', { required: `Please confirm you live in ${stateName(championState)}` })} type="checkbox" className="mt-1 w-4 h-4 accent-gold flex-shrink-0" />
+                  <span className="text-sm text-text-body">I live at this address in {stateName(championState)}. (A home address, not a school, club or mailing address.)</span>
+                </label>
+                {errors.home_state_confirmed && <p className="text-red text-xs mt-1">{errors.home_state_confirmed.message}</p>}
+              </div>
+            )}
           </section>
 
           {/* ── SECTION 2: Divisions ── */}
@@ -1214,6 +1245,8 @@ function SectionHeader({ tag, title }: { tag: string; title: string }) {
     </div>
   );
 }
+
+const stateName = (code: string) => US_STATES.find((x) => x.code === code)?.name ?? code;
 
 function Field({ label, hint, error, children }: {
   label: string;

@@ -269,6 +269,30 @@ panel on the run order screen show the paid entrants' age spread, a players-by-a
 verdict and the suggested cut, and let an organizer try another one. **Read-only: nothing is
 saved or applied.** Applying a split (separate run order, podium, champion and results per bracket)
 is not built; see the roadmap.
+### Home-state champion (site issue #82)
+
+Each division gets its own state champion (`contest.stateChampion`: `{ state: 'VA', title: 'VA State
+Champion' }`), the best-placed **eligible** finisher, even when off the podium, with a prize of its own.
+Eligibility is decided by **home address** (`lib/residency.ts`, tested):
+
+- Registration's state field is a list of the 50 states plus **DC as its own option**. Anyone choosing the
+  champion's state also gives a home street address and ZIP and ticks "I live at this address in Virginia".
+  Address and ZIP are stored on `vsyc_registrations` (`home_address`, `home_zip`; migration 0047), shown
+  only to admins, and kept only for that state. No public view selects them.
+- `home_state_confirmed` is the registrant's confirmation; `home_state_override` is an organizer's decision
+  (`true` eligible, `false` not, `null` automatic), set per contestant in the admin dashboard, which also
+  shows an "ELIGIBLE" tag and a champion-eligible filter. Overrides are audited (`home_state_override_set`).
+- Walk-ups from the champion's state count as confirmed (staff ask in person).
+- `stateChampions(rows, state, eligible)` and `fetchHomeStateEligible()` in `lib/standings.ts` pick the
+  champion per division (ties share the title); `/results` shows it next to the placement. If the new
+  columns can't be read, results fall back to the old rule (entered the champion's state), so 2026 results
+  never lose their champions. Migration 0047 backfills `home_state_confirmed = true` for everyone who
+  already entered VA, so 2026 results are unchanged.
+- `winnersFrom(standings, { state, eligible })` adds each champion to the prize/survey list (marked
+  `champion`, not duplicated if they're on the podium). Prizes per division: 3 podium places + 1 champion;
+  three divisions = 12.
+
+Judges don't see the eligibility flag: it could bias scoring, and the title is decided after the results.
 
 ## 5. Config and environments
 

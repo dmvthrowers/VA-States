@@ -69,8 +69,7 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
   run of show (#84), and the schedule items for semi-finals.
 - Battles on `/dj`: **built** (cue the live match, play both entrants' battle tracks). Not used by
   VSYC yet: it needs a bracket division with `music: { routine: false, extra: [...] }`.
-- Sport Youth/Adult split (#81): **preview built** (`lib/division-split.ts`, admin panel, read-only). Not built: applying a split (per-bracket run order, podium, Virginia champion, results, survey audience) and publishing the rule. Minimum bracket size is a floor with no maximum (decided; 5 is the default, adjust `minBracket` if you want another). Still waiting on whether each bracket counts as its own division for the 12-prize plan (#82).
-- Capture Virginia-champion eligibility at registration (#82).
+- Virginia State Champion per division (#82): **built** (home-address residency at registration, DC as its own state, per-division champion on `/results`, prize/survey list, admin override and filter; migration 0047). Not done: publish the rule on the site's rules page, and confirm the prize count once the division list is locked (3 divisions × (3 podium + 1 champion) = 12).
 - Judging portal (#83): **live score status and a ready-to-publish check are built** (read-only, never blocks a publish). Still waiting on the judges' debrief the issue asks for before building head-judge lock/unlock, structured deduction notes, offline-tolerant submission and category breakdowns.
 - Public idea board at `/ideas` — spec in `docs/specs/idea-board.md`.
 
