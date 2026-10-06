@@ -83,6 +83,37 @@ budgets and copy-forward, and statements and accountant exports. It is a role (`
 it without full admin. The full design and stages are in the registration template's `docs/HUB_ROADMAP.md`
 ("Finance and budget"); this app gets it when it lands there and is safe for the live contest.
 
+## Sponsor inquiry form (planned; replaces the JotForm on the site)
+
+A "Want to sponsor?" form hosted on our own systems instead of the JotForm embed on
+`vsyc26-sponsors.html` (site issue #77). The static site can't take form posts, so the form lives in this app
+at a public `/sponsor` page and the site links to it. Plan, built in the registration template first:
+
+- **Fields** come from config (`contest.sponsors`: tiers and what each includes, in-kind option, optional
+  budget range), so the same form works for any event. Contact name, organization, email, optional phone, tier
+  or interest, a message. Plain labels, errors in second person, works at 360px, no third-party scripts.
+- **Spam without tracking:** a honeypot field, a per-IP rate limit and server-side validation. No CAPTCHA
+  service, no analytics on the form.
+- **Where it lands:** a new `contest_sponsor_inquiries` table (service role only), separate from the sponsor
+  pipeline so an unvetted submission never counts as money. Staff with `sponsors.manage` see new inquiries on
+  `/sponsors` and press **Convert to sponsor** (prospect, with the message copied into notes) or **Dismiss**.
+- **Email:** the organizer gets a notice, the sender gets a plain confirmation (same email layer as
+  registration). The notice address is config, not code.
+- **Retention:** inquiries hold people's contact details, so they get an owner in the season archive plan:
+  converted ones live on in the pipeline, dismissed ones are deleted after a set time.
+- **Switching over:** import the old JotForm submissions (CSV) into the pipeline as prospects, point the site's
+  button at `/sponsor`, then remove the JotForm embed and its origins from that page's CSP.
+
+Open: which tiers and benefits to show, whether to show prices, whether sponsors ever pay online (Stripe) or
+always by invoice, which address gets the notice, and which domain serves the form (the registration
+subdomain or a path on it).
+
+Beyond the sponsor form, the same shape is meant to carry every public form (vendor and merch-table
+applications, volunteer interest, media requests, feedback): forms defined in config, one public page, one
+submission table, reviewed by the role that owns them, with the same spam, privacy and retention rules. Design:
+the registration template's `docs/HUB_ROADMAP.md` ("Forms on our own system"). Not needed for VSYC-27 beyond
+the sponsor form.
+
 ## Season archive and purge (plan for the 2026 → 2027 rollover)
 
 Once VSYC-26 is archived (about a month after the event) the app should turn itself over for the
