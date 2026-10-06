@@ -19,8 +19,8 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   const token = getBearerToken(req);
   if (!token) return apiError('unauthorized', 'Missing bearer token', requestId);
   const identity = await getStaffIdentityFromToken(token);
-  if (!identity || !identity.isActive || identity.role !== 'judge') {
-    return apiError('forbidden', 'Judge access required', requestId);
+  if (!identity || !identity.isActive || !['judge', 'admin'].includes(identity.role)) {
+    return apiError('forbidden', 'Judge or admin access required', requestId);
   }
 
   let body: unknown;
