@@ -47,7 +47,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   const supabase = createAdminClient();
   const { data: reg, error } = await supabase
     .from('vsyc_registrations')
-    .select('id, first_name, last_name, email, age_on_event, preferred_bracket_name, pronouns, phone, city, state, club_affiliation, parent_name, parent_email, parent_consented, divisions, x_substyle, emergency_contact_name, emergency_contact_phone, accessibility_needs, performance_time_pref, scheduling_notes, volunteer_interest, paid, fee_cents, music_upload_token, music_uploaded_at, music_filename')
+    .select('id, first_name, last_name, email, age_on_event, preferred_bracket_name, pronouns, phone, city, state, club_affiliation, parent_name, parent_email, parent_consented, divisions, division_styles, emergency_contact_name, emergency_contact_phone, accessibility_needs, performance_time_pref, scheduling_notes, volunteer_interest, paid, fee_cents, music_upload_token, music_uploaded_at, music_filename')
     .eq('auth_user_id', auth.userId)
     .single();
 
@@ -55,7 +55,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('not_found', 'No linked registration found for this account', requestId);
   }
 
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://register.dmvthrowers.club';
   const canUploadMusic = reg.paid || reg.fee_cents === 0;
 
   return NextResponse.json(

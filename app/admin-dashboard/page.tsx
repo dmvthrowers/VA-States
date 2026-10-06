@@ -8,6 +8,7 @@ import VolunteerManager from '@/components/VolunteerManager';
 import BudgetManager from '@/components/BudgetManager';
 import SurveyResults from '@/components/SurveyResults';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { contest } from '@/contest.config';
 
 interface StaffMe {
   auth_user_id: string;
@@ -40,7 +41,8 @@ interface Contestant {
   city: string | null;
   state: string | null;
   divisions: string[];
-  x_substyle: string | null;
+  /** Styles per division, e.g. { X: ['2A', '3A'] } */
+  division_styles: Record<string, string[]> | null;
   fee_cents: number;
   paid: boolean;
   paid_at: string | null;
@@ -49,6 +51,19 @@ interface Contestant {
   is_public: boolean;
   admin_notes: string | null;
   registration_source: string;
+  /** Teams they're on (from /api/ops/dashboard) */
+  teams?: { division: string; name: string; role: 'captain' | 'member' }[];
+}
+
+/** "1A · X: 2A, 3A · DBL [Loop Twins, captain]" — divisions with styles and team names. */
+function divisionsLabel(c: Pick<Contestant, 'divisions' | 'division_styles' | 'teams'>): string {
+  return c.divisions
+    .map((d) => {
+      const base = c.division_styles?.[d]?.length ? `${d}: ${c.division_styles[d].join(', ')}` : d;
+      const t = c.teams?.find((x) => x.division === d);
+      return t ? `${base} [${t.name}${t.role === 'captain' ? ', captain' : ''}]` : base;
+    })
+    .join(' · ');
 }
 
 interface Spectator {
@@ -117,7 +132,7 @@ export default function AdminDashboardPage() {
   const [compCodeDescription, setCompCodeDescription] = useState('');
   const [compCodeMaxUses, setCompCodeMaxUses] = useState('1');
   const [compCodeDiscountPercent, setCompCodeDiscountPercent] = useState('100');
-  const [compCodeExpiresAt, setCompCodeExpiresAt] = useState('2026-09-17');
+  const [compCodeExpiresAt, setCompCodeExpiresAt] = useState(contest.deadlines.compCodes.slice(0, 10));
   const [compCodeActive, setCompCodeActive] = useState(true);
 
   const [contestantQuery, setContestantQuery] = useState('');
@@ -238,7 +253,7 @@ export default function AdminDashboardPage() {
         c.last_name,
         c.preferred_bracket_name ?? '',
         c.email,
-        c.divisions.join(','),
+        divisionsLabel(c),
         c.registration_source,
       ].join(' ').toLowerCase();
       return hay.includes(q);
@@ -454,7 +469,7 @@ export default function AdminDashboardPage() {
       setCompCodeDescription('');
       setCompCodeMaxUses('1');
       setCompCodeDiscountPercent('100');
-      setCompCodeExpiresAt('2026-09-17');
+      setCompCodeExpiresAt(contest.deadlines.compCodes.slice(0, 10));
       setCompCodeActive(true);
       setStatusMsg(`Created comp code ${json.code.code} at ${json.code.discount_percent}% off.`);
     } catch (err) {
@@ -1019,7 +1034,7 @@ function ContestantRow({
         <div className="text-white font-semibold">{contestant.preferred_bracket_name || `${contestant.first_name} ${contestant.last_name}`}</div>
         <div className="text-xs text-text-muted">{contestant.email}</div>
       </td>
-      <td className="py-2 pr-3 text-xs text-text-body min-w-[140px]">{contestant.divisions.join(', ')}</td>
+      <td className="py-2 pr-3 text-xs text-text-body min-w-[140px]">{divisionsLabel(contestant)}</td>
       <td className="py-2 pr-3">
         <input aria-label="Mark contestant paid" title="Mark contestant paid" type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="w-4 h-4 accent-gold" />
       </td>

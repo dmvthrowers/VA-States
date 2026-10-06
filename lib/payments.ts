@@ -4,7 +4,7 @@ import { logAudit } from './audit';
 import { sendAdminAlertEmail, sendPaymentReceivedEmail } from './email';
 import { decidePaidSession, type PaidDecision, type RegistrationPaymentState } from './payment-decision';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://register.dmvthrowers.club';
 
 export type PaymentSource = 'webhook' | 'confirm_page' | 'checkout' | 'reconcile';
 

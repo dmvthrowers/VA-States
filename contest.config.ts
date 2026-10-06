@@ -28,10 +28,15 @@ export const contest = {
     country: 'US',
   },
 
+  /**
+   * Server code reads the server-only env vars first (EARLY_BIRD_CUTOFF_ISO,
+   * ONLINE_REG_CUTOFF_ISO, MUSIC_DEADLINE_ISO), as lib/pricing.ts and the register routes did
+   * before; browser code only sees the NEXT_PUBLIC_* ones.
+   */
   deadlines: {
-    earlyBird: process.env.NEXT_PUBLIC_EARLY_BIRD_CUTOFF_ISO || '2026-06-01T00:00:00-04:00',
-    onlineRegistration: process.env.NEXT_PUBLIC_ONLINE_REG_CUTOFF_ISO || '2026-09-17T23:59:59-04:00',
-    musicUpload: process.env.NEXT_PUBLIC_MUSIC_DEADLINE_ISO || '2026-09-17T23:59:59-04:00',
+    earlyBird: process.env.EARLY_BIRD_CUTOFF_ISO || process.env.NEXT_PUBLIC_EARLY_BIRD_CUTOFF_ISO || '2026-06-01T00:00:00-04:00',
+    onlineRegistration: process.env.ONLINE_REG_CUTOFF_ISO || process.env.NEXT_PUBLIC_ONLINE_REG_CUTOFF_ISO || '2026-09-17T23:59:59-04:00',
+    musicUpload: process.env.MUSIC_DEADLINE_ISO || process.env.NEXT_PUBLIC_MUSIC_DEADLINE_ISO || '2026-09-17T23:59:59-04:00',
     compCodes: process.env.NEXT_PUBLIC_COMP_CODE_EXPIRY_ISO || '2026-09-17T23:59:59-04:00',
   },
 
@@ -228,6 +233,11 @@ export const competition: {
   /** Labels for the three optional "setup" fields on profiles. "" hides a field. */
   gear: { yoyo: string; string: string; counterweight: string };
   divisions: DivisionDef[];
+  /**
+   * Optional cap on styles across everything one person enters. A division with styles counts
+   * the styles picked; a division without styles (e.g. 1A) counts as one. Leave out for no cap.
+   */
+  maxTotalStyles?: number;
   /** Bundle prices: entering every listed division costs priceCents instead of the sum. */
   combos: { divisions: string[]; priceCents: number }[];
   pricing: {
@@ -244,7 +254,7 @@ export const competition: {
     {
       code: '1A',
       name: '1A — Single String',
-      description: 'One yo-yo on one string. The classic string-trick style.',
+      description: 'String Trick — single yo-yo on a single string. The most popular competitive style.',
       priceCents: 3000,
       music: true,
       scoring: { format: 'freestyle', techCap: 60, evalCap: 10, negativeClicks: true, deductions: { stop: 1, discard: 3, detach: 5 } },
@@ -252,7 +262,7 @@ export const competition: {
     {
       code: 'X',
       name: 'X Division',
-      description: 'The other four styles compete together, with a per-style multiplier.',
+      description: 'Multi-style division: 2A looping, 3A two-handed string, 4A offstring, 5A freehand.',
       priceCents: 2500,
       music: true,
       styles: {
@@ -270,7 +280,7 @@ export const competition: {
     {
       code: 'SBJ',
       name: 'Sport / Beginner / Junior',
-      description: 'For newer players. Shorter routines, no negative clicks or deductions.',
+      description: 'For new competitors and youth players learning the competitive experience.',
       priceCents: 2000,
       music: true,
       cannotCombineWith: ['1A', 'X'],
@@ -280,7 +290,11 @@ export const competition: {
 
   combos: [{ divisions: ['1A', 'X'], priceCents: 5000 }],
 
-  pricing: { earlyBirdDiscountCents: 500, walkUpSurchargeCents: 1000, pricesTbd: false },
+  // Up to 2 styles in total: 1A plus one X style, or two X styles.
+  maxTotalStyles: 2,
+
+  // VSYC-26 is over and next year's fees aren't set: price lists read "TBD" (checkout amounts unchanged).
+  pricing: { earlyBirdDiscountCents: 500, walkUpSurchargeCents: 1000, pricesTbd: true },
 };
 
 // ---------------------------------------------------------------- day of: schedule & side events

@@ -4,45 +4,17 @@ import { useState, useMemo } from 'react';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import type { Division } from '@/lib/pricing';
-import { calculateFeePreview, displayPrice, PRICES_TBD } from '@/lib/pricing';
+import { calculateFeePreview, displayPrice, formatCents, PRICES_TBD } from '@/lib/pricing';
+import { entryOf, formatSummary, freeTeamJoins } from '@/lib/divisions-core';
+import { entrySummary, teamPricingNote } from '@/lib/team-entries';
+import { contest, competition, divisionByCode, longDate, deadlineLabel, type DivisionDef } from '@/contest.config';
 
 // ------------------------------------------------------------------
 // Constants
 // ------------------------------------------------------------------
 const REGISTER_URL = 'https://dmvthrowers.club/vsyc26-register.html';
-const EARLY_BIRD_CUTOFF = new Date('2026-06-01T00:00:00-04:00');
-
-interface DivisionInfo {
-  id: Division;
-  name: string;
-  desc: string;
-  baseCents: number;
-  badge: string;
-}
-
-const DIVISIONS: DivisionInfo[] = [
-  {
-    id: '1A',
-    name: '1A',
-    desc: 'String Trick — single yo-yo on a single string. The most popular competitive style.',
-    baseCents: 3000,
-    badge: 'Open',
-  },
-  {
-    id: 'X',
-    name: 'X Division',
-    desc: 'Multi-style division: 2A looping, 3A two-handed string, 4A offstring, 5A freehand.',
-    baseCents: 2500,
-    badge: 'Open',
-  },
-  {
-    id: 'SBJ',
-    name: 'Sport · Beginner · Junior',
-    desc: 'For new competitors and youth players learning the competitive experience.',
-    baseCents: 2000,
-    badge: 'Entry Level',
-  },
-];
+const EARLY_BIRD_CUTOFF = new Date(contest.deadlines.earlyBird);
+const EARLY_BIRD_CENTS = competition.pricing.earlyBirdDiscountCents;
 
 // ------------------------------------------------------------------
 // Helpers
@@ -50,6 +22,43 @@ const DIVISIONS: DivisionInfo[] = [
 function fmt(cents: number) {
   return displayPrice(cents);
 }
+
+const divisionName = (code: string) => divisionByCode(code)?.name ?? code;
+const memberCents = (codes: string[]) => codes.reduce((s, c) => s + (divisionByCode(c)?.priceCents ?? 0), 0);
+const comboName = (codes: string[]) => `${codes.map(divisionName).join(' + ')} Combo`;
+
+/** The combos that apply to a selection, in the same order lib/divisions-core.ts applies them. */
+function appliedCombos(selected: string[]) {
+  let remaining = [...new Set(selected)];
+  const out: typeof competition.combos = [];
+  for (const k of competition.combos) {
+    if (k.divisions.length > 0 && k.divisions.every(d => remaining.includes(d))) {
+      out.push(k);
+      remaining = remaining.filter(d => !k.divisions.includes(d));
+    }
+  }
+  return { combos: out, rest: remaining };
+}
+
+/** Divisions that can't be entered together with `code`, in either direction. */
+function conflictsOf(code: string): string[] {
+  const own = divisionByCode(code)?.cannotCombineWith ?? [];
+  const reverse = competition.divisions.filter(d => d.cannotCombineWith?.includes(code)).map(d => d.code);
+  return [...new Set([...own, ...reverse])];
+}
+
+/** Short badge for a division card: its styles, or "Music" / "No music". */
+function badgeFor(d: DivisionDef): string {
+  if (d.styles) return d.styles.options.map(o => o.code).join(' · ');
+  return d.music ? 'Performed to music' : 'No music';
+}
+
+/** "Pair", "Act"… for a team division. */
+function teamLabel(d: DivisionDef | undefined): string {
+  const e = entryOf(d);
+  return e.type === 'team' ? e.label : 'Team';
+}
+const perTeamPriced = (d: DivisionDef | undefined) => { const e = entryOf(d); return e.type === 'team' && e.pricing === 'team'; };
 
 function daysUntil(date: Date) {
   return Math.max(0, Math.floor((date.getTime() - Date.now()) / 86_400_000));
@@ -65,6 +74,13 @@ export default function FeeCalculatorPage() {
   const [compDiscountPercent, setCompDiscountPercent] = useState(0);
   const [codeError, setCodeError] = useState('');
   const [codeLoading, setCodeLoading] = useState(false);
+  /** Per-team-priced divisions where they'd join someone else's team (the captain pays) */
+  const [joiningSet, setJoiningSet] = useState<Set<Division>>(new Set());
+  const toggleJoining = (id: Division) => setJoiningSet(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const earlyBirdDays = daysUntil(EARLY_BIRD_CUTOFF);
   const isEarlyBird = earlyBirdDays > 0;
@@ -75,6 +91,8 @@ export default function FeeCalculatorPage() {
       if (next.has(id)) {
         next.delete(id);
       } else {
+        // Drop divisions this one can't be combined with (competition.divisions[].cannotCombineWith).
+        for (const c of conflictsOf(id)) next.delete(c);
         next.add(id);
       }
       return next;
@@ -83,13 +101,23 @@ export default function FeeCalculatorPage() {
     if (compApplied) { setCompApplied(false); setCompDiscountPercent(0); setCodeError(''); }
   };
 
+  // Config order, so line items read the same way as the division list.
+  const selectedCodes = useMemo(
+    () => competition.divisions.map(d => d.code).filter(c => selected.has(c)),
+    [selected],
+  );
+
+  const joiningCodes = useMemo(() => selectedCodes.filter(c => joiningSet.has(c)), [selectedCodes, joiningSet]);
+  const freeJoins = freeTeamJoins(competition, joiningCodes);
+
   const result = useMemo(() => calculateFeePreview(
-    Array.from(selected),
+    selectedCodes,
     compDiscountPercent,
     new Date(),
     'online',
     EARLY_BIRD_CUTOFF,
-  ), [selected, compDiscountPercent]);
+    joiningCodes,
+  ), [selectedCodes, compDiscountPercent, joiningCodes]);
 
   const applyCode = async () => {
     if (!compCode.trim()) return;
@@ -121,25 +149,28 @@ export default function FeeCalculatorPage() {
   // Line items for breakdown
   const lineItems: Array<{ label: string; cents: number; strike?: boolean; green?: boolean }> = [];
 
-  if (selected.size > 0) {
-    const has1A = selected.has('1A');
-    const hasX  = selected.has('X');
+  // Free team joins drop out before combos, the same way lib/divisions-core.ts prices them.
+  const { combos: combosApplied, rest: uncombined } = appliedCombos(selectedCodes.filter(c => !freeJoins.includes(c)));
 
-    if (result.combo_applied) {
-      // Show original prices struck through, then combo line
-      if (has1A) lineItems.push({ label: '1A', cents: 3000, strike: true });
-      if (hasX)  lineItems.push({ label: 'X Division', cents: 2500, strike: true });
-      lineItems.push({ label: '1A + X Combo', cents: 5000 });
-      if (selected.has('SBJ')) lineItems.push({ label: 'Sport · Beginner · Junior', cents: 2000 });
-    } else {
-      for (const d of selected) {
-        const info = DIVISIONS.find(x => x.id === d)!;
-        lineItems.push({ label: info.name, cents: info.baseCents });
+  if (selectedCodes.length > 0) {
+    // Each combo: its member prices struck through, then the combo line.
+    for (const k of combosApplied) {
+      for (const code of k.divisions) {
+        lineItems.push({ label: divisionName(code), cents: divisionByCode(code)?.priceCents ?? 0, strike: true });
       }
+      lineItems.push({ label: comboName(k.divisions), cents: k.priceCents });
+    }
+    for (const code of uncombined) {
+      lineItems.push({ label: divisionName(code), cents: divisionByCode(code)?.priceCents ?? 0 });
+    }
+    for (const code of freeJoins) {
+      lineItems.push({ label: `${divisionName(code)} (joining a ${teamLabel(divisionByCode(code)).toLowerCase()})`, cents: 0, green: true });
     }
 
-    if (result.early_bird_applied) {
-      lineItems.push({ label: 'Early Bird Discount', cents: -500, green: true });
+    if (result.early_bird_applied && !compApplied) {
+      // Early bird floors the fee at $0, so never show more off than the base fee.
+      const off = Math.min(EARLY_BIRD_CENTS, result.comp_base_fee_cents);
+      if (off > 0) lineItems.push({ label: 'Early Bird Discount', cents: -off, green: true });
     }
 
     if (compApplied && result.comp_discount_percent > 0) {
@@ -196,7 +227,7 @@ export default function FeeCalculatorPage() {
           <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 24px 80px' }}>
 
             {/* Early bird banner */}
-            {isEarlyBird && (
+            {isEarlyBird && EARLY_BIRD_CENTS > 0 && (
               <div style={{
                 background: 'var(--navy-deep)',
                 border: '1px solid var(--gold)',
@@ -247,13 +278,16 @@ export default function FeeCalculatorPage() {
                 <hr className="ds-divider-gold" />
 
                 <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 12, marginBottom: 32 }}>
-                  {DIVISIONS.map(div => {
-                    const isOn = selected.has(div.id);
+                  {competition.divisions.map(div => {
+                    const isOn = selected.has(div.code);
+                    const conflicts = conflictsOf(div.code);
+                    const entry = entrySummary(div);
+                    const priceNote = teamPricingNote(div);
                     return (
+                      <div key={div.code}>
                       <button
-                        key={div.id}
                         type="button"
-                        onClick={() => toggle(div.id)}
+                        onClick={() => toggle(div.code)}
                         aria-pressed={isOn}
                         style={{
                           background: isOn ? 'var(--navy-deep)' : 'var(--navy)',
@@ -280,8 +314,19 @@ export default function FeeCalculatorPage() {
                               {div.name}
                             </div>
                             <div style={{ fontSize: '0.83rem', color: 'var(--text-body)', lineHeight: 1.5 }}>
-                              {div.desc}
+                              {div.description}
                             </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--gold)', opacity: 0.75, lineHeight: 1.5, marginTop: 4 }}>
+                              {[formatSummary(div), entry].filter(Boolean).join(' · ')}
+                            </div>
+                            {priceNote && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5, marginTop: 2 }}>{priceNote}</div>
+                            )}
+                            {conflicts.length > 0 && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5, marginTop: 4 }}>
+                                Can&apos;t be combined with {conflicts.map(divisionName).join(', ')}.
+                              </div>
+                            )}
                             <span style={{
                               display: 'inline-block',
                               background: isOn ? 'var(--gold)' : 'var(--navy-border)',
@@ -294,7 +339,7 @@ export default function FeeCalculatorPage() {
                               marginTop: 10,
                               textTransform: 'uppercase' as const,
                             }}>
-                              {div.badge}
+                              {badgeFor(div)}
                             </span>
                           </div>
                           <div style={{
@@ -305,7 +350,12 @@ export default function FeeCalculatorPage() {
                             flexShrink: 0,
                             paddingTop: 2,
                           }}>
-                            {fmt(div.baseCents)}
+                            {fmt(div.priceCents)}
+                            {perTeamPriced(div) && (
+                              <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.65rem', fontWeight: 600, textAlign: 'right' as const }}>
+                                per {teamLabel(div).toLowerCase()}
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -326,43 +376,67 @@ export default function FeeCalculatorPage() {
                           </div>
                         )}
                       </button>
+                      {isOn && perTeamPriced(div) && (
+                        <label style={{
+                          display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer',
+                          background: 'var(--navy-deep)', border: '1px solid var(--navy-border)', borderTop: 'none',
+                          padding: '10px 20px', fontSize: '0.83rem', color: 'var(--text-body)',
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={joiningSet.has(div.code)}
+                            onChange={() => toggleJoining(div.code)}
+                            style={{ marginTop: 3, flexShrink: 0, accentColor: 'var(--gold)' }}
+                          />
+                          <span>
+                            <strong style={{ color: '#fff' }}>I&apos;m joining a {teamLabel(div).toLowerCase()}</strong>
+                            {' '}— the teammate who starts it pays, so your {div.name} line is {formatCents(0)}.
+                          </span>
+                        </label>
+                      )}
+                      </div>
                     );
                   })}
                 </div>
 
-                {/* Combo callout */}
-                {selected.has('1A') && selected.has('X') && (
-                  <div style={{
-                    background: 'var(--navy-deep)',
-                    border: '1px solid var(--gold)',
-                    borderLeft: '4px solid var(--gold)',
-                    padding: '14px 18px',
-                    marginBottom: 24,
-                  }}>
-                    <div style={{
-                      fontFamily: 'var(--font-condensed)',
-                      fontSize: '0.62rem',
-                      letterSpacing: '0.16em',
-                      fontWeight: 800,
-                      color: 'var(--gold)',
-                      marginBottom: 4,
-                      textTransform: 'uppercase' as const,
+                {/* Combo callouts */}
+                {combosApplied.map(k => {
+                  const names = k.divisions.map(divisionName);
+                  const both = names.length === 2 ? `both ${names.join(' and ')}` : names.join(', ');
+                  const sum = memberCents(k.divisions);
+                  return (
+                    <div key={k.divisions.join('+')} style={{
+                      background: 'var(--navy-deep)',
+                      border: '1px solid var(--gold)',
+                      borderLeft: '4px solid var(--gold)',
+                      padding: '14px 18px',
+                      marginBottom: 24,
                     }}>
-                      1A + X Combo Deal
+                      <div style={{
+                        fontFamily: 'var(--font-condensed)',
+                        fontSize: '0.62rem',
+                        letterSpacing: '0.16em',
+                        fontWeight: 800,
+                        color: 'var(--gold)',
+                        marginBottom: 4,
+                        textTransform: 'uppercase' as const,
+                      }}>
+                        {comboName(k.divisions)} Deal
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-body)', lineHeight: 1.5 }}>
+                        {PRICES_TBD ? (
+                          <>Entering {both}? Combo pricing for the next contest is <strong style={{ color: '#fff' }}>TBD</strong>.</>
+                        ) : (
+                          <>
+                            Entering {both}? You get the combo rate:{' '}
+                            <strong style={{ color: '#fff' }}>{formatCents(k.priceCents)} flat</strong> instead of {formatCents(sum)}
+                            {sum > k.priceCents && <> — saving you{' '}<strong style={{ color: 'var(--gold)' }}>{formatCents(sum - k.priceCents)}</strong></>}.
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-body)', lineHeight: 1.5 }}>
-                      {PRICES_TBD ? (
-                        <>Entering both 1A and X Division? Combo pricing for the next contest is <strong style={{ color: '#fff' }}>TBD</strong>.</>
-                      ) : (
-                        <>
-                          Entering both 1A and X Division? You get the combo rate:{' '}
-                          <strong style={{ color: '#fff' }}>$50 flat</strong> instead of $55 — saving you{' '}
-                          <strong style={{ color: 'var(--gold)' }}>$5</strong>.
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
 
                 {/* Comp code input */}
                 <div style={{ marginTop: 8 }}>
@@ -581,36 +655,29 @@ export default function FeeCalculatorPage() {
                   }}>
                     Full Price List
                   </div>
-                  {DIVISIONS.map(d => (
-                    <div key={d.id} style={{
+                  {[
+                    ...competition.divisions.map(d => ({ key: d.code, label: d.name, cents: d.priceCents })),
+                    ...competition.combos.map(k => ({ key: k.divisions.join('+'), label: comboName(k.divisions), cents: k.priceCents })),
+                  ].map((row, i, rows) => (
+                    <div key={row.key} style={{
                       display: 'flex',
                       justifyContent: 'space-between',
+                      gap: 12,
                       padding: '8px 0',
-                      borderBottom: '1px solid var(--navy-border)',
+                      borderBottom: i < rows.length - 1 ? '1px solid var(--navy-border)' : 'none',
                       fontSize: '0.85rem',
                     }}>
-                      <span style={{ color: 'var(--text-body)' }}>{d.name}</span>
-                      <span style={{ color: '#fff', fontWeight: 600 }}>
-                        {fmt(d.baseCents)}
-                        {isEarlyBird && !PRICES_TBD && (
+                      <span style={{ color: 'var(--text-body)' }}>{row.label}</span>
+                      <span style={{ color: '#fff', fontWeight: 600, textAlign: 'right' as const }}>
+                        {fmt(row.cents)}
+                        {isEarlyBird && EARLY_BIRD_CENTS > 0 && !PRICES_TBD && (
                           <span style={{ color: 'var(--gold)', fontSize: '0.72rem', marginLeft: 6 }}>
-                            ({fmt(d.baseCents - 500)} early bird)
+                            ({fmt(Math.max(0, row.cents - EARLY_BIRD_CENTS))} early bird)
                           </span>
                         )}
                       </span>
                     </div>
                   ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-body)' }}>1A + X Combo</span>
-                    <span style={{ color: '#fff', fontWeight: 600 }}>
-                      {fmt(5000)}
-                      {isEarlyBird && !PRICES_TBD && (
-                        <span style={{ color: 'var(--gold)', fontSize: '0.72rem', marginLeft: 6 }}>
-                          ($35.00 early bird)
-                        </span>
-                      )}
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>
