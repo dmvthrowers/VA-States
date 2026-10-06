@@ -28,6 +28,8 @@ interface RunOrderResponse {
   rounds?: string[];
   /** How long a routine runs in this round, when the config says */
   routine_seconds?: number | null;
+  /** Which of a player's tracks this round plays: 'main', a round's key, or an extra such as 'battle' */
+  music_slot?: string | null;
   source: 'run_order' | 'registration_order';
   performers: Performer[];
 }
@@ -65,9 +67,13 @@ export default function DJPage() {
   const [trackBusyId, setTrackBusyId] = useState<string | null>(null);
   const [trackError, setTrackError] = useState<string | null>(null);
 
+  // The track this round plays for each performer ('main', a round's key, or an extra such as 'battle').
+  const musicSlot = data?.music_slot ?? null;
+
   const fetchMusicUrl = useCallback(async (registrationId: string) => {
     if (!token) return null;
-    const res = await fetch(`/api/dj/music-url?registration_id=${registrationId}&division=${encodeURIComponent(division)}`, {
+    const slotParam = musicSlot ? `&slot=${encodeURIComponent(musicSlot)}` : '';
+    const res = await fetch(`/api/dj/music-url?registration_id=${registrationId}&division=${encodeURIComponent(division)}${slotParam}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
@@ -75,7 +81,7 @@ export default function DJPage() {
       throw new Error(body?.error?.message ?? 'Could not load music file.');
     }
     return await res.json() as { filename: string; play_url: string; download_url: string };
-  }, [token, division]);
+  }, [token, division, musicSlot]);
 
   const handlePlay = useCallback(async (registrationId: string) => {
     setTrackBusyId(registrationId);

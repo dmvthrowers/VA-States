@@ -3,8 +3,9 @@ import { withErrorHandling, apiError } from '@/lib/api-error';
 import { logAudit } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminRequest } from '@/lib/auth/admin-request';
-import { contest, divisionByCode } from '@/contest.config';
+import { contest } from '@/contest.config';
 import { emptySlotsByPlayer, lofiDisplayName, planFallbacks } from '@/lib/music';
+import { divisionName, slotLabel, slotsOf } from '@/lib/music-config';
 import { listLofiPool } from '@/lib/music-pool';
 
 export const runtime = 'nodejs';
@@ -12,7 +13,7 @@ export const runtime = 'nodejs';
 /**
  * POST /api/admin/music-fallback  { dry_run?: boolean (default true), force?: boolean }
  *
- * Gives every empty music slot (paid or free entrant, one slot per division that uses music) a
+ * Gives every empty music slot (paid or free entrant: one per track a division asks for) a
  * random track from the lo-fi pool in `vsyc26-music/lofi/`, so nobody walks on to silence. The
  * assignment shows up as "LO-FI (no upload)" on the DJ queue, run order and the player's page,
  * and a player who uploads their own track replaces it. Never touches a slot that already has a
@@ -46,7 +47,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
   const [regsRes, tracksRes] = await Promise.all([
     supabase.from('vsyc_registrations').select('id, first_name, last_name, divisions, paid, fee_cents'),
-    supabase.from('vsyc_music').select('registration_id, division'),
+    supabase.from('vsyc_music').select('registration_id, division, slot'),
   ]);
   if (regsRes.error || tracksRes.error) {
     console.error('[music-fallback] load error:', regsRes.error ?? tracksRes.error);
@@ -57,7 +58,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   const empty = emptySlotsByPlayer(
     entrants.map((r) => ({ id: r.id, divisions: r.divisions as string[] })),
     tracksRes.data ?? [],
-    (code) => divisionByCode(code)?.music === true,
+    slotsOf,
   );
   const plan = planFallbacks(empty, pool);
   const nameOf = new Map(entrants.map((r) => [r.id, `${r.first_name} ${r.last_name}`]));
@@ -67,7 +68,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     past_deadline: pastDeadline,
     pool_size: pool.length,
     empty_slots: plan.length,
-    slots: plan.map((p) => ({ name: nameOf.get(p.registration_id) ?? p.registration_id, division: p.division, track: lofiDisplayName(p.object_name) })),
+    slots: plan.map((p) => ({ name: nameOf.get(p.registration_id) ?? p.registration_id, division: p.division, slot: p.slot, label: `${divisionName(p.division)} · ${slotLabel(p.division, p.slot)}`, track: lofiDisplayName(p.object_name) })),
   };
   if (dryRun || plan.length === 0) {
     return NextResponse.json({ ...summary, assigned: 0 }, { headers: { 'x-request-id': requestId } });
@@ -81,14 +82,15 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       plan.map((p) => ({
         registration_id: p.registration_id,
         division: p.division,
+        slot: p.slot,
         object_name: p.object_name,
         filename: lofiDisplayName(p.object_name),
         source: 'fallback',
         uploaded_at: now,
       })),
-      { onConflict: 'registration_id,division', ignoreDuplicates: true },
+      { onConflict: 'registration_id,division,slot', ignoreDuplicates: true },
     )
-    .select('registration_id, division, object_name');
+    .select('registration_id, division, slot, object_name');
   if (error) {
     console.error('[music-fallback] insert error:', error);
     return apiError('upstream_error', 'Could not assign the lo-fi tracks.', requestId);
@@ -98,7 +100,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     await logAudit('music_fallback_assigned', {
       registrationId: row.registration_id,
       actor: 'admin',
-      details: { division: row.division, track: row.object_name, forced: !pastDeadline },
+      details: { division: row.division, slot: row.slot, track: row.object_name, forced: !pastDeadline },
     });
   }
 

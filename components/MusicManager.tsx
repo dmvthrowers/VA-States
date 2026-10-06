@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-interface DivisionStatus { code: string; name: string; entrants: number; own: number; fallback: number; empty: number }
+interface DivisionStatus { code: string; slot: string; name: string; entrants: number; own: number; fallback: number; empty: number }
 interface MusicStatus {
   deadline_label: string;
   deadline_passed: boolean;
@@ -11,11 +11,11 @@ interface MusicStatus {
 }
 interface ReminderResult {
   dry_run: boolean; recipients: number; lofi_fallback: boolean; queued: number; skipped: number;
-  people: { name: string; divisions: string[] }[];
+  people: { name: string; missing: string[] }[];
 }
 interface FallbackResult {
   dry_run: boolean; pool_size: number; empty_slots: number; assigned: number;
-  slots: { name: string; division: string; track: string }[];
+  slots: { name: string; division: string; slot: string; label: string; track: string }[];
 }
 
 /** Admin tab: music slots per division, reminder emails and the lo-fi fallback. */
@@ -99,18 +99,18 @@ export default function MusicManager({ token }: { token: string }) {
       {error && <p role="alert" className="text-[#ff6b6b] text-sm">{error}</p>}
       {message && <p role="status" className="text-sm text-white border border-navy-border bg-navy-deep p-2 mb-4">{message}</p>}
 
-      <h3 className="text-xs font-black tracking-caps text-gold mb-2">SLOTS · ONE TRACK PER DIVISION</h3>
+      <h3 className="text-xs font-black tracking-caps text-gold mb-2">TRACKS · ONE PER DIVISION AND SLOT</h3>
       <div className="overflow-x-auto mb-8">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-navy-border text-left text-xs uppercase tracking-wide text-text-muted">
-              <th className="py-2 pr-3">Division</th><th className="py-2 pr-3">Entrants</th>
+              <th className="py-2 pr-3">Track</th><th className="py-2 pr-3">Entrants</th>
               <th className="py-2 pr-3">Uploaded</th><th className="py-2 pr-3">Lo-fi</th><th className="py-2 pr-3">Empty</th>
             </tr>
           </thead>
           <tbody>
             {(status?.divisions ?? []).map((d) => (
-              <tr key={d.code} className="border-b border-navy-border">
+              <tr key={`${d.code}:${d.slot}`} className="border-b border-navy-border">
                 <td className="py-2 pr-3 text-white">{d.name}</td>
                 <td className="py-2 pr-3">{d.entrants}</td>
                 <td className="py-2 pr-3 text-[#7fff7f]">{d.own}</td>
@@ -124,7 +124,7 @@ export default function MusicManager({ token }: { token: string }) {
 
       <h3 className="text-xs font-black tracking-caps text-gold mb-2">REMINDER EMAILS</h3>
       <p className="text-sm text-text-body mt-0">
-        Emails everyone with an empty slot the divisions they still need and their upload link. Once a day at most per person. Before the deadline only.
+        Emails everyone with an empty slot the tracks they still need and their upload link. Once a day at most per person. Before the deadline only.
       </p>
       <div className="flex gap-2 flex-wrap mb-3">
         <button type="button" className={btn} disabled={busy !== null} onClick={previewReminders}>
@@ -139,7 +139,7 @@ export default function MusicManager({ token }: { token: string }) {
       {reminders && (
         <ul className="text-sm text-text-body mb-8 pl-5">
           {reminders.people.length === 0 && <li>Nobody has an empty slot.</li>}
-          {reminders.people.map((p) => <li key={p.name}>{p.name}: {p.divisions.join(', ')}</li>)}
+          {reminders.people.map((p) => <li key={p.name}>{p.name}: {p.missing.join(', ')}</li>)}
           {reminders.people.length > 0 && !reminders.lofi_fallback && (
             <li className="text-gold">No lo-fi pool yet, so the email says unfilled routines get no music.</li>
           )}
@@ -171,7 +171,7 @@ export default function MusicManager({ token }: { token: string }) {
       {fallback && (
         <ul className="text-sm text-text-body pl-5">
           {fallback.slots.length === 0 && <li>No empty slots.</li>}
-          {fallback.slots.map((s) => <li key={`${s.name}:${s.division}`}>{s.name} · {s.division} → {s.track}</li>)}
+          {fallback.slots.map((s) => <li key={`${s.name}:${s.division}:${s.slot}`}>{s.name} · {s.label} → {s.track}</li>)}
         </ul>
       )}
     </div>

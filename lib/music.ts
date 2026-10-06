@@ -1,12 +1,19 @@
 /**
- * Music tracks: one per division per player (vsyc_music). Pure helpers, no imports, so the
- * unit tests can load this file directly.
+ * Music tracks: one per division per slot per player (vsyc_music). A slot is one track the player
+ * uploads for a division: "main" (one routine track for the division), a round ("prelims",
+ * "final"...) or an extra such as "battle". contest.config.ts decides which slots a division has
+ * (musicSlotsOf in lib/divisions-core.ts). Pure helpers, no imports, so the unit tests can load
+ * this file directly.
  */
 
 export type MusicSource = 'player' | 'admin' | 'backfill' | 'fallback';
 
+/** The routine track for a whole division (the only slot before rounds got their own). */
+export const MAIN_SLOT = 'main';
+
 export interface MusicTrack {
   division: string;
+  slot: string;
   object_name: string;
   filename: string;
   source: MusicSource;
@@ -14,12 +21,27 @@ export interface MusicTrack {
   uploaded_at: string;
 }
 
+/** What a division asks players to upload: [{ key: 'prelims', label: 'Prelims' }, ...] */
+export interface SlotDef {
+  key: string;
+  label: string;
+}
+
+/** The slots of a division (empty when it has no music). Passed in so this file stays import-free. */
+export type SlotsOf = (division: string) => SlotDef[];
+
 /** empty: nothing yet · uploaded: the player's own track · fallback: a lo-fi track was assigned */
 export type SlotStatus = 'empty' | 'uploaded' | 'fallback';
 
 export interface MusicSlot {
   division: string;
+  /** Division name, e.g. "1A — Single String" */
   name: string;
+  slot: string;
+  /** "Routine music", "Prelims", "Battle music"... */
+  label: string;
+  /** True when the division has several tracks, so the label is worth showing */
+  labelled: boolean;
   status: SlotStatus;
   track: Pick<MusicTrack, 'filename' | 'uploaded_at' | 'is_fallback'> | null;
 }
@@ -27,14 +49,19 @@ export interface MusicSlot {
 /** Lo-fi fallback tracks live under this folder of the music bucket. */
 export const LOFI_PREFIX = 'lofi/';
 
-/** The divisions a player entered that perform to music, in the order they entered them. */
-export function musicDivisions(entered: string[], hasMusic: (code: string) => boolean): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const code of entered) {
-    if (seen.has(code) || !hasMusic(code)) continue;
-    seen.add(code);
-    out.push(code);
+export const slotKey = (division: string, slot: string) => `${division}:${slot}`;
+
+/** The divisions a player entered, in the order they entered them, once each. */
+function enteredOnce(entered: string[]): string[] {
+  return [...new Set(entered)];
+}
+
+/** Every (division, slot) a player can upload, in entry order then config order. */
+export function playerSlots(entered: string[], slotsOf: SlotsOf): { division: string; slot: string; label: string; labelled: boolean }[] {
+  const out: { division: string; slot: string; label: string; labelled: boolean }[] = [];
+  for (const division of enteredOnce(entered)) {
+    const defs = slotsOf(division);
+    for (const d of defs) out.push({ division, slot: d.key, label: d.label, labelled: defs.length > 1 });
   }
   return out;
 }
@@ -44,23 +71,31 @@ export function slotStatus(track: Pick<MusicTrack, 'is_fallback'> | null | undef
   return track.is_fallback ? 'fallback' : 'uploaded';
 }
 
-/** One slot per music division, filled from the player's tracks. */
+/** One slot per track the player can upload, filled from their tracks. */
 export function buildSlots(
   entered: string[],
   tracks: MusicTrack[],
-  hasMusic: (code: string) => boolean,
+  slotsOf: SlotsOf,
   nameOf: (code: string) => string,
 ): MusicSlot[] {
-  const byDivision = new Map(tracks.map((t) => [t.division, t]));
-  return musicDivisions(entered, hasMusic).map((division) => {
-    const t = byDivision.get(division) ?? null;
+  const byKey = new Map(tracks.map((t) => [slotKey(t.division, t.slot), t]));
+  return playerSlots(entered, slotsOf).map((s) => {
+    const t = byKey.get(slotKey(s.division, s.slot)) ?? null;
     return {
-      division,
-      name: nameOf(division),
+      division: s.division,
+      name: nameOf(s.division),
+      slot: s.slot,
+      label: s.label,
+      labelled: s.labelled,
       status: slotStatus(t),
       track: t ? { filename: t.filename, uploaded_at: t.uploaded_at, is_fallback: t.is_fallback } : null,
     };
   });
+}
+
+/** "1A — Single String" for a one-track division, "1A — Single String · Prelims" otherwise. */
+export function slotTitle(s: Pick<MusicSlot, 'name' | 'label' | 'labelled'>): string {
+  return s.labelled ? `${s.name} · ${s.label}` : s.name;
 }
 
 /** Replacing a player's own track needs an explicit yes. A lo-fi fallback can be replaced freely. */
@@ -83,9 +118,9 @@ export function staleObjectToRemove(
   return previousObject;
 }
 
-/** Slots with nothing at all in them, i.e. the ones that need a reminder or a fallback. */
-export function emptyDivisions(slots: MusicSlot[]): string[] {
-  return slots.filter((s) => s.status === 'empty').map((s) => s.division);
+/** The slots with nothing at all in them, i.e. the ones that need a reminder or a fallback. */
+export function emptySlots(slots: MusicSlot[]): MusicSlot[] {
+  return slots.filter((s) => s.status === 'empty');
 }
 
 /** "1A", "1A and X", "1A, X and SBJ" */
@@ -113,17 +148,22 @@ export interface EntrantMusic {
   divisions: string[];
 }
 
-/** Music slots that hold nothing at all (no track of their own and no lo-fi), per player. */
+export interface EmptyPlayer {
+  id: string;
+  slots: { division: string; slot: string; label: string; labelled: boolean }[];
+}
+
+/** Slots that hold nothing at all (no track of their own and no lo-fi), per player. */
 export function emptySlotsByPlayer(
   players: EntrantMusic[],
-  tracks: { registration_id: string; division: string }[],
-  hasMusic: (code: string) => boolean,
-): { id: string; divisions: string[] }[] {
-  const filled = new Set(tracks.map((t) => `${t.registration_id}:${t.division}`));
-  const out: { id: string; divisions: string[] }[] = [];
+  tracks: { registration_id: string; division: string; slot: string }[],
+  slotsOf: SlotsOf,
+): EmptyPlayer[] {
+  const filled = new Set(tracks.map((t) => `${t.registration_id}:${slotKey(t.division, t.slot)}`));
+  const out: EmptyPlayer[] = [];
   for (const p of players) {
-    const empty = musicDivisions(p.divisions, hasMusic).filter((d) => !filled.has(`${p.id}:${d}`));
-    if (empty.length) out.push({ id: p.id, divisions: empty });
+    const slots = playerSlots(p.divisions, slotsOf).filter((s) => !filled.has(`${p.id}:${slotKey(s.division, s.slot)}`));
+    if (slots.length) out.push({ id: p.id, slots });
   }
   return out;
 }
@@ -133,10 +173,10 @@ export function emptySlotsByPlayer(
  * reshuffled each time it runs out, so a small pool is spread evenly instead of repeating one track.
  */
 export function planFallbacks(
-  empty: { id: string; divisions: string[] }[],
+  empty: EmptyPlayer[],
   pool: string[],
   random: () => number = Math.random,
-): { registration_id: string; division: string; object_name: string }[] {
+): { registration_id: string; division: string; slot: string; object_name: string }[] {
   if (pool.length === 0) return [];
   const shuffled = () => {
     const a = [...pool];
@@ -147,11 +187,11 @@ export function planFallbacks(
     return a;
   };
   let deck: string[] = [];
-  const out: { registration_id: string; division: string; object_name: string }[] = [];
+  const out: { registration_id: string; division: string; slot: string; object_name: string }[] = [];
   for (const p of empty) {
-    for (const division of p.divisions) {
+    for (const s of p.slots) {
       if (deck.length === 0) deck = shuffled();
-      out.push({ registration_id: p.id, division, object_name: deck.pop() as string });
+      out.push({ registration_id: p.id, division: s.division, slot: s.slot, object_name: deck.pop() as string });
     }
   }
   return out;
