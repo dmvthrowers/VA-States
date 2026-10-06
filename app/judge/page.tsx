@@ -136,6 +136,9 @@ function ScoreInput({
   );
 }
 
+/** Roles that can use the judge sheet. Admins can judge too (small contests often need it); their scores count. */
+const JUDGING_ROLES: string[] = ['judge', 'admin'];
+
 export default function JudgePage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -216,8 +219,8 @@ export default function JudgePage() {
       if (!accessToken) return;
 
       const me = await fetchStaffMe(accessToken);
-      if (!me || !me.is_active || me.role !== 'judge') {
-        setAuthError('This account is not authorized for judge access.');
+      if (!me || !me.is_active || !JUDGING_ROLES.includes(me.role)) {
+        setAuthError('This account is not authorized for judge access (judge or admin role needed).');
         await supabase.auth.signOut();
         setToken(null);
         setStaff(null);
@@ -236,8 +239,8 @@ export default function JudgePage() {
       }
 
       const me = await fetchStaffMe(accessToken);
-      if (!me || !me.is_active || me.role !== 'judge') {
-        setAuthError('This account is not authorized for judge access.');
+      if (!me || !me.is_active || !JUDGING_ROLES.includes(me.role)) {
+        setAuthError('This account is not authorized for judge access (judge or admin role needed).');
         await supabase.auth.signOut();
         setToken(null);
         setStaff(null);
@@ -400,8 +403,8 @@ export default function JudgePage() {
     }
 
     const me = await fetchStaffMe(data.session.access_token);
-    if (!me || !me.is_active || me.role !== 'judge') {
-      setAuthError('This account is not authorized for judge access.');
+    if (!me || !me.is_active || !JUDGING_ROLES.includes(me.role)) {
+      setAuthError('This account is not authorized for judge access (judge or admin role needed).');
       await supabase.auth.signOut();
       return;
     }
@@ -606,6 +609,11 @@ export default function JudgePage() {
               </button>
             </div>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{staff.display_name}</span>
+            {staff.role === 'admin' && (
+              <span title="You're signed in as an admin. Scores you submit count as a judge's." style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--navy-deep)', background: 'var(--gold)', padding: '0.15rem 0.45rem' }}>
+                ADMIN · SCORES COUNT
+              </span>
+            )}
             <button
               onClick={async () => {
                 await supabase.auth.signOut();
