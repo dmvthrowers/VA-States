@@ -12,6 +12,7 @@ import { cleanStyles } from '@/lib/divisions-core';
 import { joiningDivisions, resolveTeamJoins, writeTeams, type TeamSummary } from '@/lib/team-entries';
 import type { Division } from '@/lib/pricing';
 import { contest, competition } from '@/contest.config';
+import { US_STATE_CODES } from '@/lib/residency';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://register.dmvthrowers.club';
 
@@ -28,7 +29,7 @@ const walkUpSchema = z.object({
   email:                     z.string().trim().email().max(254),
   phone:                     z.string().trim().max(30).optional(),
   city:                      z.string().trim().min(1).max(80),
-  state:                     z.string().trim().length(2),
+  state:                     z.string().trim().length(2).toUpperCase().refine((v) => US_STATE_CODES.includes(v), 'Unknown state'),
   divisions:                 divisionsSchema,
   division_styles:           divisionStylesSchema,
   /** Team divisions: { [division]: { create: { name } } | { join: { code } } } */
@@ -98,6 +99,8 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       phone:                    data.phone || null,
       city:                     data.city,
       state:                    data.state,
+      // Staff asked in person where they live, so a walk-up from the champion's state counts as confirmed.
+      home_state_confirmed:     data.state === contest.stateChampion.state,
       club_affiliation:         null,
       parent_name:              data.parent_name || null,
       parent_email:             data.parent_email || null,

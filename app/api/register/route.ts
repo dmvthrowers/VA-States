@@ -111,6 +111,10 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       phone:                    data.phone,
       city:                     data.city,
       state:                    data.state,
+      // Home address is kept only for the champion's state (it decides eligibility); never public.
+      home_address:             data.state === contest.stateChampion.state ? data.home_address || null : null,
+      home_zip:                 data.state === contest.stateChampion.state ? data.home_zip || null : null,
+      home_state_confirmed:     data.state === contest.stateChampion.state && data.home_state_confirmed === true,
       club_affiliation:         data.club_affiliation || null,
       parent_name:              data.parent_name || null,
       parent_email:             data.parent_email || null,

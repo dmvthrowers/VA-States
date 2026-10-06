@@ -4,6 +4,7 @@ import {
   advancers, betterOf, bracketPlacements, compareLadder, compareScores, ladderResult, roundsOf,
   type BracketMatch, type LadderAttempt,
 } from '@/lib/divisions-core';
+import { isHomeStateEligible } from '@/lib/residency';
 import { isNameRestricted, legalName, type DisplayNameParts } from '@/lib/display-name';
 
 /**
@@ -322,14 +323,18 @@ export function divisionStandings(def: DivisionDef, input: StandingsInput): Divi
 }
 
 /**
- * Home-state champions for one division: the best-placed finisher(s) whose state matches
- * `state` (2-letter code, case-insensitive). Ties for that place all count. Empty when `state`
- * is '' or nobody from that state placed.
+ * Home-state champions for one division: the best-placed finisher(s) who are eligible. Ties for that
+ * place all count. Empty when nobody is eligible or placed.
+ *
+ * `eligible` is the set of registration ids eligible for the title (home address in the champion's
+ * state, or an organizer's override: see lib/residency.ts and fetchHomeStateEligible). Without it
+ * the old rule applies: whoever entered `state` (2-letter code, case-insensitive) as their state.
+ * Empty `state` turns the title off either way.
  */
-export function stateChampions(rows: StandingRow[], state: string): StandingRow[] {
+export function stateChampions(rows: StandingRow[], state: string, eligible?: ReadonlySet<string>): StandingRow[] {
   const want = state.trim().toUpperCase();
   if (!want) return [];
-  const from = rows.filter((r) => (r.state ?? '').trim().toUpperCase() === want);
+  const from = rows.filter((r) => (eligible ? eligible.has(r.registration_id) : (r.state ?? '').trim().toUpperCase() === want));
   if (from.length === 0) return [];
   const best = Math.min(...from.map((r) => r.place));
   return from.filter((r) => r.place === best);
@@ -409,27 +414,63 @@ export async function fetchStandings(supabase: AnyClient): Promise<Record<Divisi
   return computeStandings({ results: (resultsRes.data ?? []) as ResultRow[], ladder, matches, names });
 }
 
+/**
+ * Registration ids eligible for the home-state title (see lib/residency.ts). Paid competitors only.
+ * null when the eligibility columns can't be read (e.g. migration 0047 isn't applied yet): callers
+ * then use the old rule, "entered the champion's state", so results never lose their champions.
+ */
+export async function fetchHomeStateEligible(supabase: AnyClient, championState: string): Promise<Set<string> | null> {
+  const out = new Set<string>();
+  if (!championState.trim()) return out;
+  const { data, error } = await supabase
+    .from('vsyc_registrations')
+    .select('id, state, home_state_confirmed, home_state_override')
+    .eq('paid', true);
+  if (error) {
+    console.error('[standings] home-state eligibility:', error.message);
+    return null;
+  }
+  for (const r of (data ?? []) as { id: string; state: string | null; home_state_confirmed: boolean | null; home_state_override: boolean | null }[]) {
+    if (isHomeStateEligible(r, championState)) out.add(r.id);
+  }
+  return out;
+}
+
 export interface Winner {
   registration_id: string;
   display_name: string;
   division: Division;
   place: number;
+  /** Also the division's home-state champion (a prize of its own, even when they're on the podium) */
+  champion?: boolean;
 }
 
 /**
  * Places 1–PRIZE_PLACES of each judged division's overall standings (ties included), in the
- * order the public board shows. Showcase divisions have no winners. In team divisions this is
- * the captain's registration; the survey invites route adds the teammates.
+ * order the public board shows, plus each division's home-state champion(s) when `champions` says
+ * who is eligible: a champion who finished off the podium is added as a winner of their own place,
+ * and one who is on the podium is marked `champion`. Showcase divisions have no winners. In team
+ * divisions this is the captain's registration; the survey invites route adds the teammates.
  */
-export function winnersFrom(standings: Record<Division, DivisionStandings>): Winner[] {
-  return Object.entries(standings).flatMap(([code, s]) =>
-    s.format === 'showcase'
-      ? []
-      : s.final.filter((r) => r.place <= PRIZE_PLACES).map((r) => ({
-        registration_id: r.registration_id,
-        display_name: r.display_name,
-        division: code,
-        place: r.place,
-      })),
-  );
+export function winnersFrom(
+  standings: Record<Division, DivisionStandings>,
+  champions?: { state: string; eligible?: ReadonlySet<string> | null },
+): Winner[] {
+  return Object.entries(standings).flatMap(([code, s]) => {
+    if (s.format === 'showcase') return [];
+    const out: Winner[] = s.final.filter((r) => r.place <= PRIZE_PLACES).map((r) => ({
+      registration_id: r.registration_id,
+      display_name: r.display_name,
+      division: code,
+      place: r.place,
+    }));
+    if (champions) {
+      for (const c of stateChampions(s.final, champions.state, champions.eligible ?? undefined)) {
+        const on = out.find((w) => w.registration_id === c.registration_id);
+        if (on) on.champion = true;
+        else out.push({ registration_id: c.registration_id, display_name: c.display_name, division: code, place: c.place, champion: true });
+      }
+    }
+    return out;
+  });
 }

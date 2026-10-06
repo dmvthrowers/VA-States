@@ -52,6 +52,13 @@ interface Contestant {
   is_public: boolean;
   admin_notes: string | null;
   registration_source: string;
+  /** Home address (admin only) and the champion-eligibility inputs */
+  home_address?: string | null;
+  home_zip?: string | null;
+  home_state_confirmed?: boolean;
+  home_state_override?: boolean | null;
+  /** Computed: eligible for the home-state champion title */
+  home_state_eligible?: boolean;
   /** Teams they're on (from /api/ops/dashboard) */
   teams?: { division: string; name: string; role: 'captain' | 'member' }[];
 }
@@ -137,6 +144,7 @@ export default function AdminDashboardPage() {
   const [compCodeActive, setCompCodeActive] = useState(true);
 
   const [contestantQuery, setContestantQuery] = useState('');
+  const [homeStateOnly, setHomeStateOnly] = useState(false);
   const [spectatorQuery, setSpectatorQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'run-order' | 'volunteers' | 'budget' | 'surveys'>('overview');
 
@@ -247,8 +255,9 @@ export default function AdminDashboardPage() {
   const filteredContestants = useMemo(() => {
     if (!data) return [];
     const q = contestantQuery.trim().toLowerCase();
-    if (!q) return data.contestants;
-    return data.contestants.filter((c) => {
+    const pool = homeStateOnly ? data.contestants.filter((c) => c.home_state_eligible) : data.contestants;
+    if (!q) return pool;
+    return pool.filter((c) => {
       const hay = [
         c.first_name,
         c.last_name,
@@ -259,7 +268,7 @@ export default function AdminDashboardPage() {
       ].join(' ').toLowerCase();
       return hay.includes(q);
     });
-  }, [data, contestantQuery]);
+  }, [data, contestantQuery, homeStateOnly]);
 
   const filteredSpectators = useMemo(() => {
     if (!data) return [];
@@ -935,6 +944,10 @@ export default function AdminDashboardPage() {
                   title="Search contestants"
                   className="w-full max-w-sm bg-navy-deep border border-navy-border px-3 py-2 text-sm text-white focus:outline-none focus:border-gold"
                 />
+                <label className="flex items-center gap-2 text-xs text-text-body">
+                  <input type="checkbox" checked={homeStateOnly} onChange={(e) => setHomeStateOnly(e.target.checked)} className="w-4 h-4 accent-gold" />
+                  {contest.stateChampion.state} champion-eligible only ({data.contestants.filter((c) => c.home_state_eligible).length})
+                </label>
               </div>
 
               <div className="overflow-x-auto">
@@ -1020,8 +1033,12 @@ function ContestantRow({
   const [paid, setPaid] = useState(contestant.paid);
   const [isPublic, setIsPublic] = useState(contestant.is_public);
   const [adminNotes, setAdminNotes] = useState(contestant.admin_notes ?? '');
+  // Home-state champion eligibility: automatic (from the home address) or an organizer's decision.
+  const overrideOf = (c: Contestant) => (c.home_state_override === true ? 'yes' : c.home_state_override === false ? 'no' : 'auto');
+  const [homeOverride, setHomeOverride] = useState(overrideOf(contestant));
 
   useEffect(() => {
+    setHomeOverride(overrideOf(contestant));
     setPaid(contestant.paid);
     setIsPublic(contestant.is_public);
     setAdminNotes(contestant.admin_notes ?? '');
@@ -1032,6 +1049,24 @@ function ContestantRow({
       <td className="py-2 pr-3 min-w-[220px]">
         <div className="text-white font-semibold">{contestant.preferred_bracket_name || `${contestant.first_name} ${contestant.last_name}`}</div>
         <div className="text-xs text-text-muted">{contestant.email}</div>
+        <div className="text-xs text-text-muted mt-1">
+          {contestant.state ?? '—'}
+          {contestant.home_state_eligible && <span className="ml-2 font-black text-gold">{contest.stateChampion.state} ELIGIBLE</span>}
+          {contestant.home_address && <span className="block">{contestant.home_address}, {contestant.home_zip}</span>}
+        </div>
+        <label className="text-xs text-text-muted flex items-center gap-1 mt-1">
+          Champion eligibility
+          <select
+            aria-label="Champion eligibility override"
+            value={homeOverride}
+            onChange={(e) => setHomeOverride(e.target.value as 'auto' | 'yes' | 'no')}
+            className="bg-navy-deep border border-navy-border text-text-body p-0.5"
+          >
+            <option value="auto">Automatic</option>
+            <option value="yes">Eligible</option>
+            <option value="no">Not eligible</option>
+          </select>
+        </label>
       </td>
       <td className="py-2 pr-3 text-xs text-text-body min-w-[140px]">{divisionsLabel(contestant)}</td>
       <td className="py-2 pr-3">
@@ -1070,6 +1105,7 @@ function ContestantRow({
           // Stripe payment landed would otherwise reset it to unpaid on save.
           onClick={() => onSave(contestant.id, {
             ...(paid !== contestant.paid ? { paid } : {}),
+            ...(homeOverride !== overrideOf(contestant) ? { home_state_override: homeOverride === 'auto' ? null : homeOverride === 'yes' } : {}),
             is_public: isPublic,
             admin_notes: adminNotes,
           })}

@@ -4,7 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminRequest } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
 import { sendSurveyInviteBatch, type SurveyInviteRecipient } from '@/lib/email';
-import { fetchStandings, winnersFrom, type Winner } from '@/lib/standings';
+import { contest } from '@/contest.config';
+import { fetchHomeStateEligible, fetchStandings, winnersFrom, type Winner } from '@/lib/standings';
 
 // Resend batch sends ~100 emails per request; give a few hundred room to finish.
 export const maxDuration = 60;
@@ -27,7 +28,7 @@ const AUDIENCES: Record<string, {
     label: 'podium finishers',
     emailLabel: 'competitors',
     survey: 'winner',
-    extraLine: 'You made the podium, so we also want to hear what you thought of your prizes, including the Goodles shirt and Mac, the MINISO basket, and the sponsor gear.',
+    extraLine: 'You won a prize, so we also want to hear what you thought of your prizes, including the Goodles shirt and Mac, the MINISO basket, and the sponsor gear.',
   },
   competitor: { label: 'competitors', emailLabel: 'competitors', survey: 'competitor' },
   spectator: { label: 'spectators', emailLabel: 'spectators', survey: 'spectator' },
@@ -44,7 +45,10 @@ function isAudience(v: unknown): v is Audience {
 }
 
 async function loadWinners(): Promise<Winner[]> {
-  return winnersFrom(await fetchStandings(createAdminClient()));
+  const supabase = createAdminClient();
+  const [standings, eligible] = await Promise.all([fetchStandings(supabase), fetchHomeStateEligible(supabase, contest.stateChampion.state)]);
+  // Each division's home-state champion has a prize of their own, so they get the winner survey too.
+  return winnersFrom(standings, { state: contest.stateChampion.state, eligible });
 }
 
 async function loadRecipients(audience: Audience, winners: Winner[]): Promise<SurveyInviteRecipient[]> {

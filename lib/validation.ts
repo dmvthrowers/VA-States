@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { competition } from '@/contest.config';
+import { competition, contest } from '@/contest.config';
+import { US_STATE_CODES, isZip, residencyIssues } from '@/lib/residency';
 import { selectionIssues } from './divisions-core';
 import { JOIN_CODE_RE, TEAM_NAME_MAX, normalizeJoinCode, teamChoiceIssues, type TeamChoice } from './team-entries';
 import { VOLUNTEER_ROLE_KEYS, SHIFT_PREFERENCES, OTHER_ROLE_KEY, isExperienceRequired } from './volunteer-roles';
@@ -8,6 +9,8 @@ const nameSchema = z.string().trim().min(1).max(50);
 const emailSchema = z.string().trim().email().toLowerCase();
 const phoneSchema = z.string().trim().min(7).max(20).regex(/^[\d\s\-+().]+$/, 'Invalid phone number');
 const stateSchema = z.string().trim().length(2).toUpperCase();
+/** A home state for registration: one of the 50 states or DC. */
+const homeStateSchema = stateSchema.refine((v) => US_STATE_CODES.includes(v), { message: 'Choose your state' });
 const honeypotSchema = z.string().max(0, 'Bot detected').optional();
 
 const photoUrlSchema = z.string().trim().url().max(500)
@@ -63,7 +66,11 @@ export const registrationSchema = z.object({
   email:                  emailSchema,
   phone:                  phoneSchema,
   city:                   z.string().trim().min(1).max(100),
-  state:                  stateSchema,
+  state:                  homeStateSchema,
+  // Home address: asked only of people entering the champion's state (see lib/residency.ts)
+  home_address:           z.string().trim().max(200).optional().or(z.literal('')),
+  home_zip:               z.string().trim().max(10).optional().or(z.literal('')),
+  home_state_confirmed:   z.boolean().optional(),
   club_affiliation:       z.string().trim().max(100).optional().or(z.literal('')),
 
   // Minor — required only if age_on_event < 18 (enforced in superRefine)
@@ -129,6 +136,13 @@ export const registrationSchema = z.object({
     if (!data.parent_consented) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Parent/guardian consent required for minors', path: ['parent_consented'] });
     }
+  }
+
+  for (const i of residencyIssues(data, contest.stateChampion.state)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: i.message, path: [i.field] });
+  }
+  if (data.home_zip && !isZip(data.home_zip)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a 5-digit ZIP code', path: ['home_zip'] });
   }
 
   addSelectionIssues(data.divisions, data.division_styles, ctx);

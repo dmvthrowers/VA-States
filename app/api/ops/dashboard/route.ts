@@ -4,7 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { getEventFlagBoolean } from '@/lib/event-flags';
 import { fetchAllTeamMemberships, type TeamSummary } from '@/lib/team-entries';
-import { competition } from '@/contest.config';
+import { competition, contest } from '@/contest.config';
+import { isHomeStateEligible } from '@/lib/residency';
 
 async function requireAdmin(req: NextRequest, requestId: string) {
   const token = getBearerToken(req);
@@ -27,7 +28,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   const [registrationsRes, spectatorsRes, musicRes] = await Promise.all([
     supabase
       .from('vsyc_registrations')
-      .select('id, created_at, first_name, last_name, preferred_bracket_name, email, city, state, divisions, division_styles, fee_cents, paid, paid_at, music_uploaded_at, is_public, admin_notes, registration_source')
+      .select('id, created_at, first_name, last_name, preferred_bracket_name, email, city, state, divisions, division_styles, fee_cents, paid, paid_at, music_uploaded_at, is_public, admin_notes, registration_source, home_address, home_zip, home_state_confirmed, home_state_override')
       .order('created_at', { ascending: false }),
     supabase
       .from('vsyc_spectators')
@@ -62,6 +63,8 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   }
   const registrations = (registrationsRes.data ?? []).map((r) => ({
     ...r,
+    // Eligible for the home-state champion title (home address in the champion's state, or an organizer's override)
+    home_state_eligible: isHomeStateEligible(r, contest.stateChampion.state),
     teams: teamsByRegistration[r.id] ?? [],
     music: musicByRegistration.get(r.id) ?? [],
   }));
