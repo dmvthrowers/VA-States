@@ -29,7 +29,7 @@ preview deployments are disabled in `vercel.json`.
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Framework | Next.js 15.5 App Router | `package.json` pins `^15.5.27`. Node 22 (`engines`) |
+| Framework | Next.js 16 App Router | `package.json` pins `^16.3.8`. Node 22 (`engines`) |
 | Language | TypeScript 5.9 | `npm run typecheck` = `tsc --noEmit`, gated in CI |
 | Database / auth | Supabase (Postgres + RLS + Auth + Storage) | Its own project, separate from the YoYo Map's |
 | Payments | Stripe 17 (hosted Checkout + webhooks) | See `docs/STRIPE_PAYMENTS.md` |
@@ -49,7 +49,7 @@ preview deployments are disabled in `vercel.json`.
 | `app/api/` | ~47 route handlers (grouped in the table below) |
 | `lib/` | Shared server logic: errors, auth, Stripe, payments, email, rate limits, pricing, validation |
 | `components/` | `BudgetManager`, `DirectoryClient`, `Footer`, `NavBar`, `RunOrderBoard`, `RunOrderManager`, `SurveyContacts`, `SurveyForm`, `SurveyResults`, `VolunteerManager` |
-| `middleware.ts` | Redirects legacy `/admin*` pages to `/admin-dashboard`, blocks bot user agents on API GETs, sets `X-Robots-Tag: noindex` on APIs |
+| `proxy.ts` | Redirects legacy `/admin*` pages to `/admin-dashboard`, blocks bot user agents on API GETs, sets `X-Robots-Tag: noindex` on APIs |
 | `supabase/migrations/` | 41 migration files. Read `supabase/migrations/README.md` before adding one |
 | `docs/` | `STRIPE_PAYMENTS.md`, `REGISTRATION_AUDIT.md`, `ROADMAP.md`, `specs/` |
 | `.github/workflows/` | `ci.yml` (typecheck → lint → test → build), `db-backup.yml` (nightly encrypted dump) |
@@ -64,7 +64,7 @@ preview deployments are disabled in `vercel.json`.
   `/spectate`, `/spectators`, `/volunteer`.
 - Personal or day-of (noindex): `/confirm`, `/upload`, `/player`, `/portal`, `/spectators/portal`,
   `/staff`, `/judge`, `/dj`, `/admin-dashboard`.
-- `/admin/*` is the older admin UI; `middleware.ts` sends it to `/admin-dashboard`.
+- `/admin/*` is the older admin UI; `proxy.ts` sends it to `/admin-dashboard`.
 - `/feedback` redirects to `/survey/spectator` (short link for QR codes). `/survey/[type]` is
   unlisted and noindex.
 

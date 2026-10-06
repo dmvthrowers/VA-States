@@ -1232,7 +1232,7 @@ function TeamBox({ division: d, draft, lookup, onDraft, onLookup }: {
             placeholder="ABC123"
             aria-describedby={`${id}-code-status`}
           />
-          <p id={`${id}-code-status`} role="status" aria-live="polite" className={`text-xs mt-1 font-semibold ${shown?.status === 'ok' ? 'text-green-400' : shown?.status === 'error' ? 'text-red' : 'text-text-muted'}`}>
+          <p id={`${id}-code-status`} role="status" aria-live="polite" className={`text-xs mt-1 font-semibold ${shown?.status === 'ok' ? 'text-green-400' : shown?.status === 'error' ? 'text-error' : 'text-text-muted'}`}>
             {shown ? `${shown.status === 'ok' ? '✓ ' : shown.status === 'error' ? '✗ ' : ''}${shown.message}` : `Ask your ${lower}'s captain for the code from their confirmation.`}
           </p>
           {perTeamPriced(d) && <p className="text-xs text-green-400 mt-1">You pay {formatCents(0)} for {d.name}: your captain&apos;s entry covers the {lower}.</p>}
