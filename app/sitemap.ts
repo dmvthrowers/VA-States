@@ -17,6 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/schedule',
     '/side-events',
     '/results/bracket',
+    '/sponsor',
   ];
 
   return routes.map((route) => ({

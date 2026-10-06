@@ -70,6 +70,40 @@ export const contest = {
     logoUrl: '',
   },
 
+  /**
+   * The public "Want to sponsor?" form at /sponsor. Tiers are what you offer; the form lists them in
+   * this order and the review screen at /sponsors can match a choice back to a tier. `amount` is shown
+   * as written ("$500+"), so it can say "Product or service only". Set `enabled: false` to hide the form.
+   * Notices go to SPONSOR_NOTICE_EMAIL, else ADMIN_ALERT_EMAIL, else contactEmail.
+   * These are the defaults: staff can rename, reprice, add and remove tiers and edit the option lists on
+   * /sponsors/form, and the saved copy wins. `perks` is an optional list shown under a tier.
+   */
+  sponsors: {
+    enabled: true,
+    intro: 'Thanks for wanting to support the contest. Tell us a little about you and what you have in mind, and we will get back to you.',
+    /**
+     * Tiers, top first. `slots` caps how many can be committed (leave it out for open tiers); the form shows
+     * how many are left, counting sponsors at that tier who are committed or paid on the /sponsors screen.
+     */
+    tiers: [
+      { id: 'diamond', label: 'Diamond', amount: '$2,000+', slots: 1 },
+      { id: 'platinum', label: 'Platinum', amount: '$500+', slots: 2 },
+      { id: 'gold', label: 'Gold', amount: '$250+', slots: 4 },
+      { id: 'silver', label: 'Silver', amount: '$75+' },
+      { id: 'bronze', label: 'Bronze', amount: '$50' },
+      { id: 'in_kind', label: 'In-kind / local', amount: '$25+ in value (product, services, gift cards or food)' },
+    ] as readonly { id: string; label: string; amount: string; slots?: number; perks?: readonly string[] }[],
+    /** Other things someone can ask for instead of (or before choosing) a tier. [] for none. */
+    otherChoices: [
+      { id: 'not_sure', label: 'Not sure yet' },
+      { id: 'table_only', label: 'Table purchase only' },
+    ],
+    contactMethods: ['Email', 'Phone call', 'Text message', 'Instagram or other social DM'],
+    /** How sponsors can pay. Payment happens outside the form (an invoice or link after review); this only records what is easiest. */
+    paymentMethods: ['PayPal', 'Venmo', 'Check', 'Bank transfer', 'Not sure yet'],
+    heardFrom: ['Social media', 'Friend or club member', 'At an event', 'Web search', 'Other'],
+  },
+
   contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contact@dmvthrowers.club',
 
   links: {
