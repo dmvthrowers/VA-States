@@ -150,19 +150,110 @@ validates the bearer token with Supabase and looks up an active `admin` row in
 
 ### Music upload
 
-One track per division the player entered (`vsyc_music`, unique on registration + division; a
-1A + X player has two slots). `GET /api/upload?token=…` lists the slots. `/upload?token=…` (token
-minted at registration) → `POST /api/upload {action:'sign', division}` checks payment, deadline
-(`MUSIC_DEADLINE_ISO`), division, mime (mp3/wav/m4a) and size (128 MB) and returns a signed upload
-URL for bucket `vsyc26-music` (file `DIVISION_Last_First.ext`) → browser PUTs the file →
-`{action:'confirm', division}` re-derives the filename server-side, checks the object exists,
-records the track, emails a receipt and writes `music_received` / `music_replaced` to the audit
-log. A slot that already holds the player's own track is refused (409) unless the request says
-`replace: true`, and the page asks first. Staff upload through `/api/admin/music-upload` (POST then
-PATCH) on the run order screens, per division. The DJ queue, run order, player page and CSV export
-all resolve the track per division (`lib/music.ts` has the pure helpers). The old single slot
-(`vsyc_registrations.music_path` / `music_filename`) is no longer read; a later migration drops
-it. `vsyc_registrations.music_uploaded_at` is kept current by a trigger ("has a real track").
+Music is stored per **slot**: one track per player, per division, per slot (`vsyc_music`, unique on
+registration + division + slot). `contest.config.ts` says which slots a division has
+(`musicSlotsOf`):
+
+| `music:` in the division | Slots |
+| --- | --- |
+| `true` | `main`: one routine track for the division (VSYC-26 today) |
+| `{ perRound: true }` | one per round, e.g. `prelims`, `semi-final`, `final` (needs `rounds`; a round may set its own `key`) |
+| `{ extra: [{ key: 'battle', label: 'Battle music' }] }` | the routine track plus battle music |
+| `{ routine: false, extra: [...] }` | extras only, e.g. a battle division |
+| `false` | none |
+
+So a 1A + X player in a contest with prelims and finals uploads four tracks (1A prelims, 1A
+final, X prelims, X final), plus a battle track if a battle division asks for one. Nothing in the
+code is yo-yo specific: a kendama or juggling contest sets its own divisions, rounds and extras.
+
+`GET /api/upload?token=…` lists a player's slots. `/upload?token=…` (token minted at registration)
+→ `POST /api/upload {action:'sign', division, slot}` checks payment, deadline
+(`MUSIC_DEADLINE_ISO`), that (division, slot) is one of the player's, mime (mp3/wav/m4a) and size
+(128 MB) and returns a signed upload URL for bucket `vsyc26-music` (file `DIVISION_Last_First.ext`;
+`DIVISION_SLOT_Last_First.ext` for rounds and extras) → browser PUTs the file →
+`{action:'confirm', division, slot}` re-derives the filename server-side, checks the object
+exists, records the track, emails a receipt and writes `music_received` / `music_replaced` to the
+audit log. `slot` may be left out when a division has one track. A slot that already holds the
+player's own track is refused (409) unless the request says `replace: true`, and the page asks
+first. Staff upload through `/api/admin/music-upload` (POST then PATCH) on the run order screens,
+for the track the round shown plays. The DJ queue plays the slot for the round on screen
+(`playSlotFor`; the run-order API returns it as `music_slot`), and the player page, CSV export
+(`music_1A`, or `music_1A_prelims`... when a division has several) and admin Music tab all resolve
+tracks per slot (`lib/music.ts` has the pure helpers). The old single slot
+(`vsyc_registrations.music_path` / `music_filename`) is no longer read; a later migration drops it.
+`vsyc_registrations.music_uploaded_at` is kept current by a trigger ("has a real track").
+Switching a division from `music: true` to per-round later leaves its existing `main` tracks in
+place but unused: have players upload the round tracks, or re-file the old ones by hand.
+
+Empty slots: the admin dashboard's **Music** tab shows slots per division, sends per-division
+reminder emails (`/api/admin/music-reminders`, dry-run by default, once a day per person and set
+of divisions, before the deadline) and assigns a random lo-fi track to every still-empty slot (a slot is a division and track)
+(`/api/admin/music-fallback`, dry-run by default, after the deadline unless forced, never
+overwrites a track). The lo-fi pool is the `lofi/` folder of the `vsyc26-music` bucket: put only
+tracks you have the right to play there. A fallback is a `vsyc_music` row with `source =
+'fallback'`; staff see "LO-FI (no upload)", and a player's own upload replaces it.
+
+### Battles on the DJ page
+
+A bracket division (`scoring.format: 'bracket'`) gets a battle view on `/dj` instead of a run order.
+`GET /api/dj/battle?division=…` (DJ, audio tech, admin) returns the bracket in play order (third
+place just before the final), both entrants' names and whether each has the battle track
+(`playSlotFor`: the first extra when the division has `music: { routine: false, extra: [...] }`),
+and `cue_id`: the live match, else the next undecided one (`lib/battle-cue.ts`). The page shows
+the two entrants side by side with Play and Download for each (through `/api/dj/music-url`), the
+division's battle rules, and an "Up next" list where staff can cue any other match. Setting a match
+live and confirming winners stays on the admin bracket screen.
+
+### Rounds by entrant count (site issue #80)
+
+A division lists every round it could have (`rounds`) and a `roundPlan` of tiers: the first tier
+whose `upTo` is at least the number of entrants wins, and its `rounds` (by round key) are the ones
+that run, with how many advance from each. Skipped rounds keep their numbers, so music tracks,
+scores and run orders never need renumbering. Pure rules and tests: `lib/round-plan.ts`.
+
+```ts
+// 1A and X, as decided in #80. Sport has no extra rounds (one 1-minute routine).
+rounds: [{ name: 'Prelims', seconds: 60 }, { name: 'Semi-final', seconds: 90 }, { name: 'Final', seconds: 180 }],
+roundPlan: [
+  { upTo: 25, rounds: [{ key: 'final' }] },
+  { upTo: 50, rounds: [{ key: 'prelims', advance: 15 }, { key: 'final' }] },
+  { rounds: [{ key: 'prelims', advance: 20 }, { key: 'semi-final', advance: 10 }, { key: 'final' }] },
+],
+music: { perRound: true },   // optional: a track per round
+```
+
+Flow on contest day: when registration closes, the **Round plans** panel (admin, on the run order
+screen) shows how many entered and the suggested plan; an organizer confirms it
+(`POST /api/admin/rounds/plan`, migration 0045 `vsyc_round_plans`, audit `round_plan_confirmed`) or
+picks another tier. Until a division is confirmed every round counts, and the advance button is
+refused. After that:
+
+- Round tabs on `/judge`, `/dj`, the run order screens and the public run order show only rounds
+  that run (`GET /api/rounds/plan` is the public read), and `/api/scores` refuses a skipped round.
+- **Advance** (`POST /api/admin/rounds/advance`) takes the confirmed count and writes the next
+  running round's run order, best seed last, which is also the DJ queue. A tie across the cut asks
+  first: advance everyone tied or pick exactly the open spots (`dry_run` previews; audit
+  `round_advanced` records the choice). A stale plan (entrants changed tier since) is flagged.
+- Results show each played round, with how many advanced, and "Out in Prelims" style detail on the
+  overall order. Players see the plan on the registration card.
+
+The shipped VSYC-26 config has no `roundPlan`, so nothing above changes for it.
+
+### Score status and the ready-to-publish check (site issue #83, first slice)
+
+`GET /api/admin/score-status?division=1A&round=1` (admin or judge; `lib/score-status.ts`, tested) reports
+one round's judging live: per competitor, who has scored and who hasn't, the median and spread, and
+scores far from the judges' median (more than 15% of the sheet's top score, with at least three judges;
+measured against the median of all scores so one wild score can't hide itself). A judge counts as expected
+for the round once they've scored anyone in it. **Blockers** (not ready): no run order, no scores, a
+competitor who hasn't finished performing or has no scores, or a score missing from one judge.
+**Warnings**: outliers, only one judge, scored people not in the run order.
+
+On `/admin/schedule` a judged block shows **Check scores** (a table plus the issues), and **Publish results**
+first loads the same check and puts the problems in its confirmation. Publishing is never blocked: an
+organizer can always choose to publish anyway. The other #83 candidates (head-judge lock/unlock, structured
+deduction notes, offline-tolerant tablet submission, category breakdowns) wait on the judges' debrief the
+issue asks for first.
 
 ### Home-state champion (site issue #82)
 

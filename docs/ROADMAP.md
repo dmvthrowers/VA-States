@@ -42,11 +42,11 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
    registration `paid=true` and nobody is alerted. Add `charge.dispute.created` (and
    `.closed`): audit log, email `ADMIN_ALERT_EMAIL`, flag in `vsyc_payment_flags`. Subscribe the
    event in Stripe. Pure-logic test like `stripe-refund.test.mjs`.
-7. **Music, the rest of site issue #79.** One track per division is done (`vsyc_music`, per
-   division slots, replace confirmation, audit log). Still open: the lo-fi fallback for empty
-   slots at the deadline (needs a cleared lo-fi pool in `vsyc26-music/lofi/`), per-division
-   reminder emails before the deadline, expected routine length per division/round for the DJ
-   view (site issue #80), and dropping the old `music_path` / `music_filename` columns.
+7. **Music (site issue #79): built, waiting on three owner steps.** Tracks per slot (rounds,
+   battles), replace confirmation, lo-fi fallback, per-division reminders, routine length and the
+   DJ timer are done (PRs #64/#65; run migration 0044 first). Still to do: put cleared lo-fi tracks
+   in `vsyc26-music/lofi/`, and drop the old `music_path` / `music_filename` columns once a contest
+   has run on the new tables.
 8. **Rate-limit the admin routes.** Admin auth is a Supabase JWT plus an active staff row, so
    there's no password to guess here — this is about cost and abuse (each call hits Supabase
    Auth). A shared 60/IP/min limit inside `requireAdminRequest` is enough.
@@ -62,12 +62,37 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 
 ## VSYC-27 features (from site issues #78–#83)
 
-- Round format: prelims over 25 players, semis only over 50 (#80, rule decided). The app
-  supports rounds now (`rounds` on a division in `contest.config.ts`, migration 0039).
+- Round format by entrant count (#80): **built** (`roundPlan`, the Round plans panel, ties at the
+  cut, advancement into the run order and DJ queue; migration 0045). To use it, paste the
+  `roundPlan` block from `docs/REPO_GUIDE.md` into 1A and X in `contest.config.ts` after the 2026
+  archive, so it doesn't touch 2026 results. Still open: update the site's rules page (#76) and the
+  run of show (#84), and the schedule items for semi-finals.
+- Battles on `/dj`: **built** (cue the live match, play both entrants' battle tracks). Not used by
+  VSYC yet: it needs a bracket division with `music: { routine: false, extra: [...] }`.
 - Sport division split Youth/Adult when Sport has more than 15 players (#81, rule decided).
 - Virginia State Champion per division (#82): **built** (home-address residency at registration, DC as its own state, per-division champion on `/results`, prize/survey list, admin override and filter; migration 0047). Not done: publish the rule on the site's rules page, and confirm the prize count once the division list is locked (3 divisions × (3 podium + 1 champion) = 12).
-- Judging portal: live score status, head-judge lock/unlock, audit log (#83).
+- Judging portal (#83): **live score status and a ready-to-publish check are built** (read-only, never blocks a publish). Still waiting on the judges' debrief the issue asks for before building head-judge lock/unlock, structured deduction notes, offline-tolerant submission and category breakdowns.
 - Public idea board at `/ideas` — spec in `docs/specs/idea-board.md`.
+
+## Season archive and purge (plan for the 2026 → 2027 rollover)
+
+Once VSYC-26 is archived (about a month after the event) the app should turn itself over for the
+next contest: keep the results as static pages, delete the music and personal data, start clean.
+Spec and open decisions: `docs/specs/season-archive.md`. Order of work:
+
+1. **Freeze** — `npm run archive -- --season 2026` writes the public record (results per division
+   and round, brackets, placements, public names only) as static HTML/JSON for the club site repo,
+   as a PR to review. Nothing is published automatically.
+2. **Verify** — a report compares counts against the database and scans the output for anything
+   private (minors not opted in, emails, payment data).
+3. **Purge** — `npm run purge -- --season 2026` is dry-run by default and refuses to run until
+   the freeze is merged and a fresh encrypted backup exists. It removes the music bucket objects
+   (never `lofi/`), music rows, scores, run orders, brackets, votes, teams, registrations and
+   uploaded personal data, deactivates contest-day staff, and writes an audit record of counts.
+4. **Reset** — bump the season in `contest.config.ts`, re-sync divisions, clear event flags and
+   comp codes, point music at a new bucket, apply the 2027 `roundPlan`.
+
+Not started. Needs the retention decisions in the spec first (payment and waiver records).
 
 ## Later (separate projects — don't bundle)
 

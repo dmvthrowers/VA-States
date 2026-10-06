@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { runOrderDisplayName, isNameRestricted } from '@/lib/display-name';
 import { DIVISION_CODES, divisionByCode } from '@/contest.config';
-import { isTeamDivision, roundsOf } from '@/lib/divisions-core';
+import { isTeamDivision, playSlotFor, roundsOf, routineSecondsOf } from '@/lib/divisions-core';
 
 type Division = string;
 
@@ -89,14 +89,16 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     division_styles: Record<string, string[]> | null;
   };
 
-  // DJ/audio only: this division's track for each performer (players have one per division).
+  // DJ/audio only: the track this round plays, for each performer (one per division and slot).
+  const musicSlot = playSlotFor(def, round);
   const musicByReg = new Map<string, { filename: string; is_fallback: boolean }>();
   const loadMusic = async (ids: string[]) => {
-    if (!withMusic || ids.length === 0) return;
+    if (!withMusic || !musicSlot || ids.length === 0) return;
     const { data } = await supabase
       .from('vsyc_music')
       .select('registration_id, filename, is_fallback')
       .eq('division', division)
+      .eq('slot', musicSlot)
       .in('registration_id', ids);
     for (const m of data ?? []) musicByReg.set(m.registration_id, { filename: m.filename, is_fallback: m.is_fallback });
   };
@@ -117,7 +119,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       display_name: teamName || (reg ? runOrderDisplayName(reg, viewerIsStaff) : 'Unnamed competitor'),
       city: hideLocation ? null : (reg?.city ?? null),
       state: hideLocation ? null : (reg?.state ?? null),
-      // The track for THIS division: null when nothing is uploaded. music_fallback marks a lo-fi
+      // The track for THIS division and round: null when nothing is uploaded. music_fallback marks a lo-fi
       // track assigned because the player never uploaded.
       music_filename: withMusic ? (musicByReg.get(registrationId)?.filename ?? null) : null,
       music_fallback: withMusic ? (musicByReg.get(registrationId)?.is_fallback ?? false) : false,
@@ -170,12 +172,12 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       return toPerformer(reg, row.position, row.status, row.registration_id, teamNames.get(row.registration_id));
     });
 
-    return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), source: 'run_order', performers }, { headers });
+    return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), routine_seconds: routineSecondsOf(def, round), music_slot: withMusic ? musicSlot : null, source: 'run_order', performers }, { headers });
   }
 
   // Later rounds have no fallback: entrants are advanced into them.
   if (round > 1) {
-    return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), source: 'run_order', performers: [] }, { headers });
+    return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), routine_seconds: routineSecondsOf(def, round), music_slot: withMusic ? musicSlot : null, source: 'run_order', performers: [] }, { headers });
   }
 
   // Fallback: registration order, only paid registrants in this division
@@ -198,5 +200,5 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     toPerformer(reg, i + 1, 'upcoming', reg.id, teamNames.get(reg.id)),
   );
 
-  return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), source: 'registration_order', performers }, { headers });
+  return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), routine_seconds: routineSecondsOf(def, round), music_slot: withMusic ? musicSlot : null, source: 'registration_order', performers }, { headers });
 });

@@ -1,5 +1,7 @@
 'use client';
 
+import { roundTabs } from '@/lib/round-plan';
+import { useRoundPlans } from '@/lib/use-round-plans';
 import { useState, useEffect, useCallback, useId } from 'react';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
@@ -7,7 +9,7 @@ import RunOrderManager from '@/components/RunOrderManager';
 import LadderSheet from '@/components/LadderSheet';
 import { contest, competition, divisionByCode } from '@/contest.config';
 import {
-  betterOf, effectiveStyle, formatSummary, freestyleBreakdown, manualBest, manualBreakdown, panelMax, panelTotal, roundsOf, styleMultiplier,
+  betterOf, effectiveStyle, formatSummary, freestyleBreakdown, manualBest, manualBreakdown, panelMax, panelTotal, styleMultiplier,
 } from '@/lib/divisions-core';
 
 /**
@@ -329,7 +331,14 @@ export default function JudgePage() {
   const panel = scoring?.format === 'panel' ? scoring : null;
   const manual = scoring?.format === 'manual' ? scoring : null;
   const deductions = freestyle?.deductions ?? null;
-  const rounds = roundsOf(divDef);
+  const plans = useRoundPlans();
+  const rounds = roundTabs(divDef, plans[division]);
+  // A division whose first rounds are skipped (final only) opens on the first round that runs.
+  const firstRound = rounds[0]?.round;
+  const onRunningRound = rounds.some((r) => r.round === round);
+  useEffect(() => {
+    if (firstRound !== undefined && !onRunningRound) setRound(firstRound);
+  }, [firstRound, onRunningRound]);
   const manualUnit = manual?.unit ?? 'points';
   const lowerWins = betterOf(scoring) === 'lower';
   const multiAttempt = !!manual && (manual.attempts ?? 1) > 1;
@@ -643,22 +652,22 @@ export default function JudgePage() {
           </div>
           {rounds.length > 1 && (
             <nav aria-label="Rounds" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-              {rounds.map((r, i) => (
+              {rounds.map((r) => (
                 <button
                   key={r.name}
                   type="button"
-                  aria-pressed={round === i + 1}
+                  aria-pressed={round === r.round}
                   onClick={() => {
-                    if (round === i + 1) return;
-                    setRound(i + 1);
+                    if (round === r.round) return;
+                    setRound(r.round);
                     setSelectedId(null);
                     setRunOrder([]);
                     setMyScores([]);
                   }}
                   style={{
-                    background: round === i + 1 ? 'var(--gold)' : 'transparent',
-                    color: round === i + 1 ? 'var(--navy-deep)' : 'var(--text-body)',
-                    border: '1px solid', borderColor: round === i + 1 ? 'var(--gold)' : 'var(--navy-border)',
+                    background: round === r.round ? 'var(--gold)' : 'transparent',
+                    color: round === r.round ? 'var(--navy-deep)' : 'var(--text-body)',
+                    border: '1px solid', borderColor: round === r.round ? 'var(--gold)' : 'var(--navy-border)',
                     padding: '0.35rem 0.85rem', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.05em', cursor: 'pointer',
                   }}
                 >
