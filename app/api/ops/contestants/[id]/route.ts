@@ -13,7 +13,6 @@ const updateContestantSchema = z.object({
     .refine((d) => d.every((c) => DIVISION_CODES.includes(c)), 'Unknown division').optional(),
   /** Style codes per division, e.g. { "X": ["2A"] }. The database checks they exist. */
   division_styles: z.record(z.string().max(20), z.array(z.string().max(20)).max(20)).optional(),
-  music_filename: z.string().trim().max(200).optional().or(z.literal('')),
   is_public: z.boolean().optional(),
   admin_notes: z.string().trim().max(2000).optional().or(z.literal('')),
 }).strict();
@@ -60,9 +59,6 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest, conte
     ...updatePayload,
   };
 
-  if (Object.prototype.hasOwnProperty.call(updatePayload, 'music_filename')) {
-    normalized.music_filename = updatePayload.music_filename || null;
-  }
   if (Object.prototype.hasOwnProperty.call(updatePayload, 'admin_notes')) {
     normalized.admin_notes = updatePayload.admin_notes || null;
   }

@@ -9,11 +9,12 @@ const BUCKET = 'vsyc26-music';
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes — just long enough to load/download
 
 /**
- * GET /api/dj/music-url?registration_id=...
+ * GET /api/dj/music-url?registration_id=...&division=1A
  *
- * Mints a short-lived signed URL for a performer's uploaded music file so
- * DJ/audio staff can stream it in-browser or download a local copy.
- * The bucket is private, so this is the only way to reach the file.
+ * Mints a short-lived signed URL for a performer's music file for one division (players have one
+ * track per division) so DJ/audio staff can stream it in-browser or download a local copy.
+ * The bucket is private, so this is the only way to reach the file. `is_fallback` is true when
+ * the player never uploaded and a lo-fi track was assigned.
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   const token = getBearerToken(req);
@@ -34,24 +35,30 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 
   const supabase = createAdminClient();
 
-  const { data: reg, error: regError } = await supabase
-    .from('vsyc_registrations')
-    .select('music_filename')
-    .eq('id', registrationId)
+  const division = req.nextUrl.searchParams.get('division');
+  if (!division) {
+    return apiError('bad_request', 'division is required', requestId);
+  }
+
+  const { data: track, error: trackError } = await supabase
+    .from('vsyc_music')
+    .select('object_name, filename, is_fallback')
+    .eq('registration_id', registrationId)
+    .eq('division', division)
     .maybeSingle();
 
-  if (regError) {
-    console.error('[dj/music-url] lookup error:', regError);
-    return apiError('upstream_error', 'Failed to look up registration', requestId);
+  if (trackError) {
+    console.error('[dj/music-url] lookup error:', trackError);
+    return apiError('upstream_error', 'Failed to look up the track', requestId);
   }
-  if (!reg?.music_filename) {
-    return apiError('not_found', 'No music file uploaded for this performer', requestId);
+  if (!track) {
+    return apiError('not_found', `No music file for this performer in ${division}`, requestId);
   }
 
   const [playResult, downloadResult] = await Promise.all([
-    supabase.storage.from(BUCKET).createSignedUrl(reg.music_filename, SIGNED_URL_TTL_SECONDS),
-    supabase.storage.from(BUCKET).createSignedUrl(reg.music_filename, SIGNED_URL_TTL_SECONDS, {
-      download: reg.music_filename,
+    supabase.storage.from(BUCKET).createSignedUrl(track.object_name, SIGNED_URL_TTL_SECONDS),
+    supabase.storage.from(BUCKET).createSignedUrl(track.object_name, SIGNED_URL_TTL_SECONDS, {
+      download: track.filename,
     }),
   ]);
 
@@ -62,7 +69,9 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 
   return NextResponse.json(
     {
-      filename: reg.music_filename,
+      division,
+      filename: track.filename,
+      is_fallback: track.is_fallback,
       play_url: playResult.data.signedUrl,
       download_url: downloadResult.data.signedUrl,
       expires_in: SIGNED_URL_TTL_SECONDS,

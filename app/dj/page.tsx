@@ -14,7 +14,10 @@ interface Performer {
   display_name: string;
   city: string | null;
   state: string | null;
+  /** This division's track (players have one per division) */
   music_filename: string | null;
+  /** True when the player never uploaded and a lo-fi track was assigned */
+  music_fallback?: boolean;
 }
 
 interface RunOrderResponse {
@@ -53,7 +56,7 @@ export default function DJPage() {
 
   const fetchMusicUrl = useCallback(async (registrationId: string) => {
     if (!token) return null;
-    const res = await fetch(`/api/dj/music-url?registration_id=${registrationId}`, {
+    const res = await fetch(`/api/dj/music-url?registration_id=${registrationId}&division=${encodeURIComponent(division)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
@@ -61,7 +64,7 @@ export default function DJPage() {
       throw new Error(body?.error?.message ?? 'Could not load music file.');
     }
     return await res.json() as { filename: string; play_url: string; download_url: string };
-  }, [token]);
+  }, [token, division]);
 
   const handlePlay = useCallback(async (registrationId: string) => {
     setTrackBusyId(registrationId);
@@ -387,7 +390,8 @@ export default function DJPage() {
                   <div style={{ fontSize: '0.6rem', letterSpacing: '0.14em', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
                     MUSIC FILE
                   </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: nowPerforming.music_filename ? '#fff' : '#ff6b6b' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: nowPerforming.music_fallback ? 'var(--gold)' : nowPerforming.music_filename ? '#fff' : '#ff6b6b' }}>
+                    {nowPerforming.music_fallback && <strong>LO-FI (no upload) · </strong>}
                     {nowPerforming.music_filename ?? 'No file uploaded'}
                   </div>
                   {nowPerforming.music_filename && (
@@ -472,8 +476,8 @@ export default function DJPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: p.music_filename ? 'var(--text-muted)' : '#ff6b6b', textAlign: 'right', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.music_filename ?? 'missing'}
+                    <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: p.music_fallback ? 'var(--gold)' : p.music_filename ? 'var(--text-muted)' : '#ff6b6b', textAlign: 'right', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {p.music_fallback ? 'LO-FI (no upload)' : (p.music_filename ?? 'missing')}
                     </div>
                     {p.music_filename && (
                       <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>

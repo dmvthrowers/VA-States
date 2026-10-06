@@ -2,6 +2,7 @@ import { buildVsyc26Ics } from './ics';
 import { enqueueEmails, queueEmail, type QueueOptions } from './outbox';
 import { divisionByCode } from '@/contest.config';
 import type { TeamSummary } from './team-entries';
+import { joinDivisions, musicDivisions } from './music';
 
 // Every send* function below renders its email and hands it to the outbox
 // (lib/outbox.ts), which stores it, sends it right away when the daily budget
@@ -74,6 +75,12 @@ interface ConfirmationParams {
   alreadyPaid?: boolean;
   /** Teams they started or joined; captains get their join code to share. */
   teams?: TeamSummary[];
+}
+
+/** ", one track for each of 1A and X" when a player entered more than one music division. */
+function musicSlotsNote(divisions: string[]): string {
+  const codes = musicDivisions(divisions, (c) => divisionByCode(c)?.music === true);
+  return codes.length > 1 ? `: one track for each of ${joinDivisions(codes)}` : '';
 }
 
 /** "Pair", "Act"… for a team division (falls back to "team"). */
@@ -310,7 +317,7 @@ function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
     ${p.musicUploadUrl ? `
     <div style="background:#0d1428;border-left:4px solid #C9A84C;padding:20px;margin-bottom:16px;">
       <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">MUSIC UPLOAD</div>
-      <p style="font-size:0.85rem;margin:0 0 12px;">Upload your music using the secure link below. <strong style="color:#fff;">Deadline: September 17, 2026.</strong></p>
+      <p style="font-size:0.85rem;margin:0 0 12px;">Upload your music using the secure link below${musicSlotsNote(p.divisions)}. <strong style="color:#fff;">Deadline: September 17, 2026.</strong></p>
       <a href="${p.musicUploadUrl}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:12px 24px;text-decoration:none;">UPLOAD MUSIC →</a>
       <p style="font-size:0.75rem;margin:12px 0 0;color:#6a7a9a;">Format: DIVISION_LastName_FirstName.mp3 — the system will rename it automatically.</p>
       <p style="font-size:0.75rem;margin:8px 0 0;color:#6a7a9a;">Music must be appropriate for all audiences — no explicit language, sexual content, or glorification of violence. <strong style="color:#fff;">Inappropriate music results in disqualification.</strong> Full rules are on the upload page.</p>
@@ -359,7 +366,7 @@ function buildConfirmationText(p: ConfirmationParams, fee: string): string {
   if (p.musicUploadUrl) {
     lines.push(
       `MUSIC UPLOAD`,
-      `Upload your music (deadline September 12, 2026): ${p.musicUploadUrl}`,
+      `Upload your music${musicSlotsNote(p.divisions)} (deadline September 17, 2026): ${p.musicUploadUrl}`,
       `Format: DIVISION_LastName_FirstName.mp3 — the system will rename it automatically.`,
       `Music must be appropriate for all audiences — no explicit language, sexual content, or glorification of violence. Inappropriate music results in disqualification.`,
       ``,
