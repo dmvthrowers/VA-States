@@ -4,7 +4,8 @@
  * division's paid entrants.
  *
  * Rule: at or below `above` entrants, one division. Above it, split only if both brackets would
- * have at least `minBracket` players. The suggested cut leans toward a natural line (the biggest
+ * have at least `minBracket` players. `minBracket` is a floor only: a bracket can be as large as it
+ * needs (5 and 40 is a fine split), so brackets are never capped or balanced. The suggested cut leans toward a natural line (the biggest
  * jump in ages between neighbouring players, e.g. kids vs adults) and, between equal gaps, the
  * cut nearest the mean age. The organizer decides; this only suggests and previews.
  */

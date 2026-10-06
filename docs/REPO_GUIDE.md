@@ -169,7 +169,7 @@ it. `vsyc_registrations.music_uploaded_at` is kept current by a trigger ("has a 
 A division with a `split` rule (`{ above, minBracket, labels }` in `contest.config.ts`; Sport has
 `{ above: 15, minBracket: 5 }`) can be previewed as a younger and an older bracket. The rule: at or
 below `above` entrants it's one division; above it, split only if both brackets would have at least
-`minBracket` players. The suggested cut leans toward a natural kid/adult line (the biggest jump in
+`minBracket` players (a floor only: there is no maximum, so 5 and 40 is a valid split). The suggested cut leans toward a natural kid/adult line (the biggest jump in
 ages between neighbours), then the cut nearest the mean age (`lib/division-split.ts`, tested). Age
 is `age_on_event`, already collected at registration, so no date of birth is needed.
 

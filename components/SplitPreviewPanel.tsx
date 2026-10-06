@@ -23,7 +23,7 @@ interface DivisionSplit {
 
 const VERDICT: Record<Preview['reason'], (d: DivisionSplit) => string> = {
   few_entrants: (d) => `${d.rule.above} or fewer entered: one division.`,
-  too_small: (d) => `A split would leave a bracket under ${d.rule.min_bracket} players: one division.`,
+  too_small: (d) => `A split would leave a bracket under the ${d.rule.min_bracket}-player minimum: one division.`,
   ok: (d) => `Split into ${d.labels[0]} and ${d.labels[1]}.`,
 };
 
@@ -53,7 +53,7 @@ export default function SplitPreviewPanel({ token }: { token: string }) {
     <section aria-label="Age split preview" className="bg-navy border border-navy-border p-4 mb-6">
       <div className="text-xs font-black tracking-caps text-gold mb-3">AGE SPLIT PREVIEW</div>
       <p className="text-xs text-text-muted mb-3">
-        Preview only. Nothing is applied: a split isn&rsquo;t wired into the run order or results yet.
+        Each bracket needs at least the minimum number of players and can be as large as it needs. Preview only: nothing is applied, and a split isn&rsquo;t wired into the run order or results yet.
       </p>
       <div className="grid gap-3">
         {rows.map((d) => {
