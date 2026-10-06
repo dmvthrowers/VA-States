@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Analytics } from '@vercel/analytics/next';
+import AnalyticsScrubbed from '@/components/AnalyticsScrubbed';
 import './globals.css';
 
 const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
@@ -74,7 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <a href="#main-content" className="skip-link">Skip to main content</a>
         {children}
-        <Analytics />
+        <AnalyticsScrubbed />
       </body>
     </html>
   );
