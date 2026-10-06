@@ -386,7 +386,7 @@ function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
       <p style="font-size:0.75rem;margin:8px 0 0;color:#6a7a9a;">Start picking your track now: it must be appropriate for all audiences — no explicit language, sexual content, or glorification of violence. <strong style="color:#fff;">Inappropriate music results in disqualification.</strong> Full rules are on the upload page.</p>
     </div>
     `}
-    <p style="font-size:0.78rem;color:#6a7a9a;margin:0 0 16px;">📅 A calendar invite (VSYC-26.ics) is attached — add it to your calendar so you don't miss the day.</p>
+    <p style="font-size:0.78rem;color:#6a7a9a;margin:0 0 16px;">A calendar invite (VSYC-26.ics) is attached — add it to your calendar so you don't miss the day.</p>
     <a href="${p.confirmUrl}" style="display:inline-block;background:#1a2744;border:1px solid #2a3a5a;color:#C9A84C;font-size:0.78rem;font-weight:700;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;margin-top:4px;">VIEW YOUR REGISTRATION →</a>
   `);
 }
@@ -522,7 +522,7 @@ function buildSpectatorConfirmationHtml(p: SpectatorConfirmationParams): string 
       <p style="font-size:0.85rem;margin:0 0 12px;">Need to update your profile later? Use the spectator portal magic-link login.</p>
       <a href="${portalUrl}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;margin-top:6px;">OPEN SPECTATOR PORTAL →</a>
     </div>
-    <p style="font-size:0.78rem;color:#6a7a9a;margin:0 0 16px;">📅 A calendar invite (VSYC-26.ics) is attached — add it to your calendar so you don't miss the day.</p>
+    <p style="font-size:0.78rem;color:#6a7a9a;margin:0 0 16px;">A calendar invite (VSYC-26.ics) is attached — add it to your calendar so you don't miss the day.</p>
     <p style="font-size:0.82rem;color:#6a7a9a;">Full event details and schedule: <a href="https://dmvthrowers.club/vsyc26-schedule.html" style="color:#C9A84C;">dmvthrowers.club/vsyc26-schedule.html</a></p>
   `);
 }

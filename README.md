@@ -10,7 +10,7 @@ Primary domain: <https://register.dmvthrowers.club>
 
 ## Stack
 
-- Next.js 15 App Router (TypeScript), Node 22
+- Next.js 16 App Router (TypeScript), Node 22
 - Supabase (Auth + Postgres + Storage) — its own project, separate from the YoYo Map's
 - Stripe Checkout + webhooks
 - Resend email through an outbox table
@@ -124,7 +124,7 @@ This project is tuned for free tiers across Vercel, Supabase, Redis/KV, and Rese
 
 ### Crawler and Abuse Controls
 
-- API crawler gate in middleware blocks obvious bot-like GET requests to API routes.
+- API crawler gate in `proxy.ts` blocks obvious bot-like GET requests to API routes.
 - /api/validate-code only accepts POST to avoid crawler-triggered code probing.
 - /api/health is shallow by default (no DB call); deep DB probe requires HEALTHCHECK_TOKEN.
 - robots.txt disallows /api and admin routes for compliant crawlers.

@@ -14,7 +14,7 @@
 # VA-States — Claude Code specs
 
 Repo: `dmvthrowers/VA-States` (contest registration, register.dmvthrowers.club).
-Next.js 15 App Router + TypeScript, Supabase (isolated project), Stripe Checkout + webhook reconciliation, Resend, Vercel (iad1). Live production app for VSYC-26, now in post-event wrap-up. Docs are strong — README, STRIPE_PAYMENTS.md, `.env.local.example`, AGENTS.md cold-start. Read AGENTS.md before starting. **This is a payments app: every change below gets extra care around money.**
+Next.js 16 App Router + TypeScript, Supabase (isolated project), Stripe Checkout + webhook reconciliation, Resend, Vercel (iad1). Live production app for VSYC-26, now in post-event wrap-up. Docs are strong — README, STRIPE_PAYMENTS.md, `.env.local.example`, AGENTS.md cold-start. Read AGENTS.md before starting. **This is a payments app: every change below gets extra care around money.**
 
 **Delivery mechanism (all items below):** Work on a `claude/<short-name>` branch, push the branch, and report PR-ready state (branch name + summary + test evidence) to Brandon, who reviews and merges on GitHub. You do not have a GitHub token; do not try to open issues or PRs via the API or authenticated CLI.
 

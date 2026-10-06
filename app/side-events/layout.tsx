@@ -3,6 +3,7 @@ import { contest } from '@/contest.config';
 
 export const metadata: Metadata = {
   title: 'Side Events',
+  alternates: { canonical: '/side-events' },
   description: `Live leaderboards for the ${contest.shortName} side events. Anyone can try.`,
 };
 

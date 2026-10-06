@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
+import { Field } from '@/components/form/Field';
 
 type StaffRole = 'judge' | 'dj' | 'audio_tech' | 'admin';
 
@@ -333,14 +334,5 @@ export default function StaffProfilePage() {
         }
       `}</style>
     </>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-xs font-black tracking-caps text-gold mb-1.5">{label}</label>
-      {children}
-    </div>
   );
 }

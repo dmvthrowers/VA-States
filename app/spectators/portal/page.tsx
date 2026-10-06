@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { Field } from '@/components/form/Field';
 
 type SpectatorProfile = {
   id: string;
@@ -486,14 +487,5 @@ export default function SpectatorPortalPage() {
         }
       `}</style>
     </>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-xs font-black tracking-caps text-gold mb-1.5">{label}</label>
-      {children}
-    </div>
   );
 }
