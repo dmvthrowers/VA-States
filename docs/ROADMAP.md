@@ -149,8 +149,10 @@ there is no online checkout to build); notices go to the VSYC inbox (`vastateyoy
 `register.dmvthrowers.club/sponsor`, with the club site's sponsors page linking to it (replacing the JotForm embed,
 site issue #77).
 
-**Status:** built in the registration template (PR #40: form, review and convert, slots left, notices). The live app
-gets it by porting that PR; this app then needs migration 0048 and the notice address set in Vercel.
+**Status:** built in the registration template (PR #40) and ported here (admin-only, since this app has no organizer
+role): the public `/sponsor` form, a small sponsor pipeline at `/sponsors`, and the tier and option editor at
+`/sponsors/form`. The defaults in `contest.config.ts` are the 2026 package tiers; staff change them in the editor. To go
+live: apply migrations 0048 and 0049 (new tables only), then set `SPONSOR_NOTICE_EMAIL` in Vercel.
 
 **Still open for VSYC-27:** next year's tiers, prices and slot caps (the 2026 ones are above); whether an inquiry
 should hold a slot for a few days; table add-on with a cap and the hobby-club price; brand team player names now or

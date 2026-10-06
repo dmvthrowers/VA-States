@@ -37,7 +37,9 @@ export type OutboxEmail =
   | { template: 'volunteer_confirmation'; params: VolunteerConfirmationParams }
   | { template: 'volunteer_confirmed'; params: VolunteerConfirmedParams }
   | { template: 'survey_invite'; params: SurveyInviteParams }
-  | { template: 'admin_alert'; params: AdminAlertParams };
+  | { template: 'admin_alert'; params: AdminAlertParams }
+  | { template: 'sponsor_inquiry_notice'; params: SponsorInquiryNoticeParams }
+  | { template: 'sponsor_inquiry_received'; params: SponsorInquiryReceivedParams };
 
 export function renderEmail(e: OutboxEmail): RenderedEmail {
   switch (e.template) {
@@ -51,6 +53,8 @@ export function renderEmail(e: OutboxEmail): RenderedEmail {
     case 'volunteer_confirmed': return renderVolunteerConfirmed(e.params);
     case 'survey_invite': return renderSurveyInvite(e.params);
     case 'admin_alert': return renderAdminAlert(e.params);
+    case 'sponsor_inquiry_notice': return renderSponsorInquiryNotice(e.params);
+    case 'sponsor_inquiry_received': return renderSponsorInquiryReceived(e.params);
   }
 }
 
@@ -324,6 +328,65 @@ function renderAdminAlert(p: AdminAlertParams): RenderedEmail {
       <a href="${BASE_URL}/admin-dashboard" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;margin-top:8px;">OPEN ADMIN DASHBOARD →</a>
     `),
     text: [p.subject, '', ...p.lines, '', `Admin dashboard: ${BASE_URL}/admin-dashboard`].join('\n'),
+  };
+}
+
+// ─── Sponsor inquiries ───────────────────────────────────────────────────────
+
+interface SponsorInquiryNoticeParams {
+  brandName: string;
+  contactName: string;
+  /** Plain-text lines (tier, contact details, what they asked for) */
+  lines: string[];
+}
+
+interface SponsorInquiryReceivedParams {
+  to: string;
+  firstName: string;
+  brandName: string;
+}
+
+/** Where sponsor inquiry notices go: SPONSOR_NOTICE_EMAIL, else the organizer alert address, else the contact address. */
+function sponsorNoticeAddress(): string {
+  return process.env.SPONSOR_NOTICE_EMAIL || process.env.ADMIN_ALERT_EMAIL || `contact@dmvthrowers.club`;
+}
+
+/** Tell the organizer a new sponsor inquiry came in. */
+export async function sendSponsorInquiryNoticeEmail(p: SponsorInquiryNoticeParams, opts?: QueueOptions): Promise<EmailResult> {
+  return queueEmail({ template: 'sponsor_inquiry_notice', params: p }, { priority: 1, ...opts });
+}
+
+/** A plain confirmation to the person who sent the form. */
+export async function sendSponsorInquiryReceivedEmail(p: SponsorInquiryReceivedParams, opts?: QueueOptions): Promise<EmailResult> {
+  return queueEmail({ template: 'sponsor_inquiry_received', params: p }, { priority: 1, ...opts });
+}
+
+function renderSponsorInquiryNotice(p: SponsorInquiryNoticeParams): RenderedEmail {
+  const subject = `New sponsor inquiry: ${p.brandName}`;
+  return {
+    to: sponsorNoticeAddress(),
+    subject: `[VSYC-26] ${subject}`,
+    html: emailWrap(`
+      <h1 style="font-family:Georgia,serif;font-size:1.4rem;color:#C9A84C;margin:0 0 16px;">${esc(subject)}</h1>
+      <p style="font-size:0.85rem;margin:0 0 10px;">From ${esc(p.contactName)}.</p>
+      ${p.lines.map((l) => `<p style="font-size:0.85rem;margin:0 0 10px;">${esc(l)}</p>`).join('')}
+      <a href="${BASE_URL}/sponsors" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;margin-top:8px;">REVIEW INQUIRIES →</a>
+    `),
+    text: [subject, `From ${p.contactName}.`, '', ...p.lines, '', `Review inquiries: ${BASE_URL}/sponsors`].join('\n'),
+  };
+}
+
+function renderSponsorInquiryReceived(p: SponsorInquiryReceivedParams): RenderedEmail {
+  const subject = `We got your sponsor inquiry, ${p.firstName}`;
+  return {
+    to: p.to,
+    subject: `VSYC-26: ${subject}`,
+    html: emailWrap(`
+      <h1 style="font-family:Georgia,serif;font-size:1.4rem;color:#C9A84C;margin:0 0 16px;">Thanks, ${esc(p.firstName)}.</h1>
+      <p style="font-size:0.9rem;margin:0 0 12px;">We received the inquiry for ${esc(p.brandName)}. A person reads every one, and we will get back to you soon.</p>
+      <p style="font-size:0.85rem;margin:0;">Questions in the meantime? Reply to this email or write to contact@dmvthrowers.club.</p>
+    `),
+    text: [`Thanks, ${p.firstName}.`, '', `We received the inquiry for ${p.brandName}. A person reads every one, and we will get back to you soon.`, '', `Questions in the meantime? Reply to this email or write to contact@dmvthrowers.club.`].join('\n'),
   };
 }
 
