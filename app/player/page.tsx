@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
+import { Turnstile } from '@/components/Turnstile';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { DIVISION_PLAYLIST_URLS } from '@/lib/contest-videos';
 import type { Division } from '@/lib/standings';
@@ -89,6 +90,8 @@ export default function PlayerPortalPage() {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [editable, setEditable] = useState<EditableProfile | null>(null);
@@ -190,6 +193,7 @@ export default function PlayerPortalPage() {
           registration_id: registrationId.trim(),
           email: email.trim(),
           password,
+          turnstileToken,
         }),
       });
       const signUpBody = await signUpRes.json().catch(() => ({})) as { error?: { message?: string } };
@@ -212,6 +216,7 @@ export default function PlayerPortalPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create account.');
     } finally {
+      setTurnstileResetKey((k) => k + 1);
       setAuthLoading(false);
     }
   }
@@ -353,6 +358,7 @@ export default function PlayerPortalPage() {
                   />
                   <p className="text-xs text-text-muted mt-1">Use at least 8 characters.</p>
                 </div>
+                <Turnstile onToken={setTurnstileToken} resetKey={turnstileResetKey} />
                 <button type="submit" disabled={authLoading} className="bg-gold text-navy-deep font-black tracking-caps px-5 py-3 text-xs disabled:opacity-60">
                   {authLoading ? 'Creating account...' : 'Create account and sign in'}
                 </button>

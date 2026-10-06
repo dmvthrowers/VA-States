@@ -12,6 +12,7 @@ import { cleanStyles, selectionIssues, entryOf, formatSummary, freeTeamJoins, st
 import { JOIN_CODE_RE, TEAM_NAME_MAX, entrySummary, normalizeJoinCode, teamPricingNote, type TeamChoice } from '@/lib/team-entries';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
+import { Turnstile } from '@/components/Turnstile';
 import { contest, competition, divisionByCode, venueCity, longDate, monthDay, shortMonthDay, deadlineLabel, presentedLine, contestYear, type DivisionDef } from '@/contest.config';
 import { Field, inputCls } from '@/components/form/Field';
 
@@ -149,6 +150,8 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
   const [cocOpen, setCocOpen] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [liabilityScrolled, setLiabilityScrolled] = useState(false);
   const [codeStatus, setCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [codeApplied, setCodeApplied] = useState(false);
@@ -333,6 +336,7 @@ export default function RegisterPage() {
         // value — these can differ on mobile when paste/autofill bypasses onChange.
         comp_code: (codeApplied && validatedCode) ? validatedCode : undefined,
         teams,
+        turnstileToken,
       };
 
       const res = await fetch('/api/register', {
@@ -375,6 +379,7 @@ export default function RegisterPage() {
     } catch {
       setServerError('Network error — please check your connection and try again.');
     } finally {
+      setTurnstileResetKey((k) => k + 1);
       setSubmitting(false);
     }
   };
@@ -969,10 +974,11 @@ export default function RegisterPage() {
 
           {/* Submit */}
           <div className="pt-2">
+            <Turnstile onToken={setTurnstileToken} resetKey={turnstileResetKey} />
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-gold text-navy-deep font-black tracking-caps py-4 text-sm hover:bg-gold-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gold text-navy-deep font-black tracking-caps py-4 text-sm hover:bg-gold-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4"
             >
               {submitting ? 'SUBMITTING...' : 'SUBMIT REGISTRATION →'}
             </button>
