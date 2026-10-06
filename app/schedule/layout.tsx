@@ -3,6 +3,7 @@ import { contest } from '@/contest.config';
 
 export const metadata: Metadata = {
   title: 'Live Schedule',
+  alternates: { canonical: '/schedule' },
   description: `The ${contest.shortName} schedule, updated live as each division runs.`,
 };
 

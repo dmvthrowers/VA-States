@@ -18,7 +18,8 @@ export const metadata: Metadata = {
     description: 'Results and run order — held September 19, 2026 · Dulles Town Center · Sterling, VA',
     url: SITE_URL,
     siteName: 'DMV Throwers',
-    images: [{ url: 'https://dmvthrowers.club/assets/images/vsyc26-va-logo-512.png', alt: 'VA State Yo-Yo Competition logo' }],
+    images: [{ url: 'https://dmvthrowers.club/assets/images/og/vsyc26-share.png', width: 1200, height: 630, alt: 'VSYC-26 Virginia State Yo-Yo Contest, September 19, 2026, Dulles Town Center' }],
+    locale: 'en_US',
     type: 'website',
   },
   twitter: {
@@ -26,8 +27,9 @@ export const metadata: Metadata = {
     site: '@dmv_throwers',
     title: 'VSYC-26 · Virginia State Yo-Yo Contest',
     description: 'Results and run order — held September 19, 2026 · Dulles Town Center',
-    images: ['https://dmvthrowers.club/assets/images/vsyc26-va-logo-512.png'],
+    images: ['https://dmvthrowers.club/assets/images/og/vsyc26-share.png'],
   },
+  alternates: { canonical: '/' },
   robots: { index: true, follow: true },
 };
 
@@ -35,7 +37,12 @@ const eventJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'SportsEvent',
   name: 'VSYC-26 — Virginia State Yo-Yo Contest',
+  description: 'The 16th annual Virginia State Yo-Yo Contest, brought to you by Goodles. Competitors from across the country, free to spectate.',
+  url: SITE_URL,
+  image: 'https://dmvthrowers.club/assets/images/og/vsyc26-share.png',
+  isAccessibleForFree: true,
   startDate: '2026-09-19T09:00:00-04:00',
+  endDate: '2026-09-19T19:00:00-04:00',
   eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
   eventStatus: 'https://schema.org/EventScheduled',
   location: {
@@ -43,6 +50,8 @@ const eventJsonLd = {
     name: 'Dulles Town Center',
     address: {
       '@type': 'PostalAddress',
+      streetAddress: '21100 Dulles Town Cir',
+      postalCode: '20166',
       addressLocality: 'Sterling',
       addressRegion: 'VA',
       addressCountry: 'US',
