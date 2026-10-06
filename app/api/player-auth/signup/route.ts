@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { verifyTurnstile } from '@/lib/turnstile';
 
 const signupSchema = z.object({
   registration_id: z.string().uuid('Invalid registration ID'),
@@ -23,6 +24,11 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     body = await req.json();
   } catch {
     return apiError('bad_request', 'Invalid JSON body', requestId);
+  }
+
+  const turnstileToken = (body as { turnstileToken?: unknown } | null)?.turnstileToken;
+  if (!(await verifyTurnstile(turnstileToken, ip))) {
+    return apiError('forbidden', 'Please complete the security check and try again.', requestId);
   }
 
   const parsed = signupSchema.safeParse(body);

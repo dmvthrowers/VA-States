@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
+import { Turnstile } from '@/components/Turnstile';
 
 type FormValues = {
   first_name: string;
@@ -36,6 +37,8 @@ export default function SpectatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
   const [cocOpen, setCocOpen] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const {
     register,
@@ -80,6 +83,7 @@ export default function SpectatePage() {
         volunteer_interest: values.volunteer_interest,
         liability_accepted: values.liability_accepted,
         code_of_conduct_accepted: values.code_of_conduct_accepted,
+        turnstileToken,
       };
 
       const res = await fetch('/api/spectator-register', {
@@ -99,6 +103,7 @@ export default function SpectatePage() {
     } catch {
       setServerError('Network error — please check your connection and try again.');
     } finally {
+      setTurnstileResetKey((k) => k + 1);
       setSubmitting(false);
     }
   };
@@ -276,10 +281,11 @@ export default function SpectatePage() {
           )}
 
           <div className="pt-2">
+            <Turnstile onToken={setTurnstileToken} resetKey={turnstileResetKey} />
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-gold text-navy-deep font-black tracking-caps py-4 text-sm hover:bg-gold-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gold text-navy-deep font-black tracking-caps py-4 text-sm hover:bg-gold-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4"
             >
               {submitting ? 'SUBMITTING...' : 'RSVP — IT\'S FREE →'}
             </button>
