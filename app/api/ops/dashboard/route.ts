@@ -24,15 +24,18 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 
   const supabase = createAdminClient();
 
-  const [registrationsRes, spectatorsRes] = await Promise.all([
+  const [registrationsRes, spectatorsRes, musicRes] = await Promise.all([
     supabase
       .from('vsyc_registrations')
-      .select('id, created_at, first_name, last_name, preferred_bracket_name, email, city, state, divisions, division_styles, fee_cents, paid, paid_at, music_filename, music_uploaded_at, is_public, admin_notes, registration_source')
+      .select('id, created_at, first_name, last_name, preferred_bracket_name, email, city, state, divisions, division_styles, fee_cents, paid, paid_at, music_uploaded_at, is_public, admin_notes, registration_source')
       .order('created_at', { ascending: false }),
     supabase
       .from('vsyc_spectators')
       .select('id, created_at, first_name, last_name, nickname, email, state, team, club, is_public')
       .order('created_at', { ascending: false }),
+    supabase
+      .from('vsyc_music')
+      .select('registration_id, division, filename, is_fallback, source, uploaded_at'),
   ]);
 
   if (registrationsRes.error) {
@@ -49,7 +52,19 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   } catch (e) {
     console.error('[ops/dashboard] teams query failed:', e);
   }
-  const registrations = (registrationsRes.data ?? []).map((r) => ({ ...r, teams: teamsByRegistration[r.id] ?? [] }));
+  // Music is one track per division: attach each player's tracks (best-effort, like teams).
+  if (musicRes.error) console.error('[ops/dashboard] music query failed:', musicRes.error);
+  const musicByRegistration = new Map<string, { division: string; filename: string; is_fallback: boolean; source: string; uploaded_at: string }[]>();
+  for (const m of musicRes.data ?? []) {
+    const list = musicByRegistration.get(m.registration_id) ?? [];
+    list.push({ division: m.division, filename: m.filename, is_fallback: m.is_fallback, source: m.source, uploaded_at: m.uploaded_at });
+    musicByRegistration.set(m.registration_id, list);
+  }
+  const registrations = (registrationsRes.data ?? []).map((r) => ({
+    ...r,
+    teams: teamsByRegistration[r.id] ?? [],
+    music: musicByRegistration.get(r.id) ?? [],
+  }));
   const spectators = spectatorsRes.data ?? [];
 
   const stats = {

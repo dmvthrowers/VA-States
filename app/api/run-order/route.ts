@@ -9,7 +9,7 @@ import { isTeamDivision, roundsOf } from '@/lib/divisions-core';
 type Division = string;
 
 const REGISTRATION_FIELDS =
-  'id, first_name, last_name, preferred_bracket_name, nickname, is_minor, is_public, city, state, music_filename, division_styles';
+  'id, first_name, last_name, preferred_bracket_name, nickname, is_minor, is_public, city, state, division_styles';
 
 /**
  * GET /api/run-order?division=<code>&round=<n>
@@ -86,8 +86,19 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     is_public: boolean | null;
     city: string | null;
     state: string | null;
-    music_filename: string | null;
     division_styles: Record<string, string[]> | null;
+  };
+
+  // DJ/audio only: this division's track for each performer (players have one per division).
+  const musicByReg = new Map<string, { filename: string; is_fallback: boolean }>();
+  const loadMusic = async (ids: string[]) => {
+    if (!withMusic || ids.length === 0) return;
+    const { data } = await supabase
+      .from('vsyc_music')
+      .select('registration_id, filename, is_fallback')
+      .eq('division', division)
+      .in('registration_id', ids);
+    for (const m of data ?? []) musicByReg.set(m.registration_id, { filename: m.filename, is_fallback: m.is_fallback });
   };
 
   const toPerformer = (
@@ -106,7 +117,10 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       display_name: teamName || (reg ? runOrderDisplayName(reg, viewerIsStaff) : 'Unnamed competitor'),
       city: hideLocation ? null : (reg?.city ?? null),
       state: hideLocation ? null : (reg?.state ?? null),
-      music_filename: withMusic ? (reg?.music_filename ?? null) : null,
+      // The track for THIS division: null when nothing is uploaded. music_fallback marks a lo-fi
+      // track assigned because the player never uploaded.
+      music_filename: withMusic ? (musicByReg.get(registrationId)?.filename ?? null) : null,
+      music_fallback: withMusic ? (musicByReg.get(registrationId)?.is_fallback ?? false) : false,
       // The style(s) this competitor entered in this division, e.g. "2A, 3A".
       // Null for divisions without styles. Not sensitive.
       style: reg?.division_styles?.[division]?.join(', ') || null,
@@ -148,6 +162,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   }
 
   if (runOrder && runOrder.length > 0) {
+    await loadMusic(runOrder.map((row) => row.registration_id));
     const performers = runOrder.map((row) => {
       const reg = (Array.isArray(row.vsyc_registrations)
         ? row.vsyc_registrations[0]
@@ -178,6 +193,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 
   // In team divisions only captains stand for an entry (teammates perform with them).
   const entrants = ((regs ?? []) as RegistrationRow[]).filter((reg) => !teamDivision || teamNames.has(reg.id));
+  await loadMusic(entrants.map((reg) => reg.id));
   const performers = entrants.map((reg, i) =>
     toPerformer(reg, i + 1, 'upcoming', reg.id, teamNames.get(reg.id)),
   );

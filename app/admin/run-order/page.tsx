@@ -16,6 +16,7 @@ interface ScheduledRow {
   performance_time_pref: TimePref;
   scheduling_notes: string | null;
   music_filename: string | null;
+  music_fallback: boolean;
   paid: boolean;
 }
 
@@ -27,6 +28,7 @@ interface UnscheduledRow {
   performance_time_pref: TimePref;
   scheduling_notes: string | null;
   music_filename: string | null;
+  music_fallback: boolean;
   paid: boolean;
 }
 
@@ -182,21 +184,34 @@ export default function AdminRunOrderPage() {
   }
 
   async function handleMusicUpload(registration_id: string, file: File) {
+    // One track per division: this uploads for the division shown. Never replace silently.
+    const current = regMap.get(registration_id);
+    let replace = false;
+    if (current?.music_filename && !current.music_fallback) {
+      if (!confirm(`Replace ${current.music_filename} with ${file.name} for ${division}? The old track is removed.`)) return;
+      replace = true;
+    }
     setUploadStatus((s) => ({ ...s, [registration_id]: 'uploading' }));
     try {
       const res = await fetch('/api/admin/music-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ registration_id, filename: file.name }),
+        body: JSON.stringify({ registration_id, division, filename: file.name, replace }),
       });
       if (!res.ok) { setUploadStatus((s) => ({ ...s, [registration_id]: 'error' })); return; }
-      const { upload_url } = await res.json() as { upload_url: string };
+      const { upload_url, filename } = await res.json() as { upload_url: string; filename: string };
       const up = await fetch(upload_url, {
         method: 'PUT',
         headers: { 'Content-Type': file.type || 'audio/mpeg' },
         body: file,
       });
       if (!up.ok) { setUploadStatus((s) => ({ ...s, [registration_id]: 'error' })); return; }
+      const done = await fetch('/api/admin/music-upload', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registration_id, division, filename }),
+      });
+      if (!done.ok) { setUploadStatus((s) => ({ ...s, [registration_id]: 'error' })); return; }
       setUploadStatus((s) => ({ ...s, [registration_id]: 'done' }));
       fetchData(division);
     } catch {
@@ -300,18 +315,20 @@ export default function AdminRunOrderPage() {
                           <span style={{ fontSize: '0.6rem', color: '#7fff7f' }}>uploaded OK</span>
                         ) : uploadStatus[id] === 'error' ? (
                           <span style={{ fontSize: '0.6rem', color: '#ff6b6b' }}>upload failed</span>
+                        ) : reg.music_fallback ? (
+                          <span style={{ fontSize: '0.6rem', color: 'var(--gold)' }}>&#9834; LO-FI (no upload)</span>
                         ) : reg.music_filename ? (
                           <span style={{ fontSize: '0.6rem', color: '#7fff7f' }}>&#9834; {reg.music_filename}</span>
                         ) : (
                           <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>no music</span>
                         )}
-                        <label style={{ cursor: 'pointer', display: 'inline-block' }} title="Upload music">
+                        <label style={{ cursor: 'pointer', display: 'inline-block' }} title={`Upload ${division} music`}>
                           <span style={{ fontSize: '0.55rem', color: 'var(--gold)', fontWeight: 800, padding: '0.05rem 0.3rem', border: '1px solid var(--gold)', letterSpacing: '0.05em' }}>
                             {uploadStatus[id] === 'uploading' ? '...' : 'UP'}
                           </span>
                           <input
                             type="file"
-                            accept="audio/*,.mp3,.wav,.flac,.aiff,.m4a,.ogg"
+                            accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a"
                             style={{ display: 'none' }}
                             disabled={uploadStatus[id] === 'uploading'}
                             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMusicUpload(id, f); e.target.value = ''; }}

@@ -42,9 +42,11 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
    registration `paid=true` and nobody is alerted. Add `charge.dispute.created` (and
    `.closed`): audit log, email `ADMIN_ALERT_EMAIL`, flag in `vsyc_payment_flags`. Subscribe the
    event in Stripe. Pure-logic test like `stripe-refund.test.mjs`.
-7. **Per-division music tracks (site issue #79).** `app/api/upload/route.ts` names the file
-   from `divisions[0]`, so multi-division players overwrite their own music. Store one track per
-   division, plus a fallback when none is uploaded.
+7. **Music, the rest of site issue #79.** One track per division is done (`vsyc_music`, per
+   division slots, replace confirmation, audit log). Still open: the lo-fi fallback for empty
+   slots at the deadline (needs a cleared lo-fi pool in `vsyc26-music/lofi/`), per-division
+   reminder emails before the deadline, expected routine length per division/round for the DJ
+   view (site issue #80), and dropping the old `music_path` / `music_filename` columns.
 8. **Rate-limit the admin routes.** Admin auth is a Supabase JWT plus an active staff row, so
    there's no password to guess here — this is about cost and abuse (each call hits Supabase
    Auth). A shared 60/IP/min limit inside `requireAdminRequest` is enough.

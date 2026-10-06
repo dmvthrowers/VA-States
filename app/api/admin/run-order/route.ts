@@ -159,7 +159,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   // Get all paid registrants in this division (for the "available to add" list)
   const { data: allRegs, error: allRegsError } = await supabase
     .from('vsyc_registrations')
-    .select('id, first_name, last_name, preferred_bracket_name, city, state, performance_time_pref, scheduling_notes, music_filename, paid')
+    .select('id, first_name, last_name, preferred_bracket_name, city, state, performance_time_pref, scheduling_notes, paid')
     .contains('divisions', [division])
     .order('created_at', { ascending: true });
 
@@ -200,6 +200,13 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     .eq('division', division)
     .eq('round', round);
 
+  // This division's track for each entrant (one track per division).
+  const { data: musicRows } = await supabase
+    .from('vsyc_music')
+    .select('registration_id, filename, is_fallback')
+    .eq('division', division);
+  const musicByReg = new Map((musicRows ?? []).map((m) => [m.registration_id, m]));
+
   const orderedIds = new Set((runOrder ?? []).map((r) => r.registration_id));
   const regMap = new Map((allRegs ?? []).map((r) => [r.id, r]));
 
@@ -214,7 +221,8 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       state: reg?.state ?? null,
       performance_time_pref: reg?.performance_time_pref ?? null,
       scheduling_notes: reg?.scheduling_notes ?? null,
-      music_filename: reg?.music_filename ?? null,
+      music_filename: musicByReg.get(row.registration_id)?.filename ?? null,
+      music_fallback: musicByReg.get(row.registration_id)?.is_fallback ?? false,
       paid: reg?.paid ?? false,
     };
   });
@@ -228,7 +236,8 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       state: r.state ?? null,
       performance_time_pref: r.performance_time_pref ?? null,
       scheduling_notes: r.scheduling_notes ?? null,
-      music_filename: r.music_filename ?? null,
+      music_filename: musicByReg.get(r.id)?.filename ?? null,
+      music_fallback: musicByReg.get(r.id)?.is_fallback ?? false,
       paid: r.paid,
     }));
 

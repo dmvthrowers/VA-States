@@ -8,11 +8,12 @@ const BUCKET = 'vsyc26-music';
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes
 
 /**
- * GET /api/player/music-url
+ * GET /api/player/music-url?division=1A
  *
- * Lets a signed-in competitor preview the music they uploaded — scoped to
- * their own registration (auth_user_id) so nobody can peek at another
- * competitor's file. The bucket is private, so a signed URL is required.
+ * Lets a signed-in competitor preview the track for one of their divisions (one track per
+ * division) — scoped to their own registration (auth_user_id) so nobody can peek at another
+ * competitor's file. The bucket is private, so a signed URL is required. `division` may be left
+ * out when the player has exactly one track.
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   const authHeader = req.headers.get('authorization') ?? '';
@@ -30,20 +31,36 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 
   const { data: reg, error: regError } = await supabase
     .from('vsyc_registrations')
-    .select('music_filename')
+    .select('id')
     .eq('auth_user_id', authData.user.id)
     .single();
 
   if (regError || !reg) {
     return apiError('not_found', 'No linked registration found for this account', requestId);
   }
-  if (!reg.music_filename) {
-    return apiError('not_found', 'No music file uploaded yet', requestId);
+
+  const division = req.nextUrl.searchParams.get('division');
+  let query = supabase
+    .from('vsyc_music')
+    .select('division, object_name, filename, is_fallback')
+    .eq('registration_id', reg.id);
+  if (division) query = query.eq('division', division);
+  const { data: tracks, error: trackError } = await query;
+  if (trackError) {
+    console.error('[player/music-url] lookup error:', trackError);
+    return apiError('upstream_error', 'Failed to look up your music', requestId);
   }
+  if (!tracks?.length) {
+    return apiError('not_found', division ? `No music uploaded yet for ${division}` : 'No music uploaded yet', requestId);
+  }
+  if (tracks.length > 1) {
+    return apiError('bad_request', 'division is required: you have more than one track', requestId);
+  }
+  const track = tracks[0];
 
   const { data: signed, error: signErr } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(reg.music_filename, SIGNED_URL_TTL_SECONDS);
+    .createSignedUrl(track.object_name, SIGNED_URL_TTL_SECONDS);
 
   if (signErr || !signed) {
     console.error('[player/music-url] signing error:', signErr);
@@ -51,7 +68,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   }
 
   return NextResponse.json(
-    { filename: reg.music_filename, play_url: signed.signedUrl, expires_in: SIGNED_URL_TTL_SECONDS },
+    { division: track.division, filename: track.filename, is_fallback: track.is_fallback, play_url: signed.signedUrl, expires_in: SIGNED_URL_TTL_SECONDS },
     { headers: { 'x-request-id': requestId } }
   );
 });
