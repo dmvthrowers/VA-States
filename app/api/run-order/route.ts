@@ -3,18 +3,21 @@ import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { runOrderDisplayName, isNameRestricted } from '@/lib/display-name';
+import { DIVISION_CODES, divisionByCode } from '@/contest.config';
+import { isTeamDivision, roundsOf } from '@/lib/divisions-core';
 
-const VALID_DIVISIONS = ['1A', 'X', 'SBJ'] as const;
-type Division = typeof VALID_DIVISIONS[number];
+type Division = string;
 
 const REGISTRATION_FIELDS =
-  'id, first_name, last_name, preferred_bracket_name, nickname, is_minor, is_public, city, state, music_filename, x_substyle';
+  'id, first_name, last_name, preferred_bracket_name, nickname, is_minor, is_public, city, state, division_styles';
 
 /**
- * GET /api/run-order?division=1A
+ * GET /api/run-order?division=<code>&round=<n>
  *
- * Returns the performance order for a division.
- * Falls back to registration order (by created_at) if no run order has been set.
+ * Returns the performance order for one round of a division (round defaults to 1).
+ * Round 1 falls back to registration order (by created_at) if no run order has been set;
+ * later rounds are empty until someone advances entrants into them. In team divisions the
+ * captain's registration stands for the team and the team name is shown.
  *
  * Anonymous callers get privacy-safe names: minors who have not been opted into
  * public listing by a guardian show a handle or first name + last initial, and
@@ -25,9 +28,17 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   const division = req.nextUrl.searchParams.get('division') as Division | null;
   const includeMusic = req.nextUrl.searchParams.get('include_music') === '1';
 
-  if (!division || !VALID_DIVISIONS.includes(division)) {
-    return apiError('bad_request', 'division must be one of: 1A, X, SBJ', requestId);
+  if (!division || !DIVISION_CODES.includes(division)) {
+    return apiError('bad_request', `division must be one of: ${DIVISION_CODES.join(', ')}`, requestId);
   }
+  const def = divisionByCode(division);
+  const rounds = roundsOf(def);
+  const roundParam = req.nextUrl.searchParams.get('round');
+  const round = roundParam === null || roundParam === '' ? 1 : Number(roundParam);
+  if (!Number.isInteger(round) || round < 1 || round > rounds.length) {
+    return apiError('bad_request', `round must be 1–${rounds.length} for ${division}`, requestId);
+  }
+  const teamDivision = isTeamDivision(def);
 
   // Any active staff member may see full names; only DJ/audio/admin get music.
   let viewerIsStaff = false;
@@ -75,8 +86,19 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     is_public: boolean | null;
     city: string | null;
     state: string | null;
-    music_filename: string | null;
-    x_substyle: string | null;
+    division_styles: Record<string, string[]> | null;
+  };
+
+  // DJ/audio only: this division's track for each performer (players have one per division).
+  const musicByReg = new Map<string, { filename: string; is_fallback: boolean }>();
+  const loadMusic = async (ids: string[]) => {
+    if (!withMusic || ids.length === 0) return;
+    const { data } = await supabase
+      .from('vsyc_music')
+      .select('registration_id, filename, is_fallback')
+      .eq('division', division)
+      .in('registration_id', ids);
+    for (const m of data ?? []) musicByReg.set(m.registration_id, { filename: m.filename, is_fallback: m.is_fallback });
   };
 
   const toPerformer = (
@@ -84,6 +106,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     position: number,
     status: string,
     registrationId: string,
+    teamName?: string,
   ) => {
     // Withhold location for minors who have not been opted into public listing.
     const hideLocation = !viewerIsStaff && !!reg && isNameRestricted(reg);
@@ -91,17 +114,34 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       position,
       status,
       registration_id: registrationId,
-      display_name: reg ? runOrderDisplayName(reg, viewerIsStaff) : 'Unnamed competitor',
+      display_name: teamName || (reg ? runOrderDisplayName(reg, viewerIsStaff) : 'Unnamed competitor'),
       city: hideLocation ? null : (reg?.city ?? null),
       state: hideLocation ? null : (reg?.state ?? null),
-      music_filename: withMusic ? (reg?.music_filename ?? null) : null,
-      // X division freestyle style (2A/3A/4A/5A). Null for every other division —
-      // not sensitive, just not applicable outside X.
-      style: reg?.x_substyle ?? null,
+      // The track for THIS division: null when nothing is uploaded. music_fallback marks a lo-fi
+      // track assigned because the player never uploaded.
+      music_filename: withMusic ? (musicByReg.get(registrationId)?.filename ?? null) : null,
+      music_fallback: withMusic ? (musicByReg.get(registrationId)?.is_fallback ?? false) : false,
+      // The style(s) this competitor entered in this division, e.g. "2A, 3A".
+      // Null for divisions without styles. Not sensitive.
+      style: reg?.division_styles?.[division]?.join(', ') || null,
     };
   };
 
   const supabase = createAdminClient();
+
+  // Team divisions: captain registration id → team name.
+  const teamNames = new Map<string, string>();
+  if (teamDivision) {
+    const { data: teams, error: teamError } = await supabase
+      .from('vsyc_teams')
+      .select('name, captain_registration_id')
+      .eq('division', division);
+    if (teamError) {
+      console.error('[run-order] teams query error:', teamError);
+      return apiError('upstream_error', 'Failed to fetch teams', requestId);
+    }
+    for (const t of teams ?? []) teamNames.set(t.captain_registration_id, t.name);
+  }
 
   // Try explicit run order first
   const { data: runOrder, error: roError } = await supabase
@@ -113,6 +153,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       vsyc_registrations (${REGISTRATION_FIELDS})
     `)
     .eq('division', division)
+    .eq('round', round)
     .order('position', { ascending: true });
 
   if (roError) {
@@ -121,14 +162,20 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   }
 
   if (runOrder && runOrder.length > 0) {
+    await loadMusic(runOrder.map((row) => row.registration_id));
     const performers = runOrder.map((row) => {
       const reg = (Array.isArray(row.vsyc_registrations)
         ? row.vsyc_registrations[0]
         : row.vsyc_registrations) as RegistrationRow | null;
-      return toPerformer(reg, row.position, row.status, row.registration_id);
+      return toPerformer(reg, row.position, row.status, row.registration_id, teamNames.get(row.registration_id));
     });
 
-    return NextResponse.json({ division, source: 'run_order', performers }, { headers });
+    return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), source: 'run_order', performers }, { headers });
+  }
+
+  // Later rounds have no fallback: entrants are advanced into them.
+  if (round > 1) {
+    return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), source: 'run_order', performers: [] }, { headers });
   }
 
   // Fallback: registration order, only paid registrants in this division
@@ -144,9 +191,12 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('upstream_error', 'Failed to fetch registrations', requestId);
   }
 
-  const performers = ((regs ?? []) as RegistrationRow[]).map((reg, i) =>
-    toPerformer(reg, i + 1, 'upcoming', reg.id),
+  // In team divisions only captains stand for an entry (teammates perform with them).
+  const entrants = ((regs ?? []) as RegistrationRow[]).filter((reg) => !teamDivision || teamNames.has(reg.id));
+  await loadMusic(entrants.map((reg) => reg.id));
+  const performers = entrants.map((reg, i) =>
+    toPerformer(reg, i + 1, 'upcoming', reg.id, teamNames.get(reg.id)),
   );
 
-  return NextResponse.json({ division, source: 'registration_order', performers }, { headers });
+  return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), source: 'registration_order', performers }, { headers });
 });

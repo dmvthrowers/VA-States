@@ -8,7 +8,7 @@ const BOT_UA_RE = /(bot|crawler|spider|scrapy|curl|wget|python-requests|httpclie
  * Security enforcement for all admin APIs is now handled at the route level
  * via bearer token validation and admin role checks.
  */
-export function middleware(req: NextRequest) {
+export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isApi = pathname.startsWith('/api/');
@@ -28,7 +28,10 @@ export function middleware(req: NextRequest) {
     return res;
   }
 
-  const isLegacyAdminPage = pathname === '/admin' || pathname.startsWith('/admin/');
+  // Newer admin tools live under /admin/ too; everything else there is the legacy UI.
+  const CURRENT_ADMIN_PAGES = ['/admin/brackets', '/admin/schedule'];
+  const isCurrentAdminPage = CURRENT_ADMIN_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const isLegacyAdminPage = !isCurrentAdminPage && (pathname === '/admin' || pathname.startsWith('/admin/'));
   if (isLegacyAdminPage) {
     const url = req.nextUrl.clone();
     url.pathname = '/admin-dashboard';

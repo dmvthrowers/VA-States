@@ -4,12 +4,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { z } from 'zod';
 import { logAudit } from '@/lib/audit';
+import { DIVISION_CODES } from '@/contest.config';
+import { cleanStyles } from '@/lib/divisions-core';
 
 const updateContestantSchema = z.object({
   paid: z.boolean().optional(),
-  divisions: z.array(z.enum(['1A', 'X', 'SBJ'])).min(1).max(3).optional(),
-  x_substyle: z.string().trim().max(40).optional().or(z.literal('')),
-  music_filename: z.string().trim().max(200).optional().or(z.literal('')),
+  divisions: z.array(z.string().trim().max(20)).min(1).max(20)
+    .refine((d) => d.every((c) => DIVISION_CODES.includes(c)), 'Unknown division').optional(),
+  /** Style codes per division, e.g. { "X": ["2A"] }. The database checks they exist. */
+  division_styles: z.record(z.string().max(20), z.array(z.string().max(20)).max(20)).optional(),
   is_public: z.boolean().optional(),
   admin_notes: z.string().trim().max(2000).optional().or(z.literal('')),
 }).strict();
@@ -56,16 +59,21 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest, conte
     ...updatePayload,
   };
 
-  if (Object.prototype.hasOwnProperty.call(updatePayload, 'music_filename')) {
-    normalized.music_filename = updatePayload.music_filename || null;
-  }
-  if (Object.prototype.hasOwnProperty.call(updatePayload, 'x_substyle')) {
-    normalized.x_substyle = updatePayload.x_substyle || null;
-  }
   if (Object.prototype.hasOwnProperty.call(updatePayload, 'admin_notes')) {
     normalized.admin_notes = updatePayload.admin_notes || null;
   }
   const supabase = createAdminClient();
+
+  // Styles only make sense for selected divisions: keep them consistent when either changes.
+  if (updatePayload.divisions || updatePayload.division_styles) {
+    const { data: current } = await supabase
+      .from('vsyc_registrations')
+      .select('divisions, division_styles')
+      .eq('id', id)
+      .maybeSingle();
+    const divisions = updatePayload.divisions ?? (current?.divisions as string[] | undefined) ?? [];
+    normalized.division_styles = cleanStyles(divisions, updatePayload.division_styles ?? (current?.division_styles as Record<string, string[]> | undefined));
+  }
 
   // Only a real change to paid is applied (and audited). A stale dashboard row
   // sending its old value must not reset a payment that landed since.

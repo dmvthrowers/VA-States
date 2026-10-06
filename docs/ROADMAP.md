@@ -42,9 +42,11 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
    registration `paid=true` and nobody is alerted. Add `charge.dispute.created` (and
    `.closed`): audit log, email `ADMIN_ALERT_EMAIL`, flag in `vsyc_payment_flags`. Subscribe the
    event in Stripe. Pure-logic test like `stripe-refund.test.mjs`.
-7. **Per-division music tracks (site issue #79).** `app/api/upload/route.ts` names the file
-   from `divisions[0]`, so multi-division players overwrite their own music. Store one track per
-   division, plus a fallback when none is uploaded.
+7. **Music, the rest of site issue #79.** One track per division is done (`vsyc_music`, per
+   division slots, replace confirmation, audit log). Still open: the lo-fi fallback for empty
+   slots at the deadline (needs a cleared lo-fi pool in `vsyc26-music/lofi/`), per-division
+   reminder emails before the deadline, expected routine length per division/round for the DJ
+   view (site issue #80), and dropping the old `music_path` / `music_filename` columns.
 8. **Rate-limit the admin routes.** Admin auth is a Supabase JWT plus an active staff row, so
    there's no password to guess here — this is about cost and abuse (each call hits Supabase
    Auth). A shared 60/IP/min limit inside `requireAdminRequest` is enough.
@@ -60,7 +62,8 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 
 ## VSYC-27 features (from site issues #78–#83)
 
-- Round format: prelims over 25 players, semis only over 50 (#80, rule decided).
+- Round format: prelims over 25 players, semis only over 50 (#80, rule decided). The app
+  supports rounds now (`rounds` on a division in `contest.config.ts`, migration 0039).
 - Sport division split Youth/Adult when Sport has more than 15 players (#81, rule decided).
 - Capture Virginia-champion eligibility at registration (#82).
 - Judging portal: live score status, head-judge lock/unlock, audit log (#83).
@@ -68,12 +71,10 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 
 ## Later (separate projects — don't bundle)
 
-- **Next 16 + React 19.** Rename `middleware.ts` → `proxy.ts`, audit every sync
-  `params`/`searchParams`/`cookies()`/`headers()` access, build under Turbopack, smoke-test
-  checkout before merging.
-- **SDK majors, smallest first:** `@vercel/analytics` 2, `resend` 6, `lucide-react` 1 (grep for
-  brand icons first — v1 removes them), `zod` 4 (optional). Defer `stripe` 17 → 23 and
-  `tailwindcss` 4 until there's a reason.
+- **Dependency majors, deferred (Oct 5):** Next 16, React 19, Tailwind 4 and `lucide-react` 1
+  landed (PRs #40, #34, #38, #35, #51–#53). Still open, here and in yoyo-registration-template:
+  ESLint 10 (#37 here; wait until `eslint-config-next` supports it), `resend` 6,
+  `@vercel/analytics` 2, `zod` 4 (optional). Defer `stripe` 17 → 23 until there's a reason.
 - **TypeScript 7:** wait for 7.1 (stable JS API); a straight bump breaks ESLint type-aware rules
   and Next's build-time type check.
 - Replace `@vercel/kv` (deprecated) with `@upstash/redis` when `lib/rate-limit.ts` is next touched.

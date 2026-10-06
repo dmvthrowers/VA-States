@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { DIVISION_PLAYLIST_URLS } from '@/lib/contest-videos';
 import type { Division } from '@/lib/standings';
+import type { MusicSlot } from '@/lib/music';
 
 type AuthMode = 'login' | 'signup';
 
@@ -19,7 +20,8 @@ type PlayerProfile = {
   paid: boolean;
   fee_cents: number;
   music_uploaded_at: string | null;
-  music_filename: string | null;
+  /** One slot per division that uses music */
+  music_slots: MusicSlot[];
   can_upload_music: boolean;
   music_upload_url: string | null;
   preferred_bracket_name: string | null;
@@ -91,15 +93,16 @@ export default function PlayerPortalPage() {
   const [editable, setEditable] = useState<EditableProfile | null>(null);
 
   const [musicPlayUrl, setMusicPlayUrl] = useState<string | null>(null);
-  const [musicLoading, setMusicLoading] = useState(false);
+  const [musicPlayDivision, setMusicPlayDivision] = useState<string | null>(null);
+  const [musicLoadingDivision, setMusicLoadingDivision] = useState<string | null>(null);
   const [musicError, setMusicError] = useState<string | null>(null);
 
-  async function handlePreviewMusic() {
+  async function handlePreviewMusic(division: string) {
     if (!authToken) return;
-    setMusicLoading(true);
+    setMusicLoadingDivision(division);
     setMusicError(null);
     try {
-      const res = await fetch('/api/player/music-url', {
+      const res = await fetch(`/api/player/music-url?division=${encodeURIComponent(division)}`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       const body = await res.json().catch(() => ({})) as { play_url?: string; error?: { message?: string } };
@@ -107,10 +110,11 @@ export default function PlayerPortalPage() {
         throw new Error(body.error?.message ?? 'Could not load your music file.');
       }
       setMusicPlayUrl(body.play_url);
+      setMusicPlayDivision(division);
     } catch (err) {
       setMusicError(err instanceof Error ? err.message : 'Could not load your music file.');
     } finally {
-      setMusicLoading(false);
+      setMusicLoadingDivision(null);
     }
   }
 
@@ -272,6 +276,7 @@ export default function PlayerPortalPage() {
     setProfile(null);
     setEditable(null);
     setMusicPlayUrl(null);
+    setMusicPlayDivision(null);
     setSuccess('Signed out.');
   }
 
@@ -418,25 +423,42 @@ export default function PlayerPortalPage() {
                   <p>Music received: <span className="text-white">{new Date(profile.music_uploaded_at).toLocaleString()}</span></p>
                 )}
               </div>
-              {profile.music_filename && (
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={handlePreviewMusic}
-                    disabled={musicLoading}
-                    className="border border-gold text-gold font-black tracking-caps px-4 py-2 text-xs disabled:opacity-60"
-                  >
-                    {musicLoading ? 'Loading...' : '▶ Preview my music'}
-                  </button>
-                  {musicError && <p className="text-red text-xs mt-2">{musicError}</p>}
-                  {musicPlayUrl && (
-                    <audio key={musicPlayUrl} controls autoPlay src={musicPlayUrl} className="w-full mt-3" />
-                  )}
+              {profile.music_slots.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  <h3 className="text-xs font-black tracking-caps text-gold">YOUR MUSIC · ONE TRACK PER DIVISION</h3>
+                  {profile.music_slots.map((slot) => (
+                    <div key={slot.division} className="border border-navy-border p-3">
+                      <div className="text-white font-bold text-sm">{slot.name}</div>
+                      {slot.status === 'uploaded' && slot.track && (
+                        <p className="text-xs text-[#7fff7f] mt-1">✓ {slot.track.filename} · received {new Date(slot.track.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                      )}
+                      {slot.status === 'fallback' && (
+                        <p className="text-xs text-gold mt-1">LO-FI (no upload): a lo-fi track will play for this division. Upload your own to replace it.</p>
+                      )}
+                      {slot.status === 'empty' && (
+                        <p className="text-xs text-red mt-1">Nothing uploaded yet for {slot.division}.</p>
+                      )}
+                      {slot.track && (
+                        <button
+                          type="button"
+                          onClick={() => handlePreviewMusic(slot.division)}
+                          disabled={musicLoadingDivision === slot.division}
+                          className="mt-2 border border-gold text-gold font-black tracking-caps px-3 py-1.5 text-xs disabled:opacity-60"
+                        >
+                          {musicLoadingDivision === slot.division ? 'Loading...' : `▶ Preview ${slot.division}`}
+                        </button>
+                      )}
+                      {musicPlayUrl && musicPlayDivision === slot.division && (
+                        <audio key={musicPlayUrl} controls autoPlay src={musicPlayUrl} className="w-full mt-3" />
+                      )}
+                    </div>
+                  ))}
+                  {musicError && <p className="text-red text-xs">{musicError}</p>}
                 </div>
               )}
               {profile.music_upload_url ? (
                 <a href={profile.music_upload_url} className="inline-block mt-4 bg-gold text-navy-deep font-black tracking-caps px-4 py-2 text-xs">
-                  Upload music
+                  {profile.music_slots.length > 1 ? 'Upload music (one per division)' : 'Upload music'}
                 </a>
               ) : (
                 <p className="mt-4 text-sm text-text-body">Music upload unlocks after payment is received.</p>

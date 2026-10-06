@@ -150,12 +150,19 @@ validates the bearer token with Supabase and looks up an active `admin` row in
 
 ### Music upload
 
-`/upload?token=…` (token minted at registration) → `POST /api/upload {action:'sign'}` checks
-payment, deadline (`MUSIC_DEADLINE_ISO`), mime (mp3/wav/m4a) and size (128 MB) and returns a
-signed upload URL for bucket `vsyc26-music` → browser PUTs the file → `{action:'confirm'}`
-re-derives the filename server-side, checks the object exists, records it and emails a receipt.
-Known bug: the filename is built from `divisions[0]` only, so a player in two divisions
-overwrites their own track (site issue #79).
+One track per division the player entered (`vsyc_music`, unique on registration + division; a
+1A + X player has two slots). `GET /api/upload?token=…` lists the slots. `/upload?token=…` (token
+minted at registration) → `POST /api/upload {action:'sign', division}` checks payment, deadline
+(`MUSIC_DEADLINE_ISO`), division, mime (mp3/wav/m4a) and size (128 MB) and returns a signed upload
+URL for bucket `vsyc26-music` (file `DIVISION_Last_First.ext`) → browser PUTs the file →
+`{action:'confirm', division}` re-derives the filename server-side, checks the object exists,
+records the track, emails a receipt and writes `music_received` / `music_replaced` to the audit
+log. A slot that already holds the player's own track is refused (409) unless the request says
+`replace: true`, and the page asks first. Staff upload through `/api/admin/music-upload` (POST then
+PATCH) on the run order screens, per division. The DJ queue, run order, player page and CSV export
+all resolve the track per division (`lib/music.ts` has the pure helpers). The old single slot
+(`vsyc_registrations.music_path` / `music_filename`) is no longer read; a later migration drops
+it. `vsyc_registrations.music_uploaded_at` is kept current by a trigger ("has a real track").
 
 ## 5. Config and environments
 

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { divisionByCode } from '@/contest.config';
+import { buildSlots, type MusicTrack } from '@/lib/music';
 
 const profileUpdateSchema = z.object({
   preferred_bracket_name: z.string().trim().max(50).optional().or(z.literal('')),
@@ -47,7 +49,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   const supabase = createAdminClient();
   const { data: reg, error } = await supabase
     .from('vsyc_registrations')
-    .select('id, first_name, last_name, email, age_on_event, preferred_bracket_name, pronouns, phone, city, state, club_affiliation, parent_name, parent_email, parent_consented, divisions, x_substyle, emergency_contact_name, emergency_contact_phone, accessibility_needs, performance_time_pref, scheduling_notes, volunteer_interest, paid, fee_cents, music_upload_token, music_uploaded_at, music_filename')
+    .select('id, first_name, last_name, email, age_on_event, preferred_bracket_name, pronouns, phone, city, state, club_affiliation, parent_name, parent_email, parent_consented, divisions, division_styles, emergency_contact_name, emergency_contact_phone, accessibility_needs, performance_time_pref, scheduling_notes, volunteer_interest, paid, fee_cents, music_upload_token, music_uploaded_at')
     .eq('auth_user_id', auth.userId)
     .single();
 
@@ -55,12 +57,24 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('not_found', 'No linked registration found for this account', requestId);
   }
 
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://register.dmvthrowers.club';
   const canUploadMusic = reg.paid || reg.fee_cents === 0;
+
+  // One slot per division that uses music: uploaded, a lo-fi fallback, or still empty.
+  const { data: tracks } = await supabase
+    .from('vsyc_music')
+    .select('division, object_name, filename, source, is_fallback, uploaded_at')
+    .eq('registration_id', reg.id);
 
   return NextResponse.json(
     {
       ...reg,
+      music_slots: buildSlots(
+        reg.divisions as string[],
+        (tracks ?? []) as MusicTrack[],
+        (code) => divisionByCode(code)?.music === true,
+        (code) => divisionByCode(code)?.name ?? code,
+      ),
       can_upload_music: canUploadMusic,
       music_upload_url: canUploadMusic ? `${BASE_URL}/upload?token=${reg.music_upload_token}` : null,
     },
