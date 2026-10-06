@@ -35,7 +35,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       .order('created_at', { ascending: false }),
     supabase
       .from('vsyc_music')
-      .select('registration_id, division, filename, is_fallback, source, uploaded_at'),
+      .select('registration_id, division, slot, filename, is_fallback, source, uploaded_at'),
   ]);
 
   if (registrationsRes.error) {
@@ -54,10 +54,10 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   }
   // Music is one track per division: attach each player's tracks (best-effort, like teams).
   if (musicRes.error) console.error('[ops/dashboard] music query failed:', musicRes.error);
-  const musicByRegistration = new Map<string, { division: string; filename: string; is_fallback: boolean; source: string; uploaded_at: string }[]>();
+  const musicByRegistration = new Map<string, { division: string; slot: string; filename: string; is_fallback: boolean; source: string; uploaded_at: string }[]>();
   for (const m of musicRes.data ?? []) {
     const list = musicByRegistration.get(m.registration_id) ?? [];
-    list.push({ division: m.division, filename: m.filename, is_fallback: m.is_fallback, source: m.source, uploaded_at: m.uploaded_at });
+    list.push({ division: m.division, slot: m.slot, filename: m.filename, is_fallback: m.is_fallback, source: m.source, uploaded_at: m.uploaded_at });
     musicByRegistration.set(m.registration_id, list);
   }
   const registrations = (registrationsRes.data ?? []).map((r) => ({

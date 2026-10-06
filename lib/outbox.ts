@@ -214,24 +214,33 @@ export async function queueEmail(email: OutboxEmail, opts: QueueOptions = {}): P
   return { ok: false, error: 'email could not be delivered (see email_outbox.last_error)' };
 }
 
-/** Store many emails without sending inline (bulk sends); the drain sends them. */
+/**
+ * Store many emails without sending inline (bulk sends); the drain sends them.
+ * `dedupeKeys[i]` (optional) is the dedupe key for `emails[i]`: one already stored is skipped, so
+ * running the same bulk send twice doesn't email anyone twice. `skipped` counts those.
+ */
 export async function enqueueEmails(
   emails: OutboxEmail[],
-  opts: { priority?: Priority } = {},
-): Promise<{ queued: number; failed: { email: string; error: string }[] }> {
-  if (!emails.length) return { queued: 0, failed: [] };
-  const rows = emails.map((email) => ({
+  opts: { priority?: Priority; dedupeKeys?: string[] } = {},
+): Promise<{ queued: number; skipped: number; failed: { email: string; error: string }[] }> {
+  if (!emails.length) return { queued: 0, skipped: 0, failed: [] };
+  const rows = emails.map((email, i) => ({
     template: email.template,
     to_email: renderEmail(email).to,
     payload: email,
     priority: opts.priority ?? 2,
+    ...(opts.dedupeKeys?.[i] ? { dedupe_key: opts.dedupeKeys[i] } : {}),
   }));
-  const { error } = await createAdminClient().from('email_outbox').insert(rows);
+  const table = createAdminClient().from('email_outbox');
+  const { data, error } = opts.dedupeKeys
+    ? await table.upsert(rows, { onConflict: 'dedupe_key', ignoreDuplicates: true }).select('id')
+    : await table.insert(rows).select('id');
   if (error) {
-    return { queued: 0, failed: rows.map((r) => ({ email: r.to_email, error: error.message })) };
+    return { queued: 0, skipped: 0, failed: rows.map((r) => ({ email: r.to_email, error: error.message })) };
   }
-  kickDrain(20);
-  return { queued: rows.length, failed: [] };
+  const queued = data?.length ?? rows.length;
+  if (queued > 0) kickDrain(20);
+  return { queued, skipped: rows.length - queued, failed: [] };
 }
 
 /** Drain a few due rows once the response is out. */

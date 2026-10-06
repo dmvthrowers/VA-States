@@ -4,28 +4,29 @@ import { withErrorHandling, apiError } from '@/lib/api-error';
 import { requireRunOrderEditorRequest } from '@/lib/auth/admin-request';
 import { buildMusicFilename } from '@/lib/filename';
 import { logAudit } from '@/lib/audit';
-import { divisionByCode } from '@/contest.config';
-import { musicDivisions, needsReplaceConfirm, staleObjectToRemove, type MusicTrack } from '@/lib/music';
+import { playerSlots, needsReplaceConfirm, staleObjectToRemove, type MusicTrack } from '@/lib/music';
+import { resolveSlot, slotLabel, slotsOf } from '@/lib/music-config';
 
 export const runtime = 'nodejs';
 
 const BUCKET = 'vsyc26-music';
 
 /**
- * Staff upload of a performer's track for ONE division (players have one track per division).
- * Same two-step flow as the player upload, and the file is named DIVISION_Last_First.ext.
+ * Staff upload of a performer's track for ONE slot: a division's routine track, a round's track
+ * or an extra such as battle music (see musicSlotsOf). Same two-step flow as the player upload,
+ * and the file is named DIVISION_Last_First.ext (DIVISION_SLOT_Last_First.ext for rounds/extras).
  *
- *   POST  { registration_id, division, filename, replace? }
- *         → { upload_url, path, token, filename, division }
+ *   POST  { registration_id, division, slot?, filename, replace? }
+ *         → { upload_url, path, token, filename, division, slot }
  *         Refused (409) when the slot already holds the player's own track, unless replace: true.
  *   (client PUTs the file to upload_url)
- *   PATCH { registration_id, division, filename }
- *         → verifies the file landed, records it for that division, audit-logs it.
+ *   PATCH { registration_id, division, slot?, filename }
+ *         → verifies the file landed, records it for that slot, audit-logs it.
  *
  * Uses the private "vsyc26-music" bucket created by 0002_storage_buckets.sql.
  */
 
-async function loadTarget(registrationId: string | undefined, division: string | undefined, requestId: string) {
+async function loadTarget(registrationId: string | undefined, division: string | undefined, rawSlot: string | undefined, requestId: string) {
   if (!registrationId || !division) {
     return { ok: false as const, res: apiError('bad_request', 'registration_id and division are required.', requestId) };
   }
@@ -37,17 +38,18 @@ async function loadTarget(registrationId: string | undefined, division: string |
     .maybeSingle();
   if (error) return { ok: false as const, res: apiError('upstream_error', 'Could not look up the registration.', requestId) };
   if (!reg) return { ok: false as const, res: apiError('not_found', 'Registration not found.', requestId) };
-  const allowed = musicDivisions(reg.divisions as string[], (c) => divisionByCode(c)?.music === true);
-  if (!allowed.includes(division)) {
-    return { ok: false as const, res: apiError('bad_request', `${division} is not a music division for this player.`, requestId) };
+  const slot = resolveSlot(division, rawSlot);
+  if (!slot || !playerSlots(reg.divisions as string[], slotsOf).some((m) => m.division === division && m.slot === slot)) {
+    return { ok: false as const, res: apiError('bad_request', `${division}${rawSlot ? `/${rawSlot}` : ''} is not a music track for this player.`, requestId) };
   }
   const { data: existing } = await supabase
     .from('vsyc_music')
-    .select('division, object_name, filename, source, is_fallback, uploaded_at')
+    .select('division, slot, object_name, filename, source, is_fallback, uploaded_at')
     .eq('registration_id', reg.id)
     .eq('division', division)
+    .eq('slot', slot)
     .maybeSingle();
-  return { ok: true as const, supabase, reg, previous: (existing ?? null) as MusicTrack | null };
+  return { ok: true as const, supabase, reg, slot, previous: (existing ?? null) as MusicTrack | null };
 }
 
 export const POST = withErrorHandling(async (requestId: string, req: NextRequest) => {
@@ -55,20 +57,20 @@ export const POST = withErrorHandling(async (requestId: string, req: NextRequest
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json().catch(() => ({}));
-  const { registration_id, division, filename, replace } = body as {
-    registration_id?: string; division?: string; filename?: string; replace?: boolean;
+  const { registration_id, division, slot: rawSlot, filename, replace } = body as {
+    registration_id?: string; division?: string; slot?: string; filename?: string; replace?: boolean;
   };
   if (!filename) return apiError('bad_request', 'filename is required.', requestId);
 
-  const target = await loadTarget(registration_id, division, requestId);
+  const target = await loadTarget(registration_id, division, rawSlot, requestId);
   if (!target.ok) return target.res;
-  const { supabase, reg, previous } = target;
+  const { supabase, reg, slot, previous } = target;
 
   if (needsReplaceConfirm(previous) && replace !== true) {
-    return apiError('conflict', `${division} already has a track (${previous!.filename}). Confirm to replace it.`, requestId);
+    return apiError('conflict', `${division} ${slotLabel(division!, slot)} already has a track (${previous!.filename}). Confirm to replace it.`, requestId);
   }
 
-  const built = buildMusicFilename(division!, reg.last_name, reg.first_name, filename);
+  const built = buildMusicFilename(division!, reg.last_name, reg.first_name, filename, slot);
   if (built.error) return apiError('unprocessable', built.error, requestId);
 
   const { data, error } = await supabase.storage
@@ -84,7 +86,7 @@ export const POST = withErrorHandling(async (requestId: string, req: NextRequest
     );
   }
 
-  return NextResponse.json({ upload_url: data.signedUrl, path: data.path, token: data.token, filename: built.filename, division });
+  return NextResponse.json({ upload_url: data.signedUrl, path: data.path, token: data.token, filename: built.filename, division, slot });
 });
 
 export const PATCH = withErrorHandling(async (requestId: string, req: NextRequest) => {
@@ -92,17 +94,17 @@ export const PATCH = withErrorHandling(async (requestId: string, req: NextReques
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json().catch(() => ({}));
-  const { registration_id, division, filename } = body as {
-    registration_id?: string; division?: string; filename?: string;
+  const { registration_id, division, slot: rawSlot, filename } = body as {
+    registration_id?: string; division?: string; slot?: string; filename?: string;
   };
   if (!filename) return apiError('bad_request', 'filename is required.', requestId);
 
-  const target = await loadTarget(registration_id, division, requestId);
+  const target = await loadTarget(registration_id, division, rawSlot, requestId);
   if (!target.ok) return target.res;
-  const { supabase, reg, previous } = target;
+  const { supabase, reg, slot, previous } = target;
 
   // Only the file name POST handed out for this player and division is accepted.
-  const { filename: canonical } = buildMusicFilename(division!, reg.last_name, reg.first_name, 'x.mp3');
+  const { filename: canonical } = buildMusicFilename(division!, reg.last_name, reg.first_name, 'x.mp3', slot);
   if (!filename.startsWith(`${canonical.replace(/\.mp3$/, '')}.`) || filename.includes('/') || filename.includes('..')) {
     return apiError('unprocessable', 'Filename does not match this registration and division.', requestId);
   }
@@ -116,13 +118,14 @@ export const PATCH = withErrorHandling(async (requestId: string, req: NextReques
     {
       registration_id: reg.id,
       division,
+      slot,
       object_name: filename,
       filename,
       size_bytes: Number.isFinite(sizeBytes) ? sizeBytes : null,
       source: 'admin',
       uploaded_at: new Date().toISOString(),
     },
-    { onConflict: 'registration_id,division' },
+    { onConflict: 'registration_id,division,slot' },
   );
   if (saveErr) {
     console.error('[music-upload] save track error:', saveErr);
@@ -141,10 +144,11 @@ export const PATCH = withErrorHandling(async (requestId: string, req: NextReques
     actor: 'admin',
     details: {
       division,
+      slot,
       filename,
       ...(previous ? { previous: previous.filename, previous_was_fallback: previous.is_fallback } : {}),
     },
   });
 
-  return NextResponse.json({ ok: true, division, filename });
+  return NextResponse.json({ ok: true, division, slot, filename });
 });
