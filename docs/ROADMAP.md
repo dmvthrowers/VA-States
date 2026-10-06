@@ -108,6 +108,12 @@ Open: which tiers and benefits to show, whether to show prices, whether sponsors
 always by invoice, which address gets the notice, and which domain serves the form (the registration
 subdomain or a path on it).
 
+Beyond the sponsor form, the same shape is meant to carry every public form (vendor and merch-table
+applications, volunteer interest, media requests, feedback): forms defined in config, one public page, one
+submission table, reviewed by the role that owns them, with the same spam, privacy and retention rules. Design:
+the registration template's `docs/HUB_ROADMAP.md` ("Forms on our own system"). Not needed for VSYC-27 beyond
+the sponsor form.
+
 ## Season archive and purge (plan for the 2026 → 2027 rollover)
 
 Once VSYC-26 is archived (about a month after the event) the app should turn itself over for the
