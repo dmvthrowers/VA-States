@@ -1,80 +1,36 @@
-export type Division = '1A' | 'X' | 'SBJ';
-export type RegistrationSource = 'online' | 'late_email' | 'walk_up' | 'soft_launch';
+import { competition, contest } from '@/contest.config';
+import { computeFee, type FeeResult, type RegistrationSource } from './divisions-core';
 
-const BASE_PRICE: Record<Division, number> = {
-  '1A': 3000,
-  'X':  2500,
-  'SBJ': 2000,
-};
+export type { FeeResult, RegistrationSource } from './divisions-core';
 
-export interface FeeResult {
-  fee_cents: number;
-  combo_applied: boolean;
-  early_bird_applied: boolean;
-  walk_up_surcharge: boolean;
-  is_comp: boolean;
-  comp_discount_percent: number;
-  comp_base_fee_cents: number;
-}
+/** A division code from contest.config.ts → competition.divisions */
+export type Division = string;
 
 /**
- * Server-side fee calculator. Applies rules in the locked order:
- * 1. Comp code present → knocks the combo-adjusted fee down by its
- *    discount_percent (1-100). 100% = $0, skips Stripe entirely. Anything
- *    less still goes through Stripe checkout for the reduced amount. A comp
- *    code supersedes early-bird and walk-up modifiers rather than stacking
- *    with them.
- * 2. Combo discount (1A + X together = $50 instead of $55)
- * 3. Early bird (before EARLY_BIRD_CUTOFF_ISO) → -$5, floor at $0
- * 4. Walk-up / late-email → +$10
+ * Server-side fee calculator. Prices, combos, early bird and walk-up amounts all come
+ * from contest.config.ts → competition; the rules are in lib/divisions-core.ts.
  */
 export function calculateFee(
   divisions: Division[],
   compDiscountPercent: number,
   registrationDate: Date,
   source: RegistrationSource,
+  /** Team divisions where this registrant joins an existing team (per-team pricing makes them $0) */
+  joining: Division[] = [],
 ): FeeResult {
-  const has1A  = divisions.includes('1A');
-  const hasX   = divisions.includes('X');
-  const hasSBJ = divisions.includes('SBJ');
-  const combo_applied = has1A && hasX;
+  return computeFee(divisions, competition, compDiscountPercent, registrationDate, source, new Date(contest.deadlines.earlyBird), joining);
+}
 
-  const baseFee = combo_applied
-    ? 5000 + (hasSBJ ? 2000 : 0)
-    : divisions.reduce((sum, d) => sum + BASE_PRICE[d], 0);
-
-  if (compDiscountPercent > 0) {
-    const pct = Math.min(100, Math.max(0, compDiscountPercent));
-    const fee = Math.round(baseFee * (100 - pct) / 100);
-    return {
-      fee_cents: fee,
-      combo_applied,
-      early_bird_applied: false,
-      walk_up_surcharge: false,
-      is_comp: fee === 0,
-      comp_discount_percent: pct,
-      comp_base_fee_cents: baseFee,
-    };
-  }
-
-  let fee = baseFee;
-
-  const cutoff = new Date(process.env.EARLY_BIRD_CUTOFF_ISO ?? '2026-06-01T00:00:00-04:00');
-  const early_bird_applied = registrationDate < cutoff;
-  if (early_bird_applied) fee = Math.max(0, fee - 500);
-
-  const walk_up_surcharge = source === 'walk_up' || source === 'late_email';
-  if (walk_up_surcharge) fee += 1000;
-
-  return {
-    fee_cents: fee,
-    combo_applied,
-    early_bird_applied,
-    walk_up_surcharge,
-    is_comp: false,
-    comp_discount_percent: 0,
-    comp_base_fee_cents: baseFee,
-  };
+/** Client-side preview with an explicit early-bird cutoff. */
+export function calculateFeePreview(
+  divisions: Division[],
+  compDiscountPercent: number,
+  registrationDate: Date,
+  source: RegistrationSource,
+  earlyBirdCutoff: Date,
+  joining: Division[] = [],
+): FeeResult {
+  return computeFee(divisions, competition, compDiscountPercent, registrationDate, source, earlyBirdCutoff, joining);
 }
 
 /** Dollar string for display: 3000 → "$30.00" */
@@ -83,64 +39,12 @@ export function formatCents(cents: number): string {
 }
 
 /**
- * VSYC-26 is over and next year's fees aren't set. While true, published price lists
- * (home page cards, fee calculator, walk-up desk, meta description) read "TBD".
- * Checkout amounts from calculateFee are unchanged. Set BASE_PRICE and flip this to
- * false once fees are decided.
+ * While competition.pricing.pricesTbd is true, published price lists (home page, fee
+ * calculator, walk-up desk) read "TBD". Checkout amounts from calculateFee are unchanged.
  */
-export const PRICES_TBD = true;
+export const PRICES_TBD = competition.pricing.pricesTbd;
 
 /** List-price display: "TBD" while PRICES_TBD, otherwise "$30.00". */
 export function displayPrice(cents: number): string {
   return PRICES_TBD ? 'TBD' : formatCents(cents);
-}
-
-/** Client-side preview (no env vars available — caller passes cutoff). */
-export function calculateFeePreview(
-  divisions: Division[],
-  compDiscountPercent: number,
-  registrationDate: Date,
-  source: RegistrationSource,
-  earlyBirdCutoff: Date,
-): FeeResult {
-  const has1A  = divisions.includes('1A');
-  const hasX   = divisions.includes('X');
-  const hasSBJ = divisions.includes('SBJ');
-  const combo_applied = has1A && hasX;
-
-  const baseFee = combo_applied
-    ? 5000 + (hasSBJ ? 2000 : 0)
-    : divisions.reduce((sum, d) => sum + BASE_PRICE[d], 0);
-
-  if (compDiscountPercent > 0) {
-    const pct = Math.min(100, Math.max(0, compDiscountPercent));
-    const fee = Math.round(baseFee * (100 - pct) / 100);
-    return {
-      fee_cents: fee,
-      combo_applied,
-      early_bird_applied: false,
-      walk_up_surcharge: false,
-      is_comp: fee === 0,
-      comp_discount_percent: pct,
-      comp_base_fee_cents: baseFee,
-    };
-  }
-
-  let fee = baseFee;
-
-  const early_bird_applied = registrationDate < earlyBirdCutoff;
-  if (early_bird_applied) fee = Math.max(0, fee - 500);
-
-  const walk_up_surcharge = source === 'walk_up' || source === 'late_email';
-  if (walk_up_surcharge) fee += 1000;
-
-  return {
-    fee_cents: fee,
-    combo_applied,
-    early_bird_applied,
-    walk_up_surcharge,
-    is_comp: false,
-    comp_discount_percent: 0,
-    comp_base_fee_cents: baseFee,
-  };
 }

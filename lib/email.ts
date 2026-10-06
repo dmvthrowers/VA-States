@@ -1,5 +1,7 @@
 import { buildVsyc26Ics } from './ics';
 import { enqueueEmails, queueEmail, type QueueOptions } from './outbox';
+import { divisionByCode } from '@/contest.config';
+import type { TeamSummary } from './team-entries';
 
 // Every send* function below renders its email and hands it to the outbox
 // (lib/outbox.ts), which stores it, sends it right away when the daily budget
@@ -70,14 +72,30 @@ interface ConfirmationParams {
   registrationId: string;
   /** Set true when resending to a registrant who has already paid, so the email doesn't ask for payment again. */
   alreadyPaid?: boolean;
+  /** Teams they started or joined; captains get their join code to share. */
+  teams?: TeamSummary[];
 }
+
+/** "Pair", "Act"… for a team division (falls back to "team"). */
+function teamLabel(division: string): string {
+  const e = divisionByCode(division)?.entry;
+  return e?.type === 'team' ? e.label : 'team';
+}
+
+/** One team line: "Doubles — Pair: Loop Twins (captain)". */
+function teamLine(t: TeamSummary): string {
+  return `${divisionByCode(t.division)?.name ?? t.division} — ${teamLabel(t.division)}: ${t.name} (${t.role === 'captain' ? 'captain' : 'member'})`;
+}
+
+const shareSentence = (code: string) => `Share code ${code} with your teammates so they can join when they register.`;
 
 export async function sendConfirmationEmail(p: ConfirmationParams, opts?: QueueOptions): Promise<EmailResult> {
   return queueEmail({ template: 'confirmation', params: p }, opts);
 }
 
 function renderConfirmation(p: ConfirmationParams): RenderedEmail {
-  const fee = p.isComp ? 'FREE (comp pass)' : `$${(p.feeCents / 100).toFixed(2)}`;
+  const joinedFree = p.feeCents === 0 && !p.isComp && (p.teams ?? []).some((t) => t.role === 'member');
+  const fee = p.isComp ? 'FREE (comp pass)' : joinedFree ? '$0.00 (your captain pays the entry)' : `$${(p.feeCents / 100).toFixed(2)}`;
   const ics = buildVsyc26Ics({
     uid: `competitor-${p.registrationId}`,
     summary: 'VSYC-26 — You are competing!',
@@ -273,7 +291,16 @@ function buildConfirmationHtml(p: ConfirmationParams, fee: string): string {
       <div style="font-size:0.85rem;margin-bottom:6px;"><strong style="color:#fff;">Entry fee:</strong> ${fee}</div>
       <div style="font-size:0.85rem;"><strong style="color:#fff;">ID:</strong> ${p.registrationId.slice(0, 8).toUpperCase()}</div>
     </div>
-    ${!p.isComp && !p.alreadyPaid ? `
+    ${p.teams?.length ? `
+    <div style="background:#0d1428;border-left:4px solid #C9A84C;padding:20px;margin-bottom:16px;">
+      <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">YOUR TEAM${p.teams.length > 1 ? 'S' : ''}</div>
+      ${p.teams.map((t) => `
+      <div style="font-size:0.85rem;margin-bottom:8px;"><strong style="color:#fff;">${esc(teamLine(t))}</strong></div>
+      ${t.role === 'captain' ? `
+      <div style="font-family:'Courier New',monospace;font-size:1.4rem;font-weight:800;letter-spacing:0.2em;color:#C9A84C;margin:4px 0 6px;">${esc(t.join_code)}</div>
+      <p style="font-size:0.78rem;margin:0 0 12px;color:#6a7a9a;">${esc(shareSentence(t.join_code))}</p>` : ''}`).join('')}
+    </div>` : ''}
+    ${!p.isComp && !p.alreadyPaid && p.feeCents > 0 ? `
     <div style="background:#0d1428;border-left:4px solid #C8102E;padding:20px;margin-bottom:16px;">
       <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C8102E;font-weight:800;margin-bottom:12px;">PAYMENT REQUIRED</div>
       <p style="font-size:0.85rem;margin:0 0 12px;">Complete your secure Stripe checkout for <strong style="color:#fff;">${fee}</strong> in your registration portal.</p>
@@ -313,7 +340,15 @@ function buildConfirmationText(p: ConfirmationParams, fee: string): string {
     `ID: ${p.registrationId.slice(0, 8).toUpperCase()}`,
     ``,
   ];
-  if (!p.isComp && !p.alreadyPaid) {
+  if (p.teams?.length) {
+    lines.push(`YOUR TEAM${p.teams.length > 1 ? 'S' : ''}`);
+    for (const t of p.teams) {
+      lines.push(teamLine(t));
+      if (t.role === 'captain') lines.push(`Join code: ${t.join_code}`, shareSentence(t.join_code));
+    }
+    lines.push(``);
+  }
+  if (!p.isComp && !p.alreadyPaid && p.feeCents > 0) {
     lines.push(
       `PAYMENT REQUIRED`,
       `Complete your secure Stripe checkout for ${fee}: ${p.confirmUrl}`,

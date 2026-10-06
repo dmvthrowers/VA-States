@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { contest } from '@/contest.config';
 
 const COLUMNS = [
   'id', 'created_at', 'last_name', 'first_name', 'preferred_bracket_name',
-  'age_on_event', 'divisions', 'x_substyle', 'fee_cents', 'paid',
+  'age_on_event', 'divisions', 'division_styles', 'fee_cents', 'paid',
   'payment_method', 'comp_code', 'music_filename', 'music_uploaded_at',
   'email', 'phone', 'parent_email', 'registration_source', 'bracket_seed', 'admin_notes',
 ];
@@ -34,6 +35,10 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     csvRow(COLUMNS.map(col => {
       const val = (row as unknown as Record<string, unknown>)[col];
       if (Array.isArray(val)) return val.join(';');
+      // division_styles {"X": ["2A", "3A"]} → "X: 2A 3A"
+      if (val && typeof val === 'object') {
+        return Object.entries(val as Record<string, unknown>).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(' ') : String(v)}`).join('; ');
+      }
       return String(val ?? '');
     }))
   );

@@ -5,6 +5,61 @@ import { useSearchParams } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import { formatCents } from '@/lib/pricing';
+import { entryOf } from '@/lib/divisions-core';
+import type { TeamSummary } from '@/lib/team-entries';
+import { contest, divisionByCode, venueLine, longDate, shortMonthDay } from '@/contest.config';
+
+/** "Pair", "Act"… for a team division. */
+function teamLabel(code: string): string {
+  const e = entryOf(divisionByCode(code));
+  return e.type === 'team' ? e.label : 'Team';
+}
+
+/** A captain's join code, big, with a copy button and the text to send teammates. */
+function JoinCodeCard({ team }: { team: TeamSummary }) {
+  const [copied, setCopied] = useState<'code' | 'text' | null>(null);
+  const label = teamLabel(team.division).toLowerCase();
+  const division = divisionByCode(team.division)?.name ?? team.division;
+  const share = `Join my ${label} "${team.name}" in ${division} at ${contest.shortName}: register at ${typeof window !== 'undefined' ? window.location.origin : ''}/ and enter join code ${team.join_code}.`;
+  const copy = async (what: 'code' | 'text') => {
+    try {
+      await navigator.clipboard.writeText(what === 'code' ? team.join_code : share);
+      setCopied(what);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      setCopied(null);
+    }
+  };
+  const btn: React.CSSProperties = {
+    background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', cursor: 'pointer',
+    padding: '0.5rem 0.9rem', fontWeight: 800, fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+  };
+  return (
+    <div style={{ marginTop: '0.75rem' }}>
+      <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>JOIN CODE</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <code aria-label={`Join code ${team.join_code.split('').join(' ')}`} style={{ fontFamily: 'monospace', fontSize: '2.2rem', fontWeight: 800, letterSpacing: '0.25em', color: 'var(--gold)', background: 'var(--navy-deep)', border: '1px solid var(--navy-border)', padding: '0.4rem 0.9rem' }}>
+          {team.join_code}
+        </code>
+        <button type="button" onClick={() => copy('code')} style={btn}>{copied === 'code' ? '✓ Copied' : 'Copy code'}</button>
+        <button type="button" onClick={() => copy('text')} style={btn}>{copied === 'text' ? '✓ Copied' : 'Copy invite'}</button>
+      </div>
+      <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: '0.6rem 0 0' }}>
+        Share code <strong style={{ color: '#fff' }}>{team.join_code}</strong> with your teammates so they can join when they register.
+      </p>
+      <span role="status" aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+        {copied ? 'Copied to clipboard' : ''}
+      </span>
+    </div>
+  );
+}
+
+/** A division's display name, plus picked style labels if the API sends them: "Name (Style A, Style B)". */
+function divisionLabel(code: string, styles: Record<string, string[]> | undefined): string {
+  const d = divisionByCode(code);
+  const picked = (styles?.[code] ?? []).map((s) => d?.styles?.options.find((o) => o.code === s)?.label ?? s);
+  return `${d?.name ?? code}${picked.length ? ` (${picked.join(', ')})` : ''}`;
+}
 
 interface ConfirmData {
   id: string;
@@ -12,10 +67,14 @@ interface ConfirmData {
   last_name: string;
   email: string;
   divisions: string[];
+  /** Optional: style codes per division, if /api/confirm includes them */
+  division_styles?: Record<string, string[]>;
   fee_cents: number;
   music_upload_url: string | null;
   music_deadline: string;
   paid: boolean;
+  /** Teams they started (captain) or joined (member) */
+  teams?: TeamSummary[];
 }
 
 function ConfirmContent() {
@@ -93,7 +152,10 @@ function ConfirmContent() {
     return () => { cancelled = true; };
   }, [awaitingStripe, id]);
 
-  const musicNeedsUpload = data && data.divisions.some(d => ['1A', '2A', '3A', '4A', '5A'].includes(d));
+  const musicNeedsUpload = Boolean(data?.divisions.some(d => divisionByCode(d)?.music));
+  const teams = data?.teams ?? [];
+  /** $0 because they joined a team whose captain pays (not a comp code) */
+  const captainPays = Boolean(data && data.fee_cents === 0 && teams.some(t => t.role === 'member'));
   const canUploadMusic = Boolean(data?.music_upload_url);
   const deadlineLabel = data?.music_deadline
     ? new Date(data.music_deadline).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -131,9 +193,9 @@ function ConfirmContent() {
               <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {[
                   { done: true,  label: 'Registered',       sub: `Confirmation #${data.id.slice(0, 8).toUpperCase()}` },
-                  { done: data.paid || data.fee_cents === 0, label: data.fee_cents === 0 ? 'Payment — comp pass (FREE)' : `Pay entry fee ($${formatCents(data.fee_cents)})`, sub: data.paid ? 'Received' : data.fee_cents === 0 ? 'No payment needed' : 'Complete secure Stripe checkout in portal' },
-                  { done: false, label: 'Upload your music', sub: `Deadline: ${deadlineLabel} · upload in portal` },
-                  { done: false, label: 'See you Sept 19',   sub: 'Dulles Town Center · Sterling, VA · doors open 10am' },
+                  { done: data.paid || data.fee_cents === 0, label: data.fee_cents === 0 ? (captainPays ? 'Payment — none (your captain pays)' : 'Payment — comp pass (FREE)') : `Pay entry fee (${formatCents(data.fee_cents)})`, sub: data.paid ? 'Received' : data.fee_cents === 0 ? 'No payment needed' : 'Complete secure Stripe checkout in portal' },
+                  ...(musicNeedsUpload ? [{ done: false, label: 'Upload your music', sub: `Deadline: ${deadlineLabel} · upload in portal` }] : []),
+                  { done: false, label: `See you ${shortMonthDay()}`,   sub: [venueLine, contest.doorsNote].filter(Boolean).join(' · ') },
                 ].map(({ done, label, sub }, i) => (
                   <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
                     <span style={{
@@ -216,8 +278,33 @@ function ConfirmContent() {
             {data.fee_cents === 0 && (
               <section style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1.5rem', marginBottom: '2rem' }}>
                 <p style={{ color: '#7fff7f', margin: 0 }}>
-                  ✓ Comp code applied — no payment required.
+                  {captainPays ? '✓ No payment needed — your captain\u2019s entry covers your team.' : '✓ Comp code applied — no payment required.'}
                 </p>
+              </section>
+            )}
+
+            {/* Teams: role, and the join code to share for captains */}
+            {teams.length > 0 && (
+              <section aria-labelledby="teams-heading" style={{ background: 'var(--navy)', border: '1px solid var(--gold)', padding: '2rem', marginBottom: '2rem' }}>
+                <h2 id="teams-heading" style={{ color: 'var(--gold)', fontFamily: "'Playfair Display', serif", margin: '0 0 1rem', fontSize: '1.3rem' }}>
+                  Your {teams.length === 1 ? teamLabel(teams[0].division).toLowerCase() : 'teams'}
+                </h2>
+                {teams.map((t, i) => (
+                  <div key={t.division} style={{ paddingTop: i ? '1.25rem' : 0, marginTop: i ? '1.25rem' : 0, borderTop: i ? '1px solid var(--navy-border)' : 'none' }}>
+                    <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--text-muted)' }}>
+                      {(divisionByCode(t.division)?.name ?? t.division).toUpperCase()} · {teamLabel(t.division).toUpperCase()}
+                    </div>
+                    <div style={{ color: '#fff', fontWeight: 700, fontSize: '1.1rem', marginTop: '0.2rem', overflowWrap: 'anywhere' }}>
+                      {t.name}{' '}
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--navy-deep)', background: 'var(--gold)', padding: '0.1rem 0.45rem', verticalAlign: 'middle' }}>
+                        {t.role === 'captain' ? 'CAPTAIN' : 'MEMBER'}
+                      </span>
+                    </div>
+                    {t.role === 'captain'
+                      ? <JoinCodeCard team={t} />
+                      : <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>You&rsquo;re on the {teamLabel(t.division).toLowerCase()}. Your captain&rsquo;s registration stands for the {teamLabel(t.division).toLowerCase()} in the run order and results.</p>}
+                  </div>
+                ))}
               </section>
             )}
 
@@ -305,7 +392,7 @@ function ConfirmContent() {
                 <dt style={{ fontWeight: 700, color: '#fff' }}>Venue</dt>
                 <dd style={{ margin: 0 }}>Dulles Town Center · Sterling, VA</dd>
                 <dt style={{ fontWeight: 700, color: '#fff' }}>Divisions</dt>
-                <dd style={{ margin: 0 }}>{data.divisions.join(', ')}</dd>
+                <dd style={{ margin: 0 }}>{data.divisions.map((d) => divisionLabel(d, data.division_styles)).join(', ')}</dd>
               </dl>
               <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', marginTop: '1.5rem' }}>
                 Questions? Email{' '}

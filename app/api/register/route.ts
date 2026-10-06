@@ -4,14 +4,17 @@ import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { isCodeLocked, recordFailedCodeAttempt } from '@/lib/comp-code-guard';
 import { registrationSchema } from '@/lib/validation';
 import { calculateFee } from '@/lib/pricing';
+import { cleanStyles } from '@/lib/divisions-core';
 import { generateToken } from '@/lib/tokens';
 import { logAudit } from '@/lib/audit';
 import { sendConfirmationEmail } from '@/lib/email';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getEventFlagBoolean } from '@/lib/event-flags';
+import { joiningDivisions, resolveTeamJoins, writeTeams, type TeamSummary } from '@/lib/team-entries';
 import type { Division, RegistrationSource } from '@/lib/pricing';
+import { contest, competition } from '@/contest.config';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://register.dmvthrowers.club';
 
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
@@ -47,14 +50,19 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   if (!onlineRegistrationOpen) {
     return apiError('unprocessable', 'Online registration is currently paused. Please try again later.', requestId);
   }
-  const onlineCutoff = new Date(process.env.ONLINE_REG_CUTOFF_ISO ?? '2026-09-17T23:59:59-04:00');
+  const onlineCutoff = new Date(contest.deadlines.onlineRegistration);
   if (now > onlineCutoff) {
-    return apiError('unprocessable', 'Online registration has closed. Contact contact@dmvthrowers.club for late entry.', requestId);
+    return apiError('unprocessable', `Online registration has closed. Contact ${contest.contactEmail} for late entry.`, requestId);
   }
 
   const supabase = createAdminClient();
 
-  // 5. Comp code validation
+  // 5. Team join codes: each must exist, be for that division and have room. Checked before
+  // the comp code is claimed so a bad code costs nothing. (The insert trigger re-checks room.)
+  const teamJoins = await resolveTeamJoins(supabase, data.teams, competition);
+  if (!teamJoins.ok) return apiError('unprocessable', teamJoins.message, requestId);
+
+  // 5b. Comp code validation
   let compDiscountPercent = 0;
   let compCodeRedeemed = false;
   if (data.comp_code) {
@@ -76,14 +84,14 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     compCodeRedeemed = true;
   }
 
-  // 6. Calculate fee
+  // 6. Calculate fee (joining a per-team-priced team is $0; the captain pays)
   const source: RegistrationSource = 'online';
-  const feeResult = calculateFee(data.divisions as Division[], compDiscountPercent, now, source);
-  const xSubstyles = data.x_substyles?.length ? data.x_substyles.join(', ') : null;
+  const feeResult = calculateFee(data.divisions as Division[], compDiscountPercent, now, source, joiningDivisions(data.teams));
+  const divisionStyles = cleanStyles(data.divisions, data.division_styles);
 
-  // 7. Generate music upload token (expires Sept 17 23:59 ET)
+  // 7. Generate music upload token (expires at the music deadline)
   const musicUploadToken = generateToken(32);
-  const musicDeadline = new Date(process.env.MUSIC_DEADLINE_ISO ?? '2026-09-17T23:59:59-04:00');
+  const musicDeadline = new Date(contest.deadlines.musicUpload);
 
   // Minors are private-by-default and don't get public-profile fields stored,
   // regardless of what the client sent — enforced server-side so it can't be
@@ -108,7 +116,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       parent_email:             data.parent_email || null,
       parent_consented:         data.parent_consented ?? false,
       divisions:                data.divisions,
-      x_substyle:               xSubstyles,
+      division_styles:          divisionStyles,
       combo_applied:            feeResult.combo_applied,
       comp_code:                data.comp_code || null,
       early_bird_applied:       feeResult.early_bird_applied,
@@ -151,12 +159,39 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('upstream_error', 'Failed to save registration. Please try again.', requestId);
   }
 
+  // 8b. Teams: create the ones they start (they're captain), join the ones they have codes for.
+  // If any fails (name taken, team filled up meanwhile), undo the registration: deleting it
+  // cascades to any team rows written here, and the comp code use is released as above.
+  const rollbackRegistration = async (id: string) => {
+    const { error } = await supabase.from('vsyc_registrations').delete().eq('id', id);
+    if (error) console.error('[register] rollback delete failed:', error);
+    if (compCodeRedeemed && data.comp_code) {
+      await supabase.rpc('release_comp_code', { p_code: data.comp_code });
+    }
+  };
+  let teams: TeamSummary[] = [];
+  try {
+    const written = await writeTeams(supabase, reg.id, data.teams, teamJoins.joins, competition);
+    if (!written.ok) {
+      await rollbackRegistration(reg.id);
+      return apiError('conflict', written.message, requestId);
+    }
+    teams = written.teams;
+  } catch (e) {
+    console.error('[register] team error:', e);
+    await rollbackRegistration(reg.id);
+    return apiError('upstream_error', 'Failed to save your team. Please try again.', requestId);
+  }
+
   // 9. Audit (the comp code use was already claimed in step 5)
   const compCodeValid = compCodeRedeemed;
   await logAudit('created', {
     registrationId: reg.id,
     actor: 'system',
-    details: { source, fee_cents: feeResult.fee_cents, divisions: data.divisions, comp_code: compCodeValid ? data.comp_code : null },
+    details: {
+      source, fee_cents: feeResult.fee_cents, divisions: data.divisions, comp_code: compCodeValid ? data.comp_code : null,
+      ...(teams.length ? { teams: teams.map((t) => ({ division: t.division, name: t.name, role: t.role })) } : {}),
+    },
   });
 
   // 10. Confirmation email. It goes through the outbox (stored, then sent;
@@ -176,6 +211,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       confirmUrl,
       musicUploadUrl,
       registrationId: reg.id,
+      teams,
     }, { dedupeKey: `confirmation:${reg.id}:${data.email.toLowerCase()}` }),
   ];
 
@@ -193,6 +229,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
         confirmUrl,
         musicUploadUrl,
         registrationId: reg.id,
+        teams,
       }, { dedupeKey: `confirmation:${reg.id}:${parentEmail.toLowerCase()}` })
     );
   }
@@ -214,6 +251,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       music_upload_url: musicUploadUrl,
       music_deadline: musicDeadline.toISOString(),
       confirm_url: confirmUrl,
+      teams,
     },
     { status: 201, headers: { 'x-request-id': requestId } }
   );

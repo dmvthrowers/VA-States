@@ -6,10 +6,11 @@ import { getStripe, hasStripeCredentials } from '@/lib/stripe';
 import { logAudit } from '@/lib/audit';
 import { applyPaidSession } from '@/lib/payments';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { contest } from '@/contest.config';
 
 export const runtime = 'nodejs';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://register.dmvthrowers.club';
 
 /**
  * Return a Stripe Checkout URL for an existing registration. The client
@@ -101,7 +102,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
           currency: 'usd',
           unit_amount: reg.fee_cents,
           product_data: {
-            name: 'VSYC-26 Competitor Registration',
+            name: `${contest.shortName} Competitor Registration`,
             description: divisions ? `Divisions: ${divisions} · ${displayName}` : displayName,
           },
         },

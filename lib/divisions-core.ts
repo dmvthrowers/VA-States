@@ -154,7 +154,39 @@ export function selectionIssues(selected: string[], styles: DivisionStyles, c: C
       issues.push({ path: 'division_styles', message: `Choose ${range} ${d.name} style${d.styles.max === 1 ? '' : 's'}` });
     }
   }
+  if (c.maxTotalStyles !== undefined) {
+    // A division with styles counts the styles picked; one without counts as one style.
+    const total = selected.reduce((n, code) => {
+      const d = byCode.get(code);
+      if (!d) return n;
+      return n + (d.styles ? new Set(styles[code] ?? []).size : 1);
+    }, 0);
+    if (total > c.maxTotalStyles) {
+      issues.push({
+        path: 'division_styles',
+        message: `You can enter at most ${c.maxTotalStyles} styles in total (a division without styles counts as one)`,
+      });
+    }
+  }
   return dedupe(issues);
+}
+
+/**
+ * The most styles `code` can take right now: its own max, lowered by competition.maxTotalStyles
+ * once the other selected divisions are counted (a styled division counts its picked styles, an
+ * unstyled one counts as one). Never below its min, so the picker still shows the requirement.
+ */
+export function styleCap(code: string, selected: string[], styles: DivisionStyles, c: CompetitionConfig): number {
+  const d = c.divisions.find((x) => x.code === code);
+  if (!d?.styles) return 0;
+  if (c.maxTotalStyles === undefined) return d.styles.max;
+  const others = selected.reduce((n, other) => {
+    if (other === code) return n;
+    const od = c.divisions.find((x) => x.code === other);
+    if (!od) return n;
+    return n + (od.styles ? new Set(styles[other] ?? []).size : 1);
+  }, 0);
+  return Math.max(d.styles.min, Math.min(d.styles.max, c.maxTotalStyles - others));
 }
 
 function dedupe(issues: SelectionIssue[]): SelectionIssue[] {

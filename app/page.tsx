@@ -6,8 +6,11 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import type { Division } from '@/lib/pricing';
 import { calculateFeePreview, displayPrice, formatCents, PRICES_TBD } from '@/lib/pricing';
+import { cleanStyles, selectionIssues, entryOf, formatSummary, freeTeamJoins, styleCap, type DivisionStyles } from '@/lib/divisions-core';
+import { JOIN_CODE_RE, TEAM_NAME_MAX, entrySummary, normalizeJoinCode, teamPricingNote, type TeamChoice } from '@/lib/team-entries';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
+import { contest, competition, divisionByCode, venueCity, longDate, monthDay, shortMonthDay, deadlineLabel, presentedLine, contestYear, type DivisionDef } from '@/contest.config';
 
 type FormValues = {
   first_name: string;
@@ -24,7 +27,7 @@ type FormValues = {
   parent_email: string;
   parent_consented: boolean;
   divisions: Division[];
-  x_substyles: Array<'2A' | '3A' | '4A' | '5A'>;
+  division_styles: DivisionStyles;
   comp_code: string;
   liability_waiver_accepted: boolean;
   photo_video_consent: boolean;
@@ -49,7 +52,91 @@ type FormValues = {
   _hp: string;
 };
 
-const EARLY_BIRD_CUTOFF = new Date('2026-06-01T00:00:00-04:00');
+/** "Pair", "Act"… for a team division. */
+function teamLabel(d: DivisionDef): string {
+  const e = entryOf(d);
+  return e.type === 'team' ? e.label : 'Team';
+}
+const perTeamPriced = (d: DivisionDef) => { const e = entryOf(d); return e.type === 'team' && e.pricing === 'team'; };
+
+/** What the registrant picked in a team division's box (sent as `teams` on submit). */
+interface TeamDraft { mode?: 'create' | 'join'; name: string; code: string }
+/** Live result of /api/teams/lookup for the code typed in a team box. */
+interface TeamLookup {
+  code: string;
+  status: 'checking' | 'ok' | 'error';
+  message: string;
+  team?: { name: string; division: string; division_name: string; members: number; max: number };
+}
+const BLANK_TEAM: TeamDraft = { name: '', code: '' };
+
+/** A team box's draft → the API's `teams` value, or an error to show. */
+function teamPayload(d: DivisionDef, t: TeamDraft | undefined, lookup: TeamLookup | undefined): { value?: TeamChoice; error?: string } {
+  const label = teamLabel(d).toLowerCase();
+  if (!t?.mode) return { error: `${d.name}: choose whether to start a new ${label} or join one with a code.` };
+  if (t.mode === 'create') {
+    const name = t.name.trim();
+    if (!name) return { error: `${d.name}: enter a name for your ${label}.` };
+    return { value: { create: { name } } };
+  }
+  const code = normalizeJoinCode(t.code);
+  if (!JOIN_CODE_RE.test(code)) return { error: `${d.name}: enter the join code from your ${label}'s captain.` };
+  if (lookup?.code === code && lookup.status === 'error') return { error: `${d.name}: ${lookup.message}` };
+  return { value: { join: { code } } };
+}
+
+const EARLY_BIRD_CUTOFF = new Date(contest.deadlines.earlyBird);
+const EARLY_BIRD_SAVINGS = formatCents(competition.pricing.earlyBirdDiscountCents);
+/** Does any division perform to uploaded music? Hides the music steps when none does. */
+const ANY_MUSIC = competition.divisions.some(d => d.music);
+
+/** Optional setup fields, labelled from competition.gear. A "" label hides the field. */
+const GEAR_FIELDS = ([
+  { key: 'yoyo', label: competition.gear.yoyo, placeholder: 'Brand and model' },
+  { key: 'string', label: competition.gear.string, placeholder: 'Type or brand' },
+  { key: 'counterweight', label: competition.gear.counterweight, placeholder: 'Type or brand' },
+] as const).filter(f => f.label !== '');
+
+const divisionName = (code: string) => divisionByCode(code)?.name ?? code;
+
+/** Sum of the member divisions' list prices */
+const memberCents = (codes: string[]) => codes.reduce((s, c) => s + (divisionByCode(c)?.priceCents ?? 0), 0);
+
+/** The combos that apply to a selection, in the same order lib/divisions-core.ts applies them. */
+function appliedCombos(selected: string[]) {
+  let remaining = [...new Set(selected)];
+  const out: typeof competition.combos = [];
+  for (const k of competition.combos) {
+    if (k.divisions.length > 0 && k.divisions.every(d => remaining.includes(d))) {
+      out.push(k);
+      remaining = remaining.filter(d => !k.divisions.includes(d));
+    }
+  }
+  return out;
+}
+
+/** Divisions that can't be entered together with `code`, in either direction. */
+function conflictsOf(code: string): string[] {
+  const own = divisionByCode(code)?.cannotCombineWith ?? [];
+  const reverse = competition.divisions.filter(d => d.cannotCombineWith?.includes(code)).map(d => d.code);
+  return [...new Set([...own, ...reverse])];
+}
+
+/** Facts line for a division card, built from its config: how it's judged, entry size, music, styles. */
+function divisionFacts(d: DivisionDef): string {
+  const facts: string[] = [formatSummary(d)];
+  const entry = entrySummary(d);
+  if (entry) facts.push(entry);
+  facts.push(d.music ? 'Performed to music' : 'No music');
+  if (d.styles) {
+    const { min, max } = d.styles;
+    const n = min === max ? `${min}` : min === 0 ? `up to ${max}` : `${min}–${max}`;
+    facts.push(`Pick ${n} style${max === 1 && min === max ? '' : 's'}`);
+  }
+  const conflicts = conflictsOf(d.code);
+  if (conflicts.length) facts.push(`Can't combine with ${conflicts.map(divisionName).join(', ')}`);
+  return facts.join(' · ');
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -64,6 +151,19 @@ export default function RegisterPage() {
   // triggering onChange, which would desync codeApplied and the field value.
   const [validatedCode, setValidatedCode] = useState<string>('');
   const [compDiscountPercent, setCompDiscountPercent] = useState(0);
+  // Team divisions: start or join, keyed by division code
+  const [teamDrafts, setTeamDrafts] = useState<Record<string, TeamDraft>>({});
+  const [teamLookups, setTeamLookups] = useState<Record<string, TeamLookup>>({});
+  const setTeamDraft = useCallback((code: string, patch: Partial<TeamDraft>) => {
+    setTeamDrafts(prev => ({ ...prev, [code]: { ...(prev[code] ?? BLANK_TEAM), ...patch } }));
+  }, []);
+  const setTeamLookup = useCallback((code: string, l: TeamLookup | undefined) => {
+    setTeamLookups(prev => {
+      const next = { ...prev };
+      if (l) next[code] = l; else delete next[code];
+      return next;
+    });
+  }, []);
 
   const {
     register,
@@ -75,7 +175,7 @@ export default function RegisterPage() {
     mode: 'onChange',
     defaultValues: {
       divisions: [],
-      x_substyles: [],
+      division_styles: {},
       liability_waiver_accepted: false,
       photo_video_consent: false,
       code_of_conduct_accepted: false,
@@ -86,12 +186,17 @@ export default function RegisterPage() {
   });
 
   const watchedDivisions = watch('divisions') as Division[];
-  const watchedXSubstyles = watch('x_substyles') as Array<'2A' | '3A' | '4A' | '5A'>;
+  const watchedStyles = (watch('division_styles') ?? {}) as DivisionStyles;
   const watchedAge = parseInt(watch('age_on_event') || '0', 10);
   const watchedCompCode = watch('comp_code');
   const isMinor = watchedAge > 0 && watchedAge < 18;
-  const showXSubstyle = watchedDivisions.includes('X');
-  const maxXSubstyles = watchedDivisions.includes('1A') ? 1 : 2;
+  const styledSelected = competition.divisions.filter(d => d.styles && watchedDivisions.includes(d.code));
+  const teamSelected = competition.divisions.filter(d => entryOf(d).type === 'team' && watchedDivisions.includes(d.code));
+  /** Team divisions where they're joining someone else's team */
+  const joining = teamSelected.filter(d => teamDrafts[d.code]?.mode === 'join').map(d => d.code);
+  /** …of those, the ones that cost them nothing (per-team pricing: the captain pays) */
+  const freeJoins = freeTeamJoins(competition, joining);
+  const combosApplied = appliedCombos(watchedDivisions.filter(d => !freeJoins.includes(d)));
 
   // Competitors under 18 are private by default — a parent can ask us to
   // enable public listing after registration if they want it.
@@ -105,6 +210,7 @@ export default function RegisterPage() {
     new Date(),
     'online',
     EARLY_BIRD_CUTOFF,
+    joining,
   );
 
   const isEarlyBirdWindow = new Date() < EARLY_BIRD_CUTOFF;
@@ -115,33 +221,37 @@ export default function RegisterPage() {
     let next: Division[];
     if (current.includes(div)) {
       next = current.filter(d => d !== div);
-    } else if (div === 'SBJ') {
-      // SBJ cannot be combined with pro divisions.
-      next = ['SBJ'];
     } else {
-      // Picking 1A/X removes SBJ automatically.
-      next = [...current.filter(d => d !== 'SBJ'), div];
+      // Picking a division drops any selected one it can't be combined with
+      // (competition.divisions[].cannotCombineWith, checked in both directions).
+      const conflicts = conflictsOf(div);
+      next = [...current.filter(d => !conflicts.includes(d)), div];
     }
+    // Keep config order so the summary lists divisions consistently.
+    next = competition.divisions.map(d => d.code).filter(c => next.includes(c));
 
     setValue('divisions', next, { shouldValidate: true });
-    if (!next.includes('X')) {
-      setValue('x_substyles', [], { shouldValidate: true });
-    }
+    // Drop styles picked for divisions that are no longer selected.
+    setValue('division_styles', cleanStyles(next, watchedStyles), { shouldValidate: true });
     setCodeApplied(false);
     setValidatedCode('');
     setCompDiscountPercent(0);
     setCodeStatus('idle');
   };
 
-  const handleXSubstyleToggle = (substyle: '2A' | '3A' | '4A' | '5A') => {
-    const current = watchedXSubstyles ?? [];
-    let next = current;
-    if (current.includes(substyle)) {
-      next = current.filter(s => s !== substyle);
-    } else if (current.length < maxXSubstyles) {
-      next = [...current, substyle];
+  const handleStyleToggle = (division: DivisionDef, style: string) => {
+    if (!division.styles) return;
+    const current = watchedStyles[division.code] ?? [];
+    let picked = current;
+    if (division.styles.max === 1) {
+      // Radio behavior: one style at a time.
+      picked = [style];
+    } else if (current.includes(style)) {
+      picked = current.filter(s => s !== style);
+    } else if (current.length < styleCap(division.code, watchedDivisions, watchedStyles, competition)) {
+      picked = [...current, style];
     }
-    setValue('x_substyles', next, { shouldValidate: true });
+    setValue('division_styles', { ...watchedStyles, [division.code]: picked }, { shouldValidate: true });
   };
 
   const handleValidateCode = useCallback(async () => {
@@ -180,6 +290,23 @@ export default function RegisterPage() {
       setServerError('Please scroll through the full liability release before agreeing.');
       return;
     }
+    const divisionStyles = cleanStyles(values.divisions, values.division_styles);
+    const issues = selectionIssues(values.divisions, divisionStyles, competition);
+    if (issues.length > 0) {
+      setServerError(issues.map(i => i.message).join('. '));
+      return;
+    }
+    const teams: Record<string, TeamChoice> = {};
+    const teamErrors: string[] = [];
+    for (const d of competition.divisions.filter(x => entryOf(x).type === 'team' && values.divisions.includes(x.code))) {
+      const { value, error } = teamPayload(d, teamDrafts[d.code], teamLookups[d.code]);
+      if (value) teams[d.code] = value;
+      if (error) teamErrors.push(error);
+    }
+    if (teamErrors.length > 0) {
+      setServerError(teamErrors.join(' '));
+      return;
+    }
     setSubmitting(true);
     setServerError('');
 
@@ -187,7 +314,7 @@ export default function RegisterPage() {
       const { instagram, tiktok, youtube, ...rest } = values;
       const payload = {
         ...rest,
-        x_substyles: values.x_substyles ?? [],
+        division_styles: divisionStyles,
         socials: {
           instagram,
           tiktok,
@@ -197,6 +324,7 @@ export default function RegisterPage() {
         // Always send the exact code that was validated, not the current field
         // value — these can differ on mobile when paste/autofill bypasses onChange.
         comp_code: (codeApplied && validatedCode) ? validatedCode : undefined,
+        teams,
       };
 
       const res = await fetch('/api/register', {
@@ -352,7 +480,7 @@ export default function RegisterPage() {
                 </Field>
               </div>
               <Field label="State *" error={errors.state?.message}>
-                <input {...register('state', { required: 'Required', maxLength: { value: 2, message: '2-letter code' } })} className={inputCls(!!errors.state)} placeholder="VA" maxLength={2} />
+                <input {...register('state', { required: 'Required', maxLength: { value: 2, message: '2-letter code' } })} className={inputCls(!!errors.state)} placeholder={contest.venue.region} maxLength={2} />
               </Field>
             </div>
           </section>
@@ -360,106 +488,125 @@ export default function RegisterPage() {
           {/* ── SECTION 2: Divisions ── */}
           <section>
             <SectionHeader tag="STEP 2" title="Division Selection" />
-            <p className="text-sm text-text-body mb-4">Select your competition division(s). 1A + X can be combined. Sport / Beginner / Junior (SBJ) cannot be combined with 1A or X.</p>
+            <p className="text-sm text-text-body mb-4">
+              Select your division{competition.divisions.length === 1 ? '' : '(s)'}.
+              {competition.divisions.length > 1 && ' You can enter more than one unless a division says otherwise.'}
+            </p>
 
             {errors.divisions && (
               <p className="text-red text-sm mb-3">{errors.divisions.message}</p>
             )}
 
             <div className="space-y-3">
-              {([
-                {
-                  code: '1A' as Division,
-                  name: '1A — Single String',
-                  price: displayPrice(3000),
-                  desc: 'Classic 1-string freestyle. 2-minute routine, scored out of 100: technical execution (clickers, 60) plus trick presentation, performance quality, musicality, and routine construction (40), minus major deductions.',
-                  format: '2 min · Scored judging',
-                },
-                {
-                  code: 'X' as Division,
-                  name: 'X Division',
-                  price: displayPrice(2500),
-                  desc: 'Non-1A styles: 2A (looping), 3A (two strings), 4A (offstring), or 5A (freehand). Pick one. Scored like 1A (60 technical execution + 40 evaluation), with NYYL style multipliers on clicker scores.',
-                  format: '2 min · Scored judging',
-                },
-                {
-                  code: 'SBJ' as Division,
-                  name: 'Sport / Beginner / Junior',
-                  price: displayPrice(2000),
-                  desc: 'Open to all skill levels and ages. Relaxed format and a great entry point: no negative clicks, no major deductions, and 80 of 100 points come from evaluation, not trick count.',
-                  format: '90 sec · No negative clicks',
-                },
-              ] as const).map(({ code, name, price, desc, format }) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => handleDivisionToggle(code)}
-                  className={`w-full text-left border p-4 transition-colors ${
-                    watchedDivisions.includes(code)
-                      ? 'border-gold bg-navy'
-                      : 'border-navy-border bg-navy-deep hover:border-gold/50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-5 h-5 border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${watchedDivisions.includes(code) ? 'border-gold bg-gold' : 'border-navy-border'}`}>
-                        {watchedDivisions.includes(code) && <span className="text-navy-deep font-black text-xs">✓</span>}
+              {competition.divisions.map((d) => {
+                const on = watchedDivisions.includes(d.code);
+                return (
+                  <button
+                    key={d.code}
+                    type="button"
+                    onClick={() => handleDivisionToggle(d.code)}
+                    aria-pressed={on}
+                    className={`w-full text-left border p-4 transition-colors ${
+                      on
+                        ? 'border-gold bg-navy'
+                        : 'border-navy-border bg-navy-deep hover:border-gold/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className={`w-5 h-5 border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${on ? 'border-gold bg-gold' : 'border-navy-border'}`}>
+                          {on && <span className="text-navy-deep font-black text-xs">✓</span>}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-white text-sm">{d.name}</div>
+                          <div className="text-xs text-text-body mt-0.5">{d.description}</div>
+                          <div className="text-xs text-gold/60 mt-1">{divisionFacts(d)}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-bold text-white text-sm">{name}</div>
-                        <div className="text-xs text-text-body mt-0.5">{desc}</div>
-                        <div className="text-xs text-gold/60 mt-1">{format}</div>
-                      </div>
+                      <span className="font-display font-bold text-gold text-lg flex-shrink-0 text-right">
+                        {displayPrice(d.priceCents)}
+                        {perTeamPriced(d) && <span className="block text-[0.65rem] font-sans font-semibold text-gold/60 tracking-normal">per {teamLabel(d).toLowerCase()}</span>}
+                      </span>
                     </div>
-                    <span className="font-display font-bold text-gold text-lg flex-shrink-0">{price}</span>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
 
-            {/* X substyle */}
-            {showXSubstyle && (
-              <div className="mt-4 p-4 bg-navy border border-gold/30">
-                <label className="block text-xs font-black tracking-caps text-gold mb-3">X DIVISION SUB-STYLES *</label>
-                <p className="text-xs text-text-body mb-3">
-                  {watchedDivisions.includes('1A')
-                    ? '1A + X is limited to one X sub-style (max 2 total styles).'
-                    : 'Choose up to two X sub-styles.'}
-                </p>
-                <div className="space-y-2">
-                  {([
-                    { code: '2A', desc: 'Looping - two looping yo-yos focused on rhythm and control.' },
-                    { code: '3A', desc: 'Two-Handed String - two string-trick yo-yos, one in each hand.' },
-                    { code: '4A', desc: 'Offstring - yo-yo is not attached to the string during play.' },
-                    { code: '5A', desc: 'Freehand - counterweight style with no finger loop.' },
-                  ] as const).map(({ code, desc }) => (
-                    <label key={code} className="flex items-start gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={watchedXSubstyles.includes(code)}
-                        onChange={() => handleXSubstyleToggle(code)}
-                        disabled={!watchedXSubstyles.includes(code) && watchedXSubstyles.length >= maxXSubstyles}
-                        className="w-4 h-4 accent-gold mt-0.5"
-                      />
-                      <span>
-                        <span className="text-sm font-semibold text-white">{code}</span>
-                        <span className="text-xs text-text-body ml-2">{desc}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                {errors.x_substyles && <p className="text-red text-sm mt-2">{errors.x_substyles.message}</p>}
-              </div>
-            )}
+            {/* Style pickers for every selected division that has styles */}
+            {styledSelected.map((d) => {
+              const styles = d.styles!;
+              const picked = watchedStyles[d.code] ?? [];
+              const single = styles.max === 1;
+              // competition.maxTotalStyles can lower this division's max (e.g. 1A + X allows one X style).
+              const cap = styleCap(d.code, watchedDivisions, watchedStyles, competition);
+              const range = styles.min === cap ? `${styles.min}` : styles.min === 0 ? `up to ${cap}` : `${styles.min}–${cap}`;
+              const groupId = `styles-${d.code}`;
+              const countOk = picked.length >= styles.min && picked.length <= cap;
+              return (
+                <fieldset key={d.code} className="mt-4 p-4 bg-navy border border-gold/30" aria-describedby={`${groupId}-hint`}>
+                  <legend className="sr-only">{d.name} styles</legend>
+                  <div className="block text-xs font-black tracking-caps text-gold mb-3" aria-hidden="true">
+                    {d.name.toUpperCase()} STYLE{single ? '' : 'S'}{styles.min > 0 ? ' *' : ''}
+                  </div>
+                  <p id={`${groupId}-hint`} className="text-xs text-text-body mb-3">
+                    {single ? (styles.min > 0 ? 'Choose one style.' : 'Choose a style (optional).') : `Choose ${range} style${cap === 1 && styles.min === cap ? '' : 's'}.`}
+                    {!single && cap < styles.max && competition.maxTotalStyles !== undefined && ` You can enter at most ${competition.maxTotalStyles} styles in total, and each other division counts as one.`}
+                  </p>
+                  <div className="space-y-2">
+                    {styles.options.map((o) => {
+                      const checked = picked.includes(o.code);
+                      return (
+                        <label key={o.code} className="flex items-start gap-2 cursor-pointer">
+                          <input
+                            type={single ? 'radio' : 'checkbox'}
+                            name={groupId}
+                            value={o.code}
+                            checked={checked}
+                            onChange={() => handleStyleToggle(d, o.code)}
+                            disabled={!single && !checked && picked.length >= cap}
+                            className="w-4 h-4 accent-gold mt-0.5 flex-shrink-0"
+                          />
+                          <span>
+                            <span className="text-sm font-semibold text-white">{o.label}</span>
+                            {o.description && <span className="text-xs text-text-body ml-2">{o.description}</span>}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {!countOk && picked.length > 0 && (
+                    <p className="text-red text-sm mt-2" role="alert">Choose {range} {d.name} style{cap === 1 ? '' : 's'}.</p>
+                  )}
+                </fieldset>
+              );
+            })}
 
-            {/* Combo note */}
-            {watchedDivisions.includes('1A') && watchedDivisions.includes('X') && (
-              <div className="mt-3 p-3 border border-gold/40 bg-navy text-xs text-gold font-semibold">
-                {PRICES_TBD
-                  ? '★ 1A + X Division combo pricing: TBD'
-                  : '★ 1A + X Division combo: $50 (saves $5 vs. registering separately)'}
-              </div>
-            )}
+            {/* Team boxes: start a new team or join one with a code */}
+            {teamSelected.map((d) => (
+              <TeamBox
+                key={d.code}
+                division={d}
+                draft={teamDrafts[d.code] ?? BLANK_TEAM}
+                lookup={teamLookups[d.code]}
+                onDraft={(patch) => setTeamDraft(d.code, patch)}
+                onLookup={(l) => setTeamLookup(d.code, l)}
+              />
+            ))}
+
+            {/* Combo notes */}
+            {combosApplied.map((k) => {
+              const names = k.divisions.map(divisionName).join(' + ');
+              const savings = memberCents(k.divisions) - k.priceCents;
+              return (
+                <div key={k.divisions.join('+')} className="mt-3 p-3 border border-gold/40 bg-navy text-xs text-gold font-semibold">
+                  {PRICES_TBD
+                    ? `★ ${names} combo pricing: TBD`
+                    : `★ ${names} combo: ${formatCents(k.priceCents)}${savings > 0 ? ` (saves ${formatCents(savings)} vs. registering separately)` : ''}`}
+                </div>
+              );
+            })}
+
 
             <div className="mt-2">
               <a
@@ -594,17 +741,15 @@ export default function RegisterPage() {
                     </Field>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-                    <Field label="Yo-Yo">
-                      <input {...register('yoyo')} className={inputCls(false)} placeholder="Edge Beyond" />
-                    </Field>
-                    <Field label="String">
-                      <input {...register('string')} className={inputCls(false)} placeholder="Poly 100%" />
-                    </Field>
-                    <Field label="Counterweight">
-                      <input {...register('counterweight')} className={inputCls(false)} placeholder="Dice CW" />
-                    </Field>
-                  </div>
+                  {GEAR_FIELDS.length > 0 && (
+                    <div className={`grid grid-cols-1 ${GEAR_FIELDS.length === 3 ? 'sm:grid-cols-3' : GEAR_FIELDS.length === 2 ? 'sm:grid-cols-2' : ''} gap-4 mt-4`}>
+                      {GEAR_FIELDS.map(({ key, label, placeholder }) => (
+                        <Field key={key} label={label}>
+                          <input {...register(key)} className={inputCls(false)} placeholder={placeholder} />
+                        </Field>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
                     <Field label="Instagram">
@@ -789,7 +934,7 @@ export default function RegisterPage() {
               {submitting ? 'SUBMITTING...' : 'SUBMIT REGISTRATION →'}
             </button>
             <p className="text-xs text-text-body mt-3 text-center">
-              Payment and music upload are handled in this registration portal after you submit.
+              {ANY_MUSIC ? 'Payment and music upload are' : 'Payment is'} handled in this registration portal after you submit.
             </p>
             <p className="text-xs text-text-body mt-2 text-center">
               Review our{' '}
@@ -809,24 +954,48 @@ export default function RegisterPage() {
             ) : (
               <>
                 <div className="space-y-2 mb-4">
-                  {watchedDivisions.map(d => (
-                    <div key={d} className="flex justify-between text-sm">
-                      <span className="text-text-body">{d === 'SBJ' ? 'Sport/Beginner/Junior' : d}</span>
-                      <span className="text-white font-semibold">{displayPrice({ '1A': 3000, 'X': 2500, 'SBJ': 2000 }[d] ?? 0)}</span>
-                    </div>
-                  ))}
+                  {watchedDivisions.map(d => {
+                    const def = divisionByCode(d);
+                    const free = freeJoins.includes(d);
+                    const draft = teamDrafts[d];
+                    const lookup = teamLookups[d];
+                    const teamNote = def && entryOf(def).type === 'team'
+                      ? draft?.mode === 'join'
+                        ? `Joining ${lookup?.status === 'ok' && lookup.team ? lookup.team.name : `a ${teamLabel(def).toLowerCase()}`}${free ? ' (captain pays)' : ''}`
+                        : draft?.mode === 'create'
+                          ? `Starting ${draft.name.trim() || `a ${teamLabel(def).toLowerCase()}`}${perTeamPriced(def) ? ` (one fee per ${teamLabel(def).toLowerCase()})` : ''}`
+                          : null
+                      : null;
+                    return (
+                      <div key={d} className="flex justify-between gap-3 text-sm">
+                        <span className="text-text-body min-w-0 break-words">
+                          {divisionName(d)}
+                          {(watchedStyles[d]?.length ?? 0) > 0 && (
+                            <span className="block text-xs text-text-muted">
+                              {watchedStyles[d].map(s => def?.styles?.options.find(o => o.code === s)?.label ?? s).join(', ')}
+                            </span>
+                          )}
+                          {teamNote && <span className="block text-xs text-text-muted">{teamNote}</span>}
+                        </span>
+                        <span className="text-white font-semibold flex-shrink-0">{free ? formatCents(0) : displayPrice(def?.priceCents ?? 0)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {feePreview.combo_applied && !PRICES_TBD && (
-                  <div className="flex justify-between text-sm text-green-400 mb-2">
-                    <span>1A + X combo discount</span>
-                    <span>−$5.00</span>
-                  </div>
-                )}
-                {feePreview.early_bird_applied && !PRICES_TBD && (
+                {!PRICES_TBD && combosApplied.map(k => {
+                  const savings = memberCents(k.divisions) - k.priceCents;
+                  return savings !== 0 && (
+                    <div key={k.divisions.join('+')} className="flex justify-between gap-3 text-sm text-green-400 mb-2">
+                      <span>{k.divisions.map(divisionName).join(' + ')} combo {savings > 0 ? 'discount' : 'price'}</span>
+                      <span className="flex-shrink-0">{savings > 0 ? `−${formatCents(savings)}` : `+${formatCents(-savings)}`}</span>
+                    </div>
+                  );
+                })}
+                {feePreview.early_bird_applied && !PRICES_TBD && competition.pricing.earlyBirdDiscountCents > 0 && (
                   <div className="flex justify-between text-sm text-green-400 mb-2">
                     <span>Early bird discount</span>
-                    <span>−$5.00</span>
+                    <span>−{EARLY_BIRD_SAVINGS}</span>
                   </div>
                 )}
                 {feePreview.comp_discount_percent > 0 && (
@@ -855,11 +1024,11 @@ export default function RegisterPage() {
               <p className="text-xs text-text-body">Day-of payment options may be available at check-in. See the registration desk for details.</p>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-navy-border">
+            {ANY_MUSIC && <div className="mt-4 pt-4 border-t border-navy-border">
               <div className="text-xs font-black tracking-caps text-gold mb-2">MUSIC DEADLINE</div>
               <p className="text-xs text-text-body">Upload your music in this registration app after payment. <strong className="text-white">Deadline: Sept 17, 2026.</strong></p>
               <p className="text-xs text-text-body mt-2">Music must be appropriate for all audiences — no explicit language, sexual content, or glorification of violence. <strong className="text-white">Inappropriate music results in disqualification.</strong> Full rules are on the upload page.</p>
-            </div>
+            </div>}
 
             <div className="mt-4 pt-4 border-t border-navy-border">
               <div className="text-xs font-black tracking-caps text-gold mb-3">WHAT HAPPENS NEXT</div>
@@ -919,6 +1088,116 @@ export default function RegisterPage() {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** "Your Pair" box for a selected team division: start a new one (name) or join with a code (live lookup). */
+function TeamBox({ division: d, draft, lookup, onDraft, onLookup }: {
+  division: DivisionDef;
+  draft: TeamDraft;
+  lookup: TeamLookup | undefined;
+  onDraft: (patch: Partial<TeamDraft>) => void;
+  onLookup: (l: TeamLookup | undefined) => void;
+}) {
+  const label = teamLabel(d);
+  const lower = label.toLowerCase();
+  const id = `team-${d.code}`;
+  const code = normalizeJoinCode(draft.code);
+  const wantLookup = draft.mode === 'join' && code.length >= 6 && JOIN_CODE_RE.test(code);
+
+  // Look the code up once typing pauses; ignore answers for a code that's since changed.
+  useEffect(() => {
+    if (!wantLookup) { onLookup(undefined); return; }
+    let cancelled = false;
+    onLookup({ code, status: 'checking', message: 'Checking code…' });
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/teams/lookup?code=${encodeURIComponent(code)}`, { cache: 'no-store' });
+        const json = await res.json() as { team?: TeamLookup['team']; error?: { message?: string } };
+        if (cancelled) return;
+        const t = json.team;
+        if (!res.ok || !t) {
+          onLookup({ code, status: 'error', message: json.error?.message ?? `No ${lower} found with that code.` });
+        } else if (t.division !== d.code) {
+          onLookup({ code, status: 'error', message: `That code is for a ${t.division_name} ${lower}, not ${d.name}.`, team: t });
+        } else if (t.members >= t.max) {
+          onLookup({ code, status: 'error', message: `${t.name} is full (${t.members}/${t.max}).`, team: t });
+        } else {
+          onLookup({ code, status: 'ok', message: `Joining ${t.name} (${t.members}/${t.max})`, team: t });
+        }
+      } catch {
+        if (!cancelled) onLookup({ code, status: 'error', message: 'Could not check that code. Try again.' });
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+    // onLookup is stable per division; re-run only when the code changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantLookup, code]);
+
+  const optionCls = (on: boolean) => `flex items-center gap-2 border px-3 py-2.5 cursor-pointer text-sm transition-colors ${on ? 'border-gold bg-navy-deep text-white' : 'border-navy-border text-text-body hover:border-gold/50'}`;
+  const shown = lookup && lookup.code === code ? lookup : undefined;
+
+  return (
+    <fieldset className="mt-4 p-4 bg-navy border border-gold/30 min-w-0" aria-describedby={`${id}-hint`}>
+      <legend className="sr-only">Your {lower} for {d.name}</legend>
+      <div className="block text-xs font-black tracking-caps text-gold mb-1" aria-hidden="true">
+        {d.name.toUpperCase()} · YOUR {label.toUpperCase()} *
+      </div>
+      <p id={`${id}-hint`} className="text-xs text-text-body mb-3">
+        {[entrySummary(d), teamPricingNote(d)].filter(Boolean).join('. ')} Everyone on the {lower} registers and signs the waiver themselves.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <label className={optionCls(draft.mode === 'create')}>
+          <input type="radio" name={`${id}-mode`} value="create" checked={draft.mode === 'create'} onChange={() => onDraft({ mode: 'create' })} className="w-4 h-4 accent-gold flex-shrink-0" />
+          <span className="font-semibold">Start a new {lower}</span>
+        </label>
+        <label className={optionCls(draft.mode === 'join')}>
+          <input type="radio" name={`${id}-mode`} value="join" checked={draft.mode === 'join'} onChange={() => onDraft({ mode: 'join' })} className="w-4 h-4 accent-gold flex-shrink-0" />
+          <span className="font-semibold">Join with a code</span>
+        </label>
+      </div>
+
+      {draft.mode === 'create' && (
+        <div className="mt-3">
+          <label htmlFor={`${id}-name`} className="block text-xs font-black tracking-caps text-gold mb-1.5">{label.toUpperCase()} NAME *</label>
+          <input
+            id={`${id}-name`}
+            value={draft.name}
+            onChange={(e) => onDraft({ name: e.target.value })}
+            maxLength={TEAM_NAME_MAX}
+            autoComplete="off"
+            className={inputCls(false)}
+            placeholder={`Your ${lower}'s name`}
+            aria-describedby={`${id}-name-hint`}
+          />
+          <p id={`${id}-name-hint`} className="text-xs text-text-muted mt-1">
+            Shown in the run order and results. You&apos;ll get a join code to share with your teammates.
+          </p>
+        </div>
+      )}
+
+      {draft.mode === 'join' && (
+        <div className="mt-3">
+          <label htmlFor={`${id}-code`} className="block text-xs font-black tracking-caps text-gold mb-1.5">JOIN CODE *</label>
+          <input
+            id={`${id}-code`}
+            value={draft.code}
+            onChange={(e) => onDraft({ code: e.target.value.toUpperCase() })}
+            maxLength={12}
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            className={`${inputCls(shown?.status === 'error')} font-mono uppercase tracking-widest`}
+            placeholder="ABC123"
+            aria-describedby={`${id}-code-status`}
+          />
+          <p id={`${id}-code-status`} role="status" aria-live="polite" className={`text-xs mt-1 font-semibold ${shown?.status === 'ok' ? 'text-green-400' : shown?.status === 'error' ? 'text-red' : 'text-text-muted'}`}>
+            {shown ? `${shown.status === 'ok' ? '✓ ' : shown.status === 'error' ? '✗ ' : ''}${shown.message}` : `Ask your ${lower}'s captain for the code from their confirmation.`}
+          </p>
+          {perTeamPriced(d) && <p className="text-xs text-green-400 mt-1">You pay {formatCents(0)} for {d.name}: your captain&apos;s entry covers the {lower}.</p>}
+        </div>
+      )}
+    </fieldset>
+  );
+}
 
 function SectionHeader({ tag, title }: { tag: string; title: string }) {
   return (
