@@ -164,6 +164,22 @@ all resolve the track per division (`lib/music.ts` has the pure helpers). The ol
 (`vsyc_registrations.music_path` / `music_filename`) is no longer read; a later migration drops
 it. `vsyc_registrations.music_uploaded_at` is kept current by a trigger ("has a real track").
 
+### Score status and the ready-to-publish check (site issue #83, first slice)
+
+`GET /api/admin/score-status?division=1A&round=1` (admin or judge; `lib/score-status.ts`, tested) reports
+one round's judging live: per competitor, who has scored and who hasn't, the median and spread, and
+scores far from the judges' median (more than 15% of the sheet's top score, with at least three judges;
+measured against the median of all scores so one wild score can't hide itself). A judge counts as expected
+for the round once they've scored anyone in it. **Blockers** (not ready): no run order, no scores, a
+competitor who hasn't finished performing or has no scores, or a score missing from one judge.
+**Warnings**: outliers, only one judge, scored people not in the run order.
+
+On `/admin/schedule` a judged block shows **Check scores** (a table plus the issues), and **Publish results**
+first loads the same check and puts the problems in its confirmation. Publishing is never blocked: an
+organizer can always choose to publish anyway. The other #83 candidates (head-judge lock/unlock, structured
+deduction notes, offline-tolerant tablet submission, category breakdowns) wait on the judges' debrief the
+issue asks for first.
+
 ## 5. Config and environments
 
 All config is env vars; `.env.local.example` lists every name with notes. Production values live
