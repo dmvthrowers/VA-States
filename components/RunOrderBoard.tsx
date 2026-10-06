@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DIVISIONS } from '@/lib/standings';
 import { divisionByCode } from '@/contest.config';
 import { roundsOf } from '@/lib/divisions-core';
+import { roundTabs } from '@/lib/round-plan';
+import { useRoundPlans } from '@/lib/use-round-plans';
 
 type Division = string;
 type Status = 'upcoming' | 'performing' | 'done';
@@ -26,10 +28,18 @@ const STATUS_LABEL: Record<Status, string> = {
 // Matches the ~15s public cache window on GET /api/run-order.
 const POLL_MS = 15000;
 
+const roundNameOf = (def: ReturnType<typeof divisionByCode>, n: number) => roundsOf(def)[n - 1]?.name ?? 'this round';
+
 export default function RunOrderBoard() {
   const [division, setDivision] = useState<Division>(DIVISIONS[0]?.code ?? '');
   const [round, setRound] = useState(1);
-  const rounds = roundsOf(divisionByCode(division));
+  const plans = useRoundPlans();
+  const rounds = roundTabs(divisionByCode(division), plans[division]);
+  const firstRound = rounds[0]?.round;
+  const onRunningRound = rounds.some((r) => r.round === round);
+  useEffect(() => {
+    if (firstRound !== undefined && !onRunningRound) setRound(firstRound);
+  }, [firstRound, onRunningRound]);
   const [performers, setPerformers] = useState<Performer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -96,21 +106,21 @@ export default function RunOrderBoard() {
 
       {rounds.length > 1 && (
         <div role="group" aria-label="Round" style={{ display: 'flex', gap: '0.5rem', marginTop: '-0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-          {rounds.map((r, i) => (
+          {rounds.map((r) => (
             <button
               key={r.name}
               type="button"
-              onClick={() => setRound(i + 1)}
-              aria-pressed={round === i + 1}
+              onClick={() => setRound(r.round)}
+              aria-pressed={round === r.round}
               style={{
                 padding: '0.35rem 0.8rem',
                 fontSize: '0.7rem',
                 fontWeight: 700,
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
-                border: `1px solid ${round === i + 1 ? 'var(--gold)' : 'var(--navy-border)'}`,
+                border: `1px solid ${round === r.round ? 'var(--gold)' : 'var(--navy-border)'}`,
                 background: 'transparent',
-                color: round === i + 1 ? 'var(--gold)' : 'var(--text-muted)',
+                color: round === r.round ? 'var(--gold)' : 'var(--text-muted)',
                 cursor: 'pointer',
               }}
             >
@@ -128,7 +138,7 @@ export default function RunOrderBoard() {
         </p>
       ) : performers.length === 0 ? (
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          {round > 1 ? `No one has advanced to ${rounds[round - 1]?.name ?? 'this round'} yet.` : 'No run order set for this division yet.'}
+          {round > 1 ? `No one has advanced to ${roundNameOf(divisionByCode(division), round)} yet.` : 'No run order set for this division yet.'}
         </p>
       ) : (
         <div style={{ border: '1px solid var(--navy-border)' }}>

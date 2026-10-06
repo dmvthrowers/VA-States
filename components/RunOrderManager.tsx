@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { DIVISION_CODES, divisionByCode } from '@/contest.config';
 import { roundsOf } from '@/lib/divisions-core';
 import SplitPreviewPanel from '@/components/SplitPreviewPanel';
+import { advanceCount as advanceFor, nextActiveRound, roundTabs } from '@/lib/round-plan';
+import { useRoundPlans } from '@/lib/use-round-plans';
+import RoundPlanPanel from '@/components/RoundPlanPanel';
 
 const DIVISIONS = DIVISION_CODES;
 type Division = string;
@@ -38,6 +41,8 @@ interface UnscheduledRow {
 interface AdminRunOrderData {
   division: Division;
   round?: number;
+  /** The track this round plays ('main', a round's key, or an extra); null when the division has no music */
+  music_slot?: string | null;
   ordered: ScheduledRow[];
   unscheduled: UnscheduledRow[];
 }
@@ -64,9 +69,23 @@ const PREF_COLORS: Record<string, string> = {
 export default function RunOrderManager({ token }: { token: string }) {
   const [division, setDivision] = useState<Division>(DIVISIONS[0] ?? '');
   const [round, setRound] = useState(1);
-  const rounds = roundsOf(divisionByCode(division));
-  const nextRound = rounds[round] ?? null;
-  const advanceCount = rounds[round - 1]?.advance;
+  const def = divisionByCode(division);
+  const plans = useRoundPlans();
+  const plan = plans[division] ?? null;
+  const rounds = roundsOf(def);
+  const tabs = roundTabs(def, plan);
+  const nextRoundNo = nextActiveRound(def, plan, round);
+  const nextRound = nextRoundNo ? rounds[nextRoundNo - 1] : null;
+  const advanceCount = advanceFor(def, plan, round);
+  const needsPlan = !!def?.roundPlan?.length && !plan;
+  // A tie across the cut waits here for the organizer's decision.
+  const [tie, setTie] = useState<{ slots: number; tied: { registration_id: string; display_name: string }[] } | null>(null);
+  const [tiePick, setTiePick] = useState<string[]>([]);
+  const firstRound = tabs[0]?.round;
+  const onRunningRound = tabs.some((t) => t.round === round);
+  useEffect(() => {
+    if (firstRound !== undefined && !onRunningRound) setRound(firstRound);
+  }, [firstRound, onRunningRound]);
   const [promoting, setPromoting] = useState(false);
   const [promoteMsg, setPromoteMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [data, setData] = useState<AdminRunOrderData | null>(null);
@@ -236,27 +255,47 @@ export default function RunOrderManager({ token }: { token: string }) {
     fetchData(division, round);
   }
 
-  /** Build the next round's run order from this round's standings (admin only). */
-  async function handlePromote() {
+  /**
+   * Build the next round's run order from this round's standings (admin only). A first dry run
+   * finds any tie across the cut, which waits for the organizer: advance everyone tied, or pick.
+   */
+  async function handlePromote(decision?: { ties: 'all' | 'pick'; pick?: string[] }) {
     if (!nextRound || !advanceCount) return;
     setPromoting(true);
     setPromoteMsg(null);
-    const send = (replace: boolean) => fetch('/api/admin/rounds/advance', {
+    const send = (extra: Record<string, unknown>) => fetch('/api/admin/rounds/advance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ division, from_round: round, replace }),
+      body: JSON.stringify({ division, from_round: round, ...extra }),
     });
     try {
-      let res = await send(false);
+      if (!decision) {
+        const dry = await send({ dry_run: true });
+        const preview = await dry.json();
+        if (!dry.ok) {
+          setPromoteMsg({ ok: false, text: preview.error?.message ?? 'Advance failed.' });
+          setPromoting(false);
+          return;
+        }
+        if (preview.tie) {
+          setTie(preview.tie);
+          setTiePick([]);
+          setPromoting(false);
+          return;
+        }
+      }
+      const extra = decision ?? {};
+      let res = await send(extra);
       let json = await res.json();
       if (res.status === 409 && /replace/i.test(json.error?.message ?? '')
         && confirm(`${nextRound.name} already has a run order. Replace it with the top ${advanceCount} from ${rounds[round - 1].name}?`)) {
-        res = await send(true);
+        res = await send({ ...extra, replace: true });
         json = await res.json();
       }
       setPromoteMsg(res.ok
         ? { ok: true, text: `${json.count} advanced to ${json.to_round_name}.` }
         : { ok: false, text: json.error?.message ?? 'Advance failed.' });
+      if (res.ok) setTie(null);
     } catch {
       setPromoteMsg({ ok: false, text: 'Network error.' });
     }
@@ -264,11 +303,12 @@ export default function RunOrderManager({ token }: { token: string }) {
   }
 
   async function handleMusicUpload(registration_id: string, file: File) {
-    // One track per division: this uploads for the division shown. Never replace silently.
+    // Uploads the track this round plays (data.music_slot): the division's routine track, this
+    // round's track, or battle music. Never replace silently.
     const current = regMap.get(registration_id);
     let replace = false;
     if (current?.music_filename && !current.music_fallback) {
-      if (!confirm(`Replace ${current.music_filename} with ${file.name} for ${division}? The old track is removed.`)) return;
+      if (!confirm(`Replace ${current.music_filename} with ${file.name} for ${division}${data?.music_slot && data.music_slot !== 'main' ? ` ${data.music_slot}` : ''}? The old track is removed.`)) return;
       replace = true;
     }
     setUploadStatus((s) => ({ ...s, [registration_id]: 'uploading' }));
@@ -277,7 +317,7 @@ export default function RunOrderManager({ token }: { token: string }) {
       const res = await fetch('/api/admin/music-upload', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ registration_id, division, filename: file.name, replace }),
+        body: JSON.stringify({ registration_id, division, slot: data?.music_slot ?? undefined, filename: file.name, replace }),
       });
       if (!res.ok) { setUploadStatus((s) => ({ ...s, [registration_id]: 'error' })); return; }
       const { upload_url, filename } = await res.json() as { upload_url: string; filename: string };
@@ -290,7 +330,7 @@ export default function RunOrderManager({ token }: { token: string }) {
       const done = await fetch('/api/admin/music-upload', {
         method: 'PATCH',
         headers,
-        body: JSON.stringify({ registration_id, division, filename }),
+        body: JSON.stringify({ registration_id, division, slot: data?.music_slot ?? undefined, filename }),
       });
       if (!done.ok) { setUploadStatus((s) => ({ ...s, [registration_id]: 'error' })); return; }
       setUploadStatus((s) => ({ ...s, [registration_id]: 'done' }));
@@ -329,19 +369,21 @@ export default function RunOrderManager({ token }: { token: string }) {
 
       <SplitPreviewPanel token={token} />
 
-      {rounds.length > 1 && (
+      <RoundPlanPanel token={token} />
+
+      {tabs.length > 1 && (
         <nav aria-label="Round" className="flex gap-2 flex-wrap mb-6 -mt-2">
-          {rounds.map((r, i) => (
+          {tabs.map((r) => (
             <button
               key={r.name}
               type="button"
-              aria-pressed={round === i + 1}
-              onClick={() => { setRound(i + 1); setData(null); setSaveMsg(null); setAdvanceMsg(null); setPromoteMsg(null); }}
+              aria-pressed={round === r.round}
+              onClick={() => { setRound(r.round); setData(null); setSaveMsg(null); setAdvanceMsg(null); setPromoteMsg(null); setTie(null); }}
               className={`px-3 py-1 text-xs font-bold tracking-caps border ${
-                round === i + 1 ? 'border-gold text-gold' : 'bg-transparent text-text-muted border-navy-border'
+                round === r.round ? 'border-gold text-gold' : 'bg-transparent text-text-muted border-navy-border'
               }`}
             >
-              {i + 1}. {r.name}{r.advance ? ` · top ${r.advance}` : ''}
+              {r.round}. {r.name}{r.advance ? ` · top ${r.advance}` : ''}
             </button>
           ))}
         </nav>
@@ -481,16 +523,55 @@ export default function RunOrderManager({ token }: { token: string }) {
                 <div className="text-xs font-black tracking-caps text-text-muted">ROUNDS</div>
                 <button
                   type="button"
-                  onClick={handlePromote}
+                  onClick={() => handlePromote()}
                   disabled={promoting}
                   className={`px-5 py-2 font-black text-xs tracking-caps ${promoting ? 'bg-navy-border text-text-muted' : 'bg-gold text-navy-deep'}`}
                 >
                   {promoting ? 'Working…' : `Advance top ${advanceCount} to ${nextRound.name}`}
                 </button>
-                <span className="text-xs text-text-muted">From this round&rsquo;s standings; ties at the cut go through; best seed performs last. Admins only.</span>
+                <span className="text-xs text-text-muted">From this round&rsquo;s standings; a tie at the cut asks you to decide; best seed performs last. Admins only.</span>
                 {promoteMsg && (
                   <span role="status" className={`text-sm font-bold ${promoteMsg.ok ? 'text-[#7fff7f]' : 'text-[#ff6b6b]'}`}>{promoteMsg.text}</span>
                 )}
+              </div>
+            )}
+            {needsPlan && (
+              <p className="mt-3 text-xs text-[#ff6b6b] font-bold">Confirm this division&rsquo;s round plan above before advancing anyone.</p>
+            )}
+            {tie && (
+              <div role="group" aria-label="Tie at the cut" className="mt-3 bg-navy border border-gold p-4">
+                <div className="text-xs font-black tracking-caps text-gold mb-1">TIE AT THE CUT</div>
+                <p className="text-sm text-text-body mb-2">
+                  {tie.tied.length} entrants share the cutoff score for {tie.slots} open spot{tie.slots === 1 ? '' : 's'}. Advance all {tie.tied.length}, or pick {tie.slots}.
+                </p>
+                <ul className="mb-3">
+                  {tie.tied.map((t) => (
+                    <li key={t.registration_id}>
+                      <label className="flex items-center gap-2 text-sm text-white py-0.5">
+                        <input
+                          type="checkbox"
+                          checked={tiePick.includes(t.registration_id)}
+                          onChange={(e) => setTiePick((p) => e.target.checked ? [...p, t.registration_id] : p.filter((x) => x !== t.registration_id))}
+                        />
+                        {t.display_name}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex gap-2 flex-wrap">
+                  <button type="button" disabled={promoting} onClick={() => handlePromote({ ties: 'all' })} className="px-4 py-2 font-black text-xs tracking-caps bg-gold text-navy-deep">
+                    Advance all {tie.tied.length}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={promoting || tiePick.length !== tie.slots}
+                    onClick={() => handlePromote({ ties: 'pick', pick: tiePick })}
+                    className={`px-4 py-2 font-black text-xs tracking-caps border ${tiePick.length === tie.slots ? 'border-gold text-gold' : 'border-navy-border text-text-muted'}`}
+                  >
+                    Advance the {tiePick.length} picked (need {tie.slots})
+                  </button>
+                  <button type="button" onClick={() => setTie(null)} className="px-4 py-2 text-xs text-text-muted">Cancel</button>
+                </div>
               </div>
             )}
           </div>
