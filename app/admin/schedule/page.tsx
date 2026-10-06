@@ -38,15 +38,53 @@ function actionsFor(i: FeedItem): { action: ScheduleAction; label: string; tone:
   }
 }
 
+interface ScoreReport {
+  division: string;
+  round_name: string;
+  judges: string[];
+  entrants: { registration_id: string; name: string; scores: { judge_name: string; score: number }[]; missing_judges: string[]; median: number | null; spread: number | null }[];
+  complete: number;
+  blockers: string[];
+  warnings: string[];
+  ready: boolean;
+}
+
+/** The score status for a judged block, or null when it can't be read (not an admin or judge, or a network error). */
+async function loadReport(token: string, i: FeedItem): Promise<ScoreReport | null> {
+  if (!i.division) return null;
+  try {
+    const res = await fetch(`/api/admin/score-status?division=${encodeURIComponent(i.division)}&round=${i.round ?? 1}`, { headers: { Authorization: `Bearer ${token}` } });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
 function Controls({ token }: { token: string }) {
+  const [report, setReport] = useState<{ title: string; data: ScoreReport } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const { feed, setFeed, error } = useScheduleFeed('/api/admin/schedule', 10000, token, refreshKey);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  async function check(i: FeedItem) {
+    setBusy(i.id);
+    setMsg(null);
+    const data = await loadReport(token, i);
+    setBusy(null);
+    if (data) setReport({ title: i.title, data });
+    else setMsg({ ok: false, text: 'Score status is for admins and judges, or it could not load.' });
+  }
+
   async function run(i: FeedItem, action: ScheduleAction, label: string) {
     if (action === 'reset' && !window.confirm(`Reset "${i.title}"? Its times are cleared${i.results_published ? ' and its published results go hidden again' : ''}.`)) return;
-    if (action === 'publish' && !window.confirm(`Publish ${i.title} results? They go public right away.`)) return;
+    if (action === 'publish') {
+      // Check the scores first: say what's missing or odd before the results go public.
+      const r = await loadReport(token, i);
+      const issues = r ? [...r.blockers.map((b) => `Not ready: ${b}`), ...r.warnings.map((w) => `Check: ${w}`)] : [];
+      const lead = issues.length ? `${issues.slice(0, 6).join('\n')}${issues.length > 6 ? `\n…and ${issues.length - 6} more` : ''}\n\n` : '';
+      if (!window.confirm(`${lead}Publish ${i.title} results? They go public right away.`)) return;
+    }
     setBusy(i.id);
     setMsg(null);
     try {
@@ -79,12 +117,43 @@ function Controls({ token }: { token: string }) {
         <a href="/overlay/schedule?bg=1" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold-light)' }}>Stream overlay ↗</a>
       </p>
       <p role="status" aria-live="polite" style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', minHeight: '1.2rem', color: msg ? (msg.ok ? 'var(--gold-light)' : '#ff6b6b') : 'transparent' }}>{msg?.text ?? ''}</p>
+      {report && (
+        <section aria-label="Score status" style={{ border: '1px solid var(--navy-border)', background: 'var(--navy)', padding: '1rem', margin: '0 0 1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+            <strong style={{ color: report.data.ready ? 'var(--gold-light)' : '#ff6b6b' }}>
+              {report.title}: {report.data.ready ? 'ready to publish' : 'not ready'} · {report.data.complete}/{report.data.entrants.length} fully scored · judges: {report.data.judges.join(', ') || 'none yet'}
+            </strong>
+            <button type="button" style={btn('outline')} onClick={() => setReport(null)}>Close</button>
+          </div>
+          {report.data.blockers.length > 0 && <ul style={{ color: '#ff6b6b', margin: '0.5rem 0 0', paddingLeft: '1.2rem', fontSize: '0.85rem' }}>{report.data.blockers.map((b) => <li key={b}>{b}</li>)}</ul>}
+          {report.data.warnings.length > 0 && <ul style={{ color: 'var(--gold-light)', margin: '0.5rem 0 0', paddingLeft: '1.2rem', fontSize: '0.85rem' }}>{report.data.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
+          <div style={{ overflowX: 'auto', marginTop: '0.75rem' }}>
+            <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse', color: 'var(--text-body)' }}>
+              <thead><tr style={{ textAlign: 'left', color: 'var(--text-muted)' }}><th>Competitor</th><th>Scores</th><th>Median</th><th>Spread</th><th>Missing</th></tr></thead>
+              <tbody>
+                {report.data.entrants.map((e) => (
+                  <tr key={e.registration_id} style={{ borderTop: '1px solid var(--navy-border)' }}>
+                    <td style={{ padding: '0.3rem 0.5rem 0.3rem 0' }}>{e.name}</td>
+                    <td>{e.scores.map((x) => `${x.judge_name} ${x.score}`).join(' · ') || '—'}</td>
+                    <td>{e.median ?? '—'}</td>
+                    <td>{e.spread ?? '—'}</td>
+                    <td style={{ color: e.missing_judges.length ? '#ff6b6b' : undefined }}>{e.missing_judges.join(', ') || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
       {error && !feed && <p role="alert" style={{ color: '#ff6b6b' }}>The schedule didn&rsquo;t load. Retrying…</p>}
       {feed && (
         <ScheduleList
           feed={feed}
           actions={(i) => (
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {i.division && i.status !== 'upcoming' && (
+                <button type="button" disabled={busy !== null} style={btn('outline')} onClick={() => check(i)}>Check scores</button>
+              )}
               {actionsFor(i).map((a) => (
                 <button key={a.action} type="button" disabled={busy !== null} style={btn(a.tone)} onClick={() => run(i, a.action, a.label)}>
                   {busy === i.id ? '…' : a.label}

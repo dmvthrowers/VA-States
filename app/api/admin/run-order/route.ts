@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireRunOrderEditorRequest } from '@/lib/auth/admin-request';
 import { z } from 'zod';
 import { DIVISION_CODES, divisionByCode } from '@/contest.config';
-import { isTeamDivision, roundsOf } from '@/lib/divisions-core';
+import { isTeamDivision, playSlotFor, roundsOf } from '@/lib/divisions-core';
 
 /** The round number for a division (1 when not given), or null if it has no such round. */
 function parseRound(division: string, raw: unknown): number | null {
@@ -200,11 +200,15 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     .eq('division', division)
     .eq('round', round);
 
-  // This division's track for each entrant (one track per division).
-  const { data: musicRows } = await supabase
-    .from('vsyc_music')
-    .select('registration_id, filename, is_fallback')
-    .eq('division', division);
+  // The track this round plays, for each entrant (one per division and slot).
+  const musicSlot = playSlotFor(def, round);
+  const { data: musicRows } = musicSlot
+    ? await supabase
+        .from('vsyc_music')
+        .select('registration_id, filename, is_fallback')
+        .eq('division', division)
+        .eq('slot', musicSlot)
+    : { data: [] as { registration_id: string; filename: string; is_fallback: boolean }[] };
   const musicByReg = new Map((musicRows ?? []).map((m) => [m.registration_id, m]));
 
   const orderedIds = new Set((runOrder ?? []).map((r) => r.registration_id));
@@ -246,6 +250,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       division,
       round,
       rounds: rounds.map((r) => ({ name: r.name, advance: r.advance ?? null })),
+      music_slot: musicSlot,
       scored: (scoredCount ?? 0) > 0,
       ordered,
       unscheduled,

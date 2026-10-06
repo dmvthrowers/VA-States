@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { isPublished, publishedDivisions } from '@/lib/results-visibility';
 import { z } from 'zod';
+import { loadPlan } from '@/lib/round-plan-server';
+import { isRoundActive } from '@/lib/round-plan';
 import { DIVISION_CODES, divisionByCode } from '@/contest.config';
 import {
   betterOf, compareScores, effectiveStyle, freestyleBreakdown, manualBest, manualBreakdown, panelTotal, roundsOf, styleMultiplier,
@@ -349,6 +351,14 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   }
 
   const { registration_id, division, notes, round } = parsed.data;
+  // A round the confirmed plan skips (e.g. semi-finals in a division under 50) takes no scores.
+  const scoredDef = divisionByCode(division)!;
+  if (scoredDef.roundPlan?.length) {
+    const plan = await loadPlan(createAdminClient(), division);
+    if (plan && !isRoundActive(scoredDef, plan, round)) {
+      return apiError('unprocessable', `${roundsOf(scoredDef)[round - 1]?.name ?? `Round ${round}`} isn't running for ${scoredDef.name}`, requestId);
+    }
+  }
   const sc = divisionByCode(division)!.scoring;
   const isManual = sc.format === 'manual';
   // Manual and panel scores keep the freestyle columns at zero.
