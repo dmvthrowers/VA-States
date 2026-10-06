@@ -189,6 +189,24 @@ Eligibility is decided by **home address** (`lib/residency.ts`, tested):
 
 Judges don't see the eligibility flag: it could bias scoring, and the title is decided after the results.
 
+### Prizes that scale with the contest
+
+How many prizes a division gives is configuration, not code (`lib/prizes.ts`, tested). `contest.prizes.places` in
+`contest.config.ts` is the default podium size (3). A division can override it with its own `prizes`:
+
+```ts
+prizes: { tiers: [{ upTo: 4, places: 1 }, { upTo: 9, places: 2 }, { places: 3 }], champion: false }
+// 1 prize under 5 entrants, 2 under 10, 3 above; `champion: false` skips the home-state champion prize
+```
+
+The first tier whose `upTo` is at least the number of entrants wins; `places: 0` gives no podium prizes. The
+home-state champion prize (`contest.stateChampion`) is one more per division unless the division opts out. The
+admin dashboard's **Prizes** panel (`GET /api/admin/prizes`) shows the plan for the people entered so far, per
+division and in total (3 divisions × (3 + 1) = 12 today), and moves as registration does; it is a maximum, since a
+division with no eligible home-state finisher awards no champion prize. When results are in, `winnersFrom` and the
+winner survey invites use the same rules, sized by how many competitors placed in each division. Add a division
+(for example the Sport brackets in #81) and the total follows.
+
 ## 5. Config and environments
 
 All config is env vars; `.env.local.example` lists every name with notes. Production values live

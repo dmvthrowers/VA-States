@@ -4,7 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminRequest } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
 import { sendSurveyInviteBatch, type SurveyInviteRecipient } from '@/lib/email';
-import { contest } from '@/contest.config';
+import { competition, contest } from '@/contest.config';
+import { prizeRules } from '@/lib/prizes';
 import { fetchHomeStateEligible, fetchStandings, winnersFrom, type Winner } from '@/lib/standings';
 
 // Resend batch sends ~100 emails per request; give a few hundred room to finish.
@@ -48,7 +49,11 @@ async function loadWinners(): Promise<Winner[]> {
   const supabase = createAdminClient();
   const [standings, eligible] = await Promise.all([fetchStandings(supabase), fetchHomeStateEligible(supabase, contest.stateChampion.state)]);
   // Each division's home-state champion has a prize of their own, so they get the winner survey too.
-  return winnersFrom(standings, { state: contest.stateChampion.state, eligible });
+  return winnersFrom(
+    standings,
+    { state: contest.stateChampion.state, eligible },
+    prizeRules(competition.divisions, { places: contest.prizes.places, championState: contest.stateChampion.state }),
+  );
 }
 
 async function loadRecipients(audience: Audience, winners: Winner[]): Promise<SurveyInviteRecipient[]> {

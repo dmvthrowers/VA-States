@@ -55,6 +55,15 @@ export const contest = {
     title: 'VA State Champion',
   },
 
+  /**
+   * Prizes. `places` is how many podium places win a prize in each division (1st to Nth, ties
+   * included). A division can change that with its own `prizes` (by how many entered) or turn off
+   * its champion prize. The home-state champion's prize (above) is on top of the podium.
+   */
+  prizes: {
+    places: 3,
+  },
+
   presentedBy: {
     name: 'Goodles',
     url: '',
