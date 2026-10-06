@@ -38,10 +38,10 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 
 ## Next (code, this quarter)
 
-6. **Handle Stripe disputes.** No `charge.dispute.*` handler: a chargeback leaves the
-   registration `paid=true` and nobody is alerted. Add `charge.dispute.created` (and
-   `.closed`): audit log, email `ADMIN_ALERT_EMAIL`, flag in `vsyc_payment_flags`. Subscribe the
-   event in Stripe. Pure-logic test like `stripe-refund.test.mjs`.
+6. **Stripe disputes: built, needs two owner steps.** `charge.dispute.created` / `.closed` open and
+   close a flag in `vsyc_payment_flags`, write the audit log and email `ADMIN_ALERT_EMAIL`; the
+   registration is never changed automatically. To go live: apply migration 0046, then subscribe
+   the two events on the Stripe webhook endpoint. Details: `docs/STRIPE_PAYMENTS.md`.
 7. **Music (site issue #79): built, waiting on three owner steps.** Tracks per slot (rounds,
    battles), replace confirmation, lo-fi fallback, per-division reminders, routine length and the
    DJ timer are done (PRs #64/#65; run migration 0044 first). Still to do: put cleared lo-fi tracks
