@@ -66,7 +66,7 @@ function Battles({ token, name, signOut }: { token: string; name: string; signOu
 
 export default function JudgeBattlesPage() {
   return (
-    <BracketStaffGate title="Battle Judging" roles={['judge']}>
+    <BracketStaffGate title="Battle Judging" roles={['judge', 'admin']}>
       {({ token, staff, signOut }) => (
         <Suspense fallback={null}>
           <Battles token={token} name={staff.display_name} signOut={signOut} />

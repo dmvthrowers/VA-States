@@ -5,6 +5,8 @@ import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { logAudit } from '@/lib/audit';
 import type { OutboxEmail } from '@/lib/email';
 import { enqueueEmails } from '@/lib/outbox';
+import { fetchAllTeamMemberships, type TeamSummary } from '@/lib/team-entries';
+import { competition } from '@/contest.config';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowers.club';
 
@@ -53,6 +55,15 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
   const rows = registrations ?? [];
 
+  // Teams each registrant is on, so captains get their join code again (best-effort: the
+  // resend still goes out without them).
+  let teamsByReg: Record<string, TeamSummary[]> = {};
+  try {
+    teamsByReg = await fetchAllTeamMemberships(supabase, competition);
+  } catch (e) {
+    console.error('[resend-confirmations] teams lookup failed:', e);
+  }
+
   if (dryRun) {
     return NextResponse.json(
       {
@@ -81,6 +92,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       confirmUrl: `${BASE_URL}/confirm?id=${reg.id}`,
       musicUploadUrl: reg.music_upload_token ? `${BASE_URL}/upload?token=${reg.music_upload_token}` : undefined,
       registrationId: reg.id,
+      teams: teamsByReg[reg.id] ?? [],
     };
     emails.push({ template: 'confirmation', params });
     if (reg.age_on_event < 18 && reg.parent_email && reg.parent_email.toLowerCase() !== reg.email.toLowerCase()) {
