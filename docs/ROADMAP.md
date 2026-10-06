@@ -71,7 +71,7 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
   VSYC yet: it needs a bracket division with `music: { routine: false, extra: [...] }`.
 - Sport division split Youth/Adult when Sport has more than 15 players (#81, rule decided).
 - Capture Virginia-champion eligibility at registration (#82).
-- Judging portal: live score status, head-judge lock/unlock, audit log (#83).
+- Judging portal (#83): **live score status and a ready-to-publish check are built** (read-only, never blocks a publish). Still waiting on the judges' debrief the issue asks for before building head-judge lock/unlock, structured deduction notes, offline-tolerant submission and category breakdowns.
 - Public idea board at `/ideas` — spec in `docs/specs/idea-board.md`.
 
 ## Season archive and purge (plan for the 2026 → 2027 rollover)
