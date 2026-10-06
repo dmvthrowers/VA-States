@@ -184,7 +184,8 @@ Spec and open decisions: `docs/specs/season-archive.md`. Order of work:
 4. **Reset** — bump the season in `contest.config.ts`, re-sync divisions, clear event flags and
    comp codes, point music at a new bucket, apply the 2027 `roundPlan`.
 
-Not started. Needs the retention decisions in the spec first (payment and waiver records).
+Freeze and verify are built (`npm run archive`, `npm run archive:verify`; see the spec for how to run them). Purge and reset
+are not started and need the retention decisions in the spec first (payment and waiver records).
 
 ## Later (separate projects — don't bundle)
 

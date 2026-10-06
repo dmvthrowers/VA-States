@@ -26,3 +26,6 @@ Thumbs.db
 
 # build output
 build.log
+
+# season archive output goes to the club site repo as a PR, never into this repo
+/archive/
