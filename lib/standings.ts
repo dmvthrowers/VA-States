@@ -26,7 +26,7 @@ export type Division = string;
 export const DIVISIONS: { code: Division; label: string }[] =
   competition.divisions.map((d) => ({ code: d.code, label: d.name }));
 
-/** Places that win prizes (and get the winner survey). */
+/** Default podium places that win prizes (and get the winner survey); contest.prizes and a division's own `prizes` can change it, see lib/prizes.ts. */
 export const PRIZE_PLACES = 3;
 
 export interface StandingRow {
@@ -455,16 +455,19 @@ export interface Winner {
 export function winnersFrom(
   standings: Record<Division, DivisionStandings>,
   champions?: { state: string; eligible?: ReadonlySet<string> | null },
+  /** Prize rules (lib/prizes.ts prizeRules): podium size by division and entrants, and who has the champion prize. Default: PRIZE_PLACES everywhere. */
+  prizes?: { places: (division: string, entrants: number) => number; champion: (division: string) => boolean },
 ): Winner[] {
   return Object.entries(standings).flatMap(([code, s]) => {
     if (s.format === 'showcase') return [];
-    const out: Winner[] = s.final.filter((r) => r.place <= PRIZE_PLACES).map((r) => ({
+    const places = prizes ? prizes.places(code, s.final.length) : PRIZE_PLACES;
+    const out: Winner[] = s.final.filter((r) => r.place <= places).map((r) => ({
       registration_id: r.registration_id,
       display_name: r.display_name,
       division: code,
       place: r.place,
     }));
-    if (champions) {
+    if (champions && (prizes?.champion(code) ?? true)) {
       for (const c of stateChampions(s.final, champions.state, champions.eligible ?? undefined)) {
         const on = out.find((w) => w.registration_id === c.registration_id);
         if (on) on.champion = true;

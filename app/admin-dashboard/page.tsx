@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import RunOrderManager from '@/components/RunOrderManager';
+import PrizePlanPanel from '@/components/PrizePlanPanel';
 import MusicManager from '@/components/MusicManager';
 import VolunteerManager from '@/components/VolunteerManager';
 import BudgetManager from '@/components/BudgetManager';
@@ -939,6 +940,8 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
             </section>
+
+            {token && <PrizePlanPanel token={token} />}
 
             <section className="border border-navy-border bg-navy p-4 mb-8">
               <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
