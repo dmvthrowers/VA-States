@@ -38,10 +38,10 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 
 ## Next (code, this quarter)
 
-6. **Handle Stripe disputes.** No `charge.dispute.*` handler: a chargeback leaves the
-   registration `paid=true` and nobody is alerted. Add `charge.dispute.created` (and
-   `.closed`): audit log, email `ADMIN_ALERT_EMAIL`, flag in `vsyc_payment_flags`. Subscribe the
-   event in Stripe. Pure-logic test like `stripe-refund.test.mjs`.
+6. **Stripe disputes: built, needs two owner steps.** `charge.dispute.created` / `.closed` open and
+   close a flag in `vsyc_payment_flags`, write the audit log and email `ADMIN_ALERT_EMAIL`; the
+   registration is never changed automatically. To go live: apply migration 0046, then subscribe
+   the two events on the Stripe webhook endpoint. Details: `docs/STRIPE_PAYMENTS.md`.
 7. **Music (site issue #79): built, waiting on three owner steps.** Tracks per slot (rounds,
    battles), replace confirmation, lo-fi fallback, per-division reminders, routine length and the
    DJ timer are done (PRs #64/#65; run migration 0044 first). Still to do: put cleared lo-fi tracks
@@ -69,7 +69,6 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
   run of show (#84), and the schedule items for semi-finals.
 - Battles on `/dj`: **built** (cue the live match, play both entrants' battle tracks). Not used by
   VSYC yet: it needs a bracket division with `music: { routine: false, extra: [...] }`.
-- Sport division split Youth/Adult when Sport has more than 15 players (#81, rule decided).
 - Virginia State Champion per division (#82): **built** (home-address residency at registration, DC as its own state, per-division champion on `/results`, prize/survey list, admin override and filter; migration 0047). Not done: publish the rule on the site's rules page, and confirm the prize count once the division list is locked (3 divisions × (3 podium + 1 champion) = 12).
 - Judging portal (#83): **live score status and a ready-to-publish check are built** (read-only, never blocks a publish). Still waiting on the judges' debrief the issue asks for before building head-judge lock/unlock, structured deduction notes, offline-tolerant submission and category breakdowns.
 - Public idea board at `/ideas` — spec in `docs/specs/idea-board.md`.

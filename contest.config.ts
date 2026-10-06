@@ -263,6 +263,12 @@ export interface DivisionDef {
   entry?: EntryDef;
   /** Rounds for freestyle, panel and manual divisions. Default: one round. */
   rounds?: RoundDef[];
+  /**
+   * Split a big division by age: with more than `above` entrants it can split into a younger and an
+   * older bracket, each with its own podium, provided both have at least `minBracket` players (a floor only: a bracket can be as large as it needs). Age is
+   * age on contest day. The organizer sees a preview and chooses the cut; the app only suggests one.
+   */
+  split?: { above: number; minBracket: number; labels: [string, string] };
   /** Which rounds run, by how many entered. Needs `rounds`. Without it every round always runs. */
   roundPlan?: RoundTier[];
   /**
@@ -335,6 +341,8 @@ export const competition: {
       priceCents: 2000,
       music: true,
       cannotCombineWith: ['1A', 'X'],
+      // #81: more than 15 players may split into Youth and Adult brackets (preview only for now).
+      split: { above: 15, minBracket: 5, labels: ['Youth', 'Adult'] },
       routineSeconds: 90,
       scoring: { format: 'freestyle', techCap: 20, evalCap: 20, negativeClicks: false, deductions: null },
     },

@@ -116,6 +116,36 @@ Dashboard (Developers → Webhooks → endpoint → Select events). Test in test
 `stripe trigger charge.refunded` or by refunding a test-mode payment. Never test with
 live refunds.
 
+## Disputes and chargebacks (`charge.dispute.created`, `charge.dispute.closed`)
+
+A customer's bank can dispute a payment. Stripe holds the money and gives the organizer a
+deadline to respond with evidence; missing it loses the dispute. Handler:
+`lib/stripe-dispute-server.ts` (decisions in `lib/stripe-dispute.ts`, tested). It **never changes
+the registration**: whether to fight it, refund, or unregister someone is a person's call, and an
+open inquiry shouldn't cost a competitor their spot.
+
+| Event | What happens | Audit action |
+| --- | --- | --- |
+| `charge.dispute.created` | A `vsyc_payment_flags` row (`kind = 'dispute'`, keyed by `dispute_id`, with reason, amount, evidence deadline and the disputed payment intent), plus an alert email to `ADMIN_ALERT_EMAIL` with the deadline and a Stripe Dashboard link | `payment_disputed` |
+| `charge.dispute.closed`, won | Flag resolved; email says the money came back | `payment_dispute_closed` (`outcome: won`) |
+| `charge.dispute.closed`, lost | Flag **stays open** with a note; email says the money went back to the customer and the registration is still marked paid. Decide whether it stays that way (admin "mark unpaid"), then resolve the flag | `payment_dispute_closed` (`outcome: lost`) |
+| `charge.dispute.closed`, `warning_closed` | Early-warning inquiry ended without a chargeback: flag resolved, no email | `payment_dispute_closed` |
+
+Replays are safe (`dispute_id` is unique; alerts use dedupe keys). A dispute whose payment isn't
+in the database still gets a flag and an alert (registration shown as unknown). If the created
+event was missed, the closed event records the flag itself. Schema: migration 0046 (new columns on
+`vsyc_payment_flags`). `charge.dispute.updated` and the funds events are ignored.
+
+**Deploy step:** apply migration 0046, then add `charge.dispute.created` and
+`charge.dispute.closed` to the webhook endpoint's events in the Stripe Dashboard. Test in test
+mode: `stripe trigger charge.dispute.created`.
+
+```sql
+-- Open disputes, soonest deadline first
+select dispute_id, dispute_reason, amount_cents, evidence_due_by, registration_id
+  from vsyc_payment_flags where kind = 'dispute' and status = 'open' order by evidence_due_by;
+```
+
 ## Confirmation, reconciliation and duplicate payments (Oct 2026)
 
 VSYC-26 had a double payment and missing confirmations. Since migrations
@@ -151,14 +181,11 @@ VSYC-26 had a double payment and missing confirmations. Since migrations
    Supabase Vault:
    `select vault.create_secret('<CRON_SECRET>', 'vsyc_cron_secret');`
 3. In Stripe → Webhooks, make sure the endpoint sends
-   `checkout.session.completed`, `checkout.session.async_payment_succeeded`
-   and `charge.refunded`.
+   `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+   `charge.refunded`, `charge.dispute.created` and `charge.dispute.closed`.
 
 ### Not handled yet
 
-- **Disputes / chargebacks** (`charge.dispute.*`): no handler. A dispute leaves the
-  registration `paid=true` and nobody is alerted — watch the Stripe Dashboard. Tracked in
-  `docs/ROADMAP.md`.
 - **Previews:** preview deployments are off (`vercel.json`), so there's no preview webhook
   endpoint. Test locally with Stripe test keys and `stripe listen`.
 
