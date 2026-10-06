@@ -28,7 +28,7 @@ async function main() {
 
   const { divisions, meta, restrictedLegalNames } = await loadArchiveInputs(season);
   const data = buildArchiveData(divisions, meta);
-  const files = renderArchive(data, { championTitle: meta.championTitle, template });
+  const files = renderArchive(data, { championTitle: meta.championTitle, template, siteBase: contest.organizer.url, stylesheet: 'assets/css/vsyc26.css' });
 
   // Refuse to write anything that fails its own checks.
   const problems = [...compareCounts(divisions, data), ...scanForPrivateData(files, restrictedLegalNames, [contest.contactEmail, ...(template ? emailsIn(template) : [])])];

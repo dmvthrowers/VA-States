@@ -141,7 +141,7 @@ ${items}
 }
 
 /** A complete page when no site template is given. A site template (header, nav, footer) wraps the same main content. */
-export function standalonePage(title: string, main: string): string {
+export function standalonePage(title: string, main: string, stylesheet?: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -149,7 +149,7 @@ export function standalonePage(title: string, main: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <base href="/"/>
   <title>${esc(title)}</title>
-  <link rel="stylesheet" href="assets/css/vsyc26.css"/>
+${stylesheet ? `  <link rel="stylesheet" href="${esc(stylesheet)}"/>\n` : ''}
 </head>
 <body>
 <main id="main-content" role="main">
@@ -161,7 +161,7 @@ ${main}
 }
 
 /** Put generated main content inside a site page: everything outside <main> (head, nav, footer) is kept. */
-export function wrapInTemplate(template: string, title: string, canonicalPath: string, main: string): string {
+export function wrapInTemplate(template: string, title: string, canonicalUrl: string, main: string): string {
   const open = template.search(/<main[^>]*>/);
   const close = template.lastIndexOf('</main>');
   if (open < 0 || close < 0 || close < open) throw new Error('The site template has no <main> element.');
@@ -170,8 +170,8 @@ export function wrapInTemplate(template: string, title: string, canonicalPath: s
   const tail = template.slice(close);
   head = head
     .replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(title)}</title>`)
-    .replace(/(<link rel="canonical" href=")[^"]*(")/, `$1https://dmvthrowers.club/${canonicalPath}$2`)
-    .replace(/(<meta property="og:url" content=")[^"]*(")/, `$1https://dmvthrowers.club/${canonicalPath}$2`)
+    .replace(/(<link rel="canonical" href=")[^"]*(")/, `$1${canonicalUrl}$2`)
+    .replace(/(<meta property="og:url" content=")[^"]*(")/, `$1${canonicalUrl}$2`)
     // one structured-data block per page; the template's describes a different page
     .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>\s*/g, '');
   return `${head}\n${main}\n${tail}`;
@@ -180,11 +180,12 @@ export function wrapInTemplate(template: string, title: string, canonicalPath: s
 /** Every file of the archive, keyed by path relative to the output folder. */
 export function renderArchive(
   data: ArchiveData,
-  opts: { championTitle?: string; template?: string } = {},
+  opts: { championTitle?: string; template?: string; /** Public address of the site, e.g. "https://example.org/" (used for canonical links) */ siteBase?: string; stylesheet?: string } = {},
 ): Record<string, string> {
+  const base = (opts.siteBase ?? '').replace(/\/?$/, '/');
   const files: Record<string, string> = {};
   const wrap = (title: string, path: string, main: string) =>
-    opts.template ? wrapInTemplate(opts.template, title, path, main) : standalonePage(title, main);
+    opts.template ? wrapInTemplate(opts.template, title, `${base}${path}`, main) : standalonePage(title, main, opts.stylesheet);
   files['results.json'] = JSON.stringify(data, null, 2) + '\n';
   files['index.html'] = wrap(`${data.shortName} Results`, `archive/${data.season}/index.html`, indexMain(data));
   for (const d of data.divisions) {
