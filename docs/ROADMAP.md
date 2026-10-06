@@ -73,6 +73,16 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 - Judging portal (#83): **live score status and a ready-to-publish check are built** (read-only, never blocks a publish). Still waiting on the judges' debrief the issue asks for before building head-judge lock/unlock, structured deduction notes, offline-tolerant submission and category breakdowns.
 - Public idea board at `/ideas` — spec in `docs/specs/idea-board.md`.
 
+## Finance and budget upgrade (planned)
+
+Today's budget is flat income and expense entries in three categories, one fundraising goal and a public
+transparency page. The plan is a proper budgeting tool: plan versus actual by category and line, break-even
+forecast from the price list and prize plan, expenses with vendors and receipts and reimbursements, income fed
+from registrations, merch and sponsors (net of fees, refunds and disputes), cash flow and deadlines, per-event
+budgets and copy-forward, and statements and accountant exports. It is a role (`finance`) so a treasurer can run
+it without full admin. The full design and stages are in the registration template's `docs/HUB_ROADMAP.md`
+("Finance and budget"); this app gets it when it lands there and is safe for the live contest.
+
 ## Season archive and purge (plan for the 2026 → 2027 rollover)
 
 Once VSYC-26 is archived (about a month after the event) the app should turn itself over for the
