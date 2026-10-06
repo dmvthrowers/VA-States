@@ -164,6 +164,14 @@ all resolve the track per division (`lib/music.ts` has the pure helpers). The ol
 (`vsyc_registrations.music_path` / `music_filename`) is no longer read; a later migration drops
 it. `vsyc_registrations.music_uploaded_at` is kept current by a trigger ("has a real track").
 
+Empty slots: the admin dashboard's **Music** tab shows slots per division, sends per-division
+reminder emails (`/api/admin/music-reminders`, dry-run by default, once a day per person and set
+of divisions, before the deadline) and assigns a random lo-fi track to every still-empty slot
+(`/api/admin/music-fallback`, dry-run by default, after the deadline unless forced, never
+overwrites a track). The lo-fi pool is the `lofi/` folder of the `vsyc26-music` bucket: put only
+tracks you have the right to play there. A fallback is a `vsyc_music` row with `source =
+'fallback'`; staff see "LO-FI (no upload)", and a player's own upload replaces it.
+
 ## 5. Config and environments
 
 All config is env vars; `.env.local.example` lists every name with notes. Production values live

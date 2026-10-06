@@ -29,6 +29,7 @@ export interface RenderedEmail {
 export type OutboxEmail =
   | { template: 'confirmation'; params: ConfirmationParams }
   | { template: 'music_received'; params: MusicReceivedParams }
+  | { template: 'music_reminder'; params: MusicReminderParams }
   | { template: 'payment_reminder'; params: PaymentReminderParams }
   | { template: 'payment_received'; params: PaymentReceivedParams }
   | { template: 'spectator_confirmation'; params: SpectatorConfirmationParams }
@@ -41,6 +42,7 @@ export function renderEmail(e: OutboxEmail): RenderedEmail {
   switch (e.template) {
     case 'confirmation': return renderConfirmation(e.params);
     case 'music_received': return renderMusicReceived(e.params);
+    case 'music_reminder': return renderMusicReminder(e.params);
     case 'payment_reminder': return renderPaymentReminder(e.params);
     case 'payment_received': return renderPaymentReceived(e.params);
     case 'spectator_confirmation': return renderSpectatorConfirmation(e.params);
@@ -135,6 +137,56 @@ function renderMusicReceived(p: MusicReceivedParams): RenderedEmail {
     subject: `Music received for VSYC-26 — ${p.firstName}`,
     html: buildMusicReceivedHtml(p),
     text: buildMusicReceivedText(p),
+  };
+}
+
+export interface MusicReminderParams {
+  to: string;
+  /** Parent or guardian of a minor */
+  cc?: string[];
+  firstName: string;
+  /** Division codes that still have no track */
+  divisions: string[];
+  uploadUrl: string;
+  deadlineLabel: string;
+  /** Say that an empty slot gets a lo-fi track (only when the lo-fi pool exists) */
+  lofiFallback: boolean;
+}
+
+function renderMusicReminder(p: MusicReminderParams): RenderedEmail {
+  const names = p.divisions.map((d) => divisionByCode(d)?.name ?? d);
+  const list = joinDivisions(p.divisions);
+  const fallback = p.lofiFallback
+    ? 'If a division is still empty at the deadline, a lo-fi track plays for that routine instead.'
+    : 'If a division is still empty at the deadline, we cannot play music for that routine.';
+  return {
+    to: p.to,
+    ...(p.cc?.length ? { cc: p.cc } : {}),
+    subject: `Music reminder for VSYC-26 — ${p.firstName}, ${list} still needs a track`,
+    html: emailWrap(`
+    <h1 style="font-family:Georgia,serif;font-size:1.6rem;color:#C9A84C;margin:0 0 8px;">Music Reminder</h1>
+    <p style="font-size:0.9rem;margin:0 0 24px;">Hey ${esc(p.firstName)} — we don't have music for ${esc(list)} yet.</p>
+    <div style="background:#0d1428;padding:20px;margin-bottom:16px;">
+      <div style="font-size:0.6rem;letter-spacing:0.16em;color:#C9A84C;font-weight:800;margin-bottom:12px;">STILL NEEDED</div>
+      ${names.map((n) => `<div style="font-size:0.85rem;margin-bottom:6px;color:#fff;">${esc(n)}</div>`).join('')}
+      <div style="font-size:0.85rem;margin-top:12px;"><strong style="color:#fff;">Deadline:</strong> ${esc(p.deadlineLabel)}</div>
+      <a href="${p.uploadUrl}" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:12px 24px;text-decoration:none;margin-top:12px;">UPLOAD MUSIC →</a>
+    </div>
+    <p style="font-size:0.82rem;color:#6a7a9a;">You upload one track for each division you entered. ${esc(fallback)}</p>
+  `),
+    text: [
+      `Music Reminder — VSYC-26`,
+      ``,
+      `Hey ${p.firstName} — we don't have music for ${list} yet.`,
+      ``,
+      `Still needed: ${names.join('; ')}`,
+      `Deadline: ${p.deadlineLabel}`,
+      `Upload: ${p.uploadUrl}`,
+      ``,
+      `You upload one track for each division you entered. ${fallback}`,
+      ``,
+      `Questions? Reply to this email or contact contact@dmvthrowers.club`,
+    ].join('\n'),
   };
 }
 

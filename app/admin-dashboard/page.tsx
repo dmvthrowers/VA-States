@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import RunOrderManager from '@/components/RunOrderManager';
+import MusicManager from '@/components/MusicManager';
 import VolunteerManager from '@/components/VolunteerManager';
 import BudgetManager from '@/components/BudgetManager';
 import SurveyResults from '@/components/SurveyResults';
@@ -138,7 +139,7 @@ export default function AdminDashboardPage() {
 
   const [contestantQuery, setContestantQuery] = useState('');
   const [spectatorQuery, setSpectatorQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'run-order' | 'volunteers' | 'budget' | 'surveys'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'run-order' | 'music' | 'volunteers' | 'budget' | 'surveys'>('overview');
 
   const fetchStaffMe = async (accessToken: string): Promise<StaffMe | null> => {
     const res = await fetch('/api/staff/me', {
@@ -619,7 +620,7 @@ export default function AdminDashboardPage() {
         </header>
 
         <nav className="flex gap-2 mb-6 border-b border-navy-border overflow-x-auto">
-          {(['overview', 'run-order', 'volunteers', 'budget', 'surveys'] as const).map((tab) => (
+          {(['overview', 'run-order', 'music', 'volunteers', 'budget', 'surveys'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -628,7 +629,7 @@ export default function AdminDashboardPage() {
                 activeTab === tab ? 'border-gold text-gold' : 'border-transparent text-text-muted hover:text-text-body'
               }`}
             >
-              {tab === 'overview' ? 'Overview' : tab === 'run-order' ? 'Run Order' : tab === 'volunteers' ? 'Volunteers' : tab === 'budget' ? 'Budget' : 'Surveys'}
+              {tab === 'overview' ? 'Overview' : tab === 'run-order' ? 'Run Order' : tab === 'music' ? 'Music' : tab === 'volunteers' ? 'Volunteers' : tab === 'budget' ? 'Budget' : 'Surveys'}
             </button>
           ))}
         </nav>
@@ -638,6 +639,12 @@ export default function AdminDashboardPage() {
         {activeTab === 'run-order' && token && (
           <section className="border border-navy-border bg-navy p-4">
             <RunOrderManager token={token} />
+          </section>
+        )}
+
+        {activeTab === 'music' && token && (
+          <section className="border border-navy-border bg-navy p-4">
+            <MusicManager token={token} />
           </section>
         )}
 
