@@ -142,9 +142,21 @@ data, not form data, so it should be imported into the sponsor pipeline as prosp
 status "prospect") rather than kept in a PDF. It contains third-party contact details, so import it only into the
 admin-only pipeline, never into anything public.
 
-Open: whether to show prices and remaining slots on the public form, whether sponsors ever pay online (Stripe)
-or always by PayPal invoice as in the package, which address gets the notice (the package uses
-vastateyoyocontest@gmail.com), and which domain serves the form (the registration subdomain or a path on it).
+**Decided (2026-10-06):** the form shows each tier's price and how many slots are left; sponsors pay whichever way is
+easiest for them (the form only records how they would like to pay, and an invoice or link is sent after review, so
+there is no online checkout to build); notices go to the VSYC inbox (`vastateyoyocontest@gmail.com`, set as
+`SPONSOR_NOTICE_EMAIL`); and the form lives on the club's domain like the other tools, at
+`register.dmvthrowers.club/sponsor`, with the club site's sponsors page linking to it (replacing the JotForm embed,
+site issue #77).
+
+**Status:** built in the registration template (PR #40: form, review and convert, slots left, notices). The live app
+gets it by porting that PR; this app then needs migration 0048 and the notice address set in Vercel.
+
+**Still open for VSYC-27:** next year's tiers, prices and slot caps (the 2026 ones are above); whether an inquiry
+should hold a slot for a few days; table add-on with a cap and the hobby-club price; brand team player names now or
+after commitment; logo as a link or a real upload; permission to show the name publicly; shipping from outside the US;
+whether the club is a registered nonprofit (receipts and in-kind letters); refund and payment-term wording on the form;
+how long to keep dismissed inquiries. The full list is in the template's `docs/SPONSOR_FORM.md`.
 
 Beyond the sponsor form, the same shape is meant to carry every public form (vendor and merch-table
 applications, volunteer interest, media requests, feedback): forms defined in config, one public page, one
