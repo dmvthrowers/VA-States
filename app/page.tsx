@@ -379,6 +379,11 @@ export default function RegisterPage() {
     }
   };
 
+  // After the online cutoff the form can't be submitted (the API refuses it), so don't show it.
+  if (Date.now() > new Date(contest.deadlines.onlineRegistration).getTime()) {
+    return <RegistrationClosed />;
+  }
+
   return (
     <>
       <NavBar activePage="register" />
@@ -1248,3 +1253,27 @@ function SectionHeader({ tag, title }: { tag: string; title: string }) {
 }
 
 const stateName = (code: string) => US_STATES.find((x) => x.code === code)?.name ?? code;
+
+function RegistrationClosed() {
+  return (
+    <>
+      <NavBar activePage="register" />
+      <main id="main-content" className="max-w-3xl mx-auto px-4 py-16">
+        <span className="inline-block bg-gold text-navy-deep text-xs font-black tracking-widest px-3 py-1 mb-3">{contest.shortName}</span>
+        <h1 className="font-display font-black text-4xl text-gold mb-4">Registration Is Closed</h1>
+        <p className="text-text-body leading-relaxed mb-3">
+          Thank you to every competitor who registered and took the stage at {contest.name} on {longDate()}.
+        </p>
+        <p className="text-text-body leading-relaxed mb-8">
+          See how the day went, or come throw with us at a free {contest.organizer.name} meetup. Questions? Email{' '}
+          <a className="text-gold underline" href={`mailto:${contest.contactEmail}`}>{contest.contactEmail}</a>.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <a href="/results" className="inline-block bg-gold text-navy-deep text-xs font-black tracking-caps px-5 py-3 hover:bg-gold-light transition-colors">SEE THE RESULTS →</a>
+          <a href={contest.organizer.url} className="inline-block border border-gold text-gold text-xs font-black tracking-caps px-5 py-3 hover:bg-gold hover:text-navy-deep transition-colors">VISIT {contest.organizer.name.toUpperCase()} →</a>
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}
