@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { divisionByCode } from '@/contest.config';
 import { buildSlots, type MusicTrack } from '@/lib/music';
+import { divisionName, slotsOf } from '@/lib/music-config';
 
 const profileUpdateSchema = z.object({
   preferred_bracket_name: z.string().trim().max(50).optional().or(z.literal('')),
@@ -63,7 +63,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   // One slot per division that uses music: uploaded, a lo-fi fallback, or still empty.
   const { data: tracks } = await supabase
     .from('vsyc_music')
-    .select('division, object_name, filename, source, is_fallback, uploaded_at')
+    .select('division, slot, object_name, filename, source, is_fallback, uploaded_at')
     .eq('registration_id', reg.id);
 
   return NextResponse.json(
@@ -72,8 +72,8 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       music_slots: buildSlots(
         reg.divisions as string[],
         (tracks ?? []) as MusicTrack[],
-        (code) => divisionByCode(code)?.music === true,
-        (code) => divisionByCode(code)?.name ?? code,
+        slotsOf,
+        divisionName,
       ),
       can_upload_music: canUploadMusic,
       music_upload_url: canUploadMusic ? `${BASE_URL}/upload?token=${reg.music_upload_token}` : null,

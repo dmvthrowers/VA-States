@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
-import type { MusicSlot } from '@/lib/music';
+import { slotTitle, type MusicSlot } from '@/lib/music';
 
 const ACCEPTED = '.mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a';
 const MAX_MB = 128;
@@ -42,6 +42,9 @@ function SlotCard({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const hasOwnTrack = slot.status === 'uploaded';
+  const title = slotTitle(slot);
+  // What buttons and messages call this track: "1A", or "1A Prelims" when a division has several.
+  const short = slot.labelled ? `${slot.division} ${slot.label}` : slot.division;
 
   const handleFile = useCallback((f: File) => {
     if (f.size > MAX_MB * 1024 * 1024) {
@@ -61,7 +64,7 @@ function SlotCard({
     let replace = false;
     if (hasOwnTrack) {
       replace = window.confirm(
-        `Replace ${slot.track?.filename ?? 'your current track'} with ${file.name} for ${slot.division}? The old track is removed.`,
+        `Replace ${slot.track?.filename ?? 'your current track'} with ${file.name} for ${short}? The old track is removed.`,
       );
       if (!replace) return;
     }
@@ -78,6 +81,7 @@ function SlotCard({
         body: JSON.stringify({
           action: 'sign',
           division: slot.division,
+          slot: slot.slot,
           filename: file.name,
           size: file.size,
           type: file.type || 'audio/mpeg',
@@ -109,7 +113,7 @@ function SlotCard({
       const confirmRes = await fetch(`/api/upload?token=${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'confirm', division: slot.division, filename }),
+        body: JSON.stringify({ action: 'confirm', division: slot.division, slot: slot.slot, filename }),
       });
       const confirmBody = await confirmRes.json().catch(() => ({}));
       if (!confirmRes.ok) throw errorText(confirmBody, 'Upload confirmation failed');
@@ -128,11 +132,11 @@ function SlotCard({
 
   return (
     <section
-      aria-labelledby={`slot-${slot.division}`}
+      aria-labelledby={`slot-${slot.division}-${slot.slot}`}
       style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1.5rem', marginBottom: '1.5rem' }}
     >
-      <h2 id={`slot-${slot.division}`} style={{ fontFamily: "'Playfair Display', serif", color: 'var(--gold)', fontSize: '1.3rem', margin: '0 0 0.5rem' }}>
-        {slot.name}
+      <h2 id={`slot-${slot.division}-${slot.slot}`} style={{ fontFamily: "'Playfair Display', serif", color: 'var(--gold)', fontSize: '1.3rem', margin: '0 0 0.5rem' }}>
+        {title}
       </h2>
 
       {slot.status === 'uploaded' && slot.track && (
@@ -147,14 +151,14 @@ function SlotCard({
         </p>
       )}
       {slot.status === 'empty' && (
-        <p style={{ color: '#ff6b6b', fontSize: '0.9rem', margin: '0 0 1rem' }}>Nothing uploaded yet for {slot.division}.</p>
+        <p style={{ color: '#ff6b6b', fontSize: '0.9rem', margin: '0 0 1rem' }}>Nothing uploaded yet for {short}.</p>
       )}
 
       <form onSubmit={handleSubmit}>
         <div
           role="button"
           tabIndex={0}
-          aria-label={`Drop the ${slot.division} music file here or click to browse`}
+          aria-label={`Drop the ${short} music file here or click to browse`}
           onClick={() => { if (!locked) inputRef.current?.click(); }}
           onKeyDown={(e) => { if (!locked && (e.key === 'Enter' || e.key === ' ')) inputRef.current?.click(); }}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -195,7 +199,7 @@ function SlotCard({
         )}
         {state === 'done' && (
           <p role="status" style={{ color: '#7fff7f', margin: '0 0 1rem', fontSize: '0.9rem', fontWeight: 700 }}>
-            ✓ {slot.division} track saved. A confirmation email is on its way.
+            ✓ {short} track saved. A confirmation email is on its way.
           </p>
         )}
 
@@ -224,7 +228,7 @@ function SlotCard({
             width: '100%',
           }}
         >
-          {busy ? 'Uploading…' : hasOwnTrack ? `Replace ${slot.division} track` : `Submit ${slot.division} track`}
+          {busy ? 'Uploading…' : hasOwnTrack ? `Replace ${short} track` : `Submit ${short} track`}
         </button>
       </form>
     </section>
@@ -280,7 +284,7 @@ function UploadContent() {
           Music Upload
         </h1>
         <p style={{ color: 'var(--text-body)', marginTop: 0, marginBottom: '0.5rem' }}>
-          Upload one track for each division you entered. Accepted: MP3, WAV, M4A · Max {MAX_MB} MB
+          Upload one track for each slot below (a division can ask for music per round, or for extras like battle music). Accepted: MP3, WAV, M4A · Max {MAX_MB} MB
         </p>
         {status && (
           <p style={{ color: 'var(--text-body)', marginTop: 0, marginBottom: '2rem', fontSize: '0.9rem' }}>
@@ -347,7 +351,7 @@ function UploadContent() {
 
             {status.slots.map((slot) => (
               <SlotCard
-                key={slot.division}
+                key={`${slot.division}:${slot.slot}`}
                 slot={slot}
                 token={token}
                 rulesAccepted={rulesAccepted}

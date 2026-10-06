@@ -3,9 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
 import RunOrderManager from '@/components/RunOrderManager';
+import DjBattleView from '@/components/DjBattleView';
+import { DIVISION_CODES, divisionByCode } from '@/contest.config';
+import { formatRoutineTime } from '@/lib/divisions-core';
+import { roundTabs } from '@/lib/round-plan';
+import { useRoundPlans } from '@/lib/use-round-plans';
 
-const DIVISIONS = ['1A', 'X', 'SBJ'] as const;
-type Division = typeof DIVISIONS[number];
+const DIVISIONS = DIVISION_CODES;
+type Division = string;
+const isBattleDivision = (code: string) => divisionByCode(code)?.scoring.format === 'bracket';
 
 interface Performer {
   position: number;
@@ -22,6 +28,13 @@ interface Performer {
 
 interface RunOrderResponse {
   division: Division;
+  round?: number;
+  /** Round names; more than one means the division has rounds */
+  rounds?: string[];
+  /** How long a routine runs in this round, when the config says */
+  routine_seconds?: number | null;
+  /** Which of a player's tracks this round plays: 'main', a round's key, or an extra such as 'battle' */
+  music_slot?: string | null;
   source: 'run_order' | 'registration_order';
   performers: Performer[];
 }
@@ -43,8 +56,20 @@ export default function DJPage() {
   const [staff, setStaff] = useState<StaffMe | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  const [division, setDivision] = useState<Division>('1A');
+  const [division, setDivision] = useState<Division>(DIVISIONS[0]);
+  const [round, setRound] = useState(1);
+  const plans = useRoundPlans();
+  const tabs = roundTabs(divisionByCode(division), plans[division]);
+  const firstRound = tabs[0]?.round;
+  const onRunningRound = tabs.some((t) => t.round === round);
+  useEffect(() => {
+    if (firstRound !== undefined && !onRunningRound) setRound(firstRound);
+  }, [firstRound, onRunningRound]);
   const [data, setData] = useState<RunOrderResponse | null>(null);
+
+  // Routine timer: started when the track starts, so nobody cuts it before the routine ends.
+  const [timerStart, setTimerStart] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState(0);
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -54,9 +79,13 @@ export default function DJPage() {
   const [trackBusyId, setTrackBusyId] = useState<string | null>(null);
   const [trackError, setTrackError] = useState<string | null>(null);
 
+  // The track this round plays for each performer ('main', a round's key, or an extra such as 'battle').
+  const musicSlot = data?.music_slot ?? null;
+
   const fetchMusicUrl = useCallback(async (registrationId: string) => {
     if (!token) return null;
-    const res = await fetch(`/api/dj/music-url?registration_id=${registrationId}&division=${encodeURIComponent(division)}`, {
+    const slotParam = musicSlot ? `&slot=${encodeURIComponent(musicSlot)}` : '';
+    const res = await fetch(`/api/dj/music-url?registration_id=${registrationId}&division=${encodeURIComponent(division)}${slotParam}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
@@ -64,7 +93,7 @@ export default function DJPage() {
       throw new Error(body?.error?.message ?? 'Could not load music file.');
     }
     return await res.json() as { filename: string; play_url: string; download_url: string };
-  }, [token, division]);
+  }, [token, division, musicSlot]);
 
   const handlePlay = useCallback(async (registrationId: string) => {
     setTrackBusyId(registrationId);
@@ -100,10 +129,10 @@ export default function DJPage() {
     return await res.json() as StaffMe;
   }, []);
 
-  const fetchRunOrder = useCallback(async (div: Division, accessToken: string) => {
+  const fetchRunOrder = useCallback(async (div: Division, rnd: number, accessToken: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/run-order?division=${div}&include_music=1`, {
+      const res = await fetch(`/api/run-order?division=${div}&round=${rnd}&include_music=1`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (res.ok) {
@@ -167,13 +196,20 @@ export default function DJPage() {
   }, [fetchStaffMe]);
 
   useEffect(() => {
-    if (!staff || !token) return;
-    fetchRunOrder(division, token);
-    pollingRef.current = setInterval(() => fetchRunOrder(division, token), 15000);
+    if (!staff || !token || isBattleDivision(division)) return;
+    fetchRunOrder(division, round, token);
+    pollingRef.current = setInterval(() => fetchRunOrder(division, round, token), 15000);
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [staff, token, division, fetchRunOrder]);
+  }, [staff, token, division, round, fetchRunOrder]);
+
+  // Tick once a second while the routine timer runs.
+  useEffect(() => {
+    if (timerStart === null) return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [timerStart]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -297,7 +333,9 @@ export default function DJPage() {
                   key={div}
                   onClick={() => {
                     setDivision(div);
+                    setRound(1);
                     setData(null);
+                    setTimerStart(null);
                   }}
                   style={{
                     background: division === div ? 'var(--gold)' : 'transparent',
@@ -367,14 +405,78 @@ export default function DJPage() {
           <section style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1rem' }}>
             <RunOrderManager token={token} />
           </section>
+        ) : isBattleDivision(division) ? (
+          <DjBattleView token={token} division={division} />
         ) : (
         <>
+        {tabs.length > 1 && (
+          <nav aria-label="Round" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+            {tabs.map((t) => (
+              <button
+                key={t.name}
+                type="button"
+                aria-pressed={round === t.round}
+                onClick={() => { setRound(t.round); setData(null); setTimerStart(null); }}
+                style={{
+                  background: round === t.round ? 'var(--gold)' : 'transparent',
+                  color: round === t.round ? 'var(--navy-deep)' : 'var(--text-body)',
+                  border: '1px solid',
+                  borderColor: round === t.round ? 'var(--gold)' : 'var(--navy-border)',
+                  padding: '0.3rem 0.75rem', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.05em', cursor: 'pointer',
+                }}
+              >
+                {t.name}
+              </button>
+            ))}
+          </nav>
+        )}
         <section style={{ marginBottom: '2.5rem' }}>
           <div style={{ fontSize: '0.6rem', letterSpacing: '0.18em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.75rem' }}>
             NOW PLAYING
           </div>
           {nowPerforming ? (
             <div style={{ background: '#1a1400', border: '2px solid var(--gold)', padding: '1.5rem 2rem' }}>
+              {data?.routine_seconds ? (() => {
+                const total = data.routine_seconds;
+                const elapsed = timerStart === null ? 0 : Math.max(0, Math.floor((nowMs - timerStart) / 1000));
+                const left = total - elapsed;
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--navy-border)' }}>
+                    <div>
+                      <div style={{ fontSize: '0.6rem', letterSpacing: '0.14em', fontWeight: 800, color: 'var(--text-muted)' }}>ROUTINE LENGTH</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '1.4rem', color: '#fff', fontWeight: 700 }}>{formatRoutineTime(total)}</div>
+                    </div>
+                    {timerStart !== null && (
+                      <div role="timer" aria-live="off">
+                        <div style={{ fontSize: '0.6rem', letterSpacing: '0.14em', fontWeight: 800, color: 'var(--text-muted)' }}>
+                          {left > 0 ? 'TIME LEFT' : 'ROUTINE OVER'}
+                        </div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 700, color: left > 0 ? 'var(--gold)' : '#7fff7f' }}>
+                          {left > 0 ? formatRoutineTime(left) : `+${formatRoutineTime(-left)}`}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
+                      <button
+                        type="button"
+                        onClick={() => { const t = Date.now(); setNowMs(t); setTimerStart(t); }}
+                        style={{ background: 'var(--gold)', color: 'var(--navy-deep)', border: 'none', padding: '0.4rem 0.9rem', fontWeight: 800, fontSize: '0.75rem', letterSpacing: '0.05em', cursor: 'pointer' }}
+                      >
+                        {timerStart === null ? 'START TIMER' : 'RESTART'}
+                      </button>
+                      {timerStart !== null && (
+                        <button
+                          type="button"
+                          onClick={() => setTimerStart(null)}
+                          style={{ background: 'transparent', color: 'var(--text-body)', border: '1px solid var(--navy-border)', padding: '0.4rem 0.9rem', fontWeight: 800, fontSize: '0.75rem', letterSpacing: '0.05em', cursor: 'pointer' }}
+                        >
+                          CLEAR
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })() : null}
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ fontFamily: "'Playfair Display', serif", color: 'var(--gold)', fontSize: '2rem', fontWeight: 700, lineHeight: 1.1 }}>

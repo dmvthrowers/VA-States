@@ -7,7 +7,7 @@
  * so `npm test` can run it under plain Node.
  */
 import type {
-  DivisionDef, EntryDef, FreestyleScoring, LadderScoring, ManualScoring, PanelScoring, RoundDef, Scoring,
+  DivisionDef, EntryDef, FreestyleScoring, LadderScoring, ManualScoring, MusicConfig, MusicSlotDef, PanelScoring, RoundDef, Scoring,
   competition as Competition,
 } from '@/contest.config';
 
@@ -36,6 +36,64 @@ export const isTeamDivision = (d: DivisionDef | undefined) => entryOf(d).type ==
 export function roundsOf(d: DivisionDef | undefined): RoundDef[] {
   const multi = d && ['freestyle', 'panel', 'manual'].includes(d.scoring.format) && d.rounds?.length;
   return multi ? d!.rounds! : [{ name: 'Final' }];
+}
+
+// ---------------------------------------------------------------- music slots
+
+const MUSIC_KEY_RE = /^[a-z0-9][a-z0-9_-]{0,29}$/;
+export const MAIN_MUSIC_SLOT = 'main';
+
+/** A round's music key: its own `key`, else its name as lowercase-and-dashes ("Semi-final" → "semi-final"). */
+export function roundKey(r: RoundDef, index = 0): string {
+  const slug = (r.key ?? r.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+  return slug || `round-${index + 1}`;
+}
+
+const musicConfigOf = (d: DivisionDef | undefined): MusicConfig | null =>
+  !d || !d.music ? null : d.music === true ? {} : d.music;
+
+/**
+ * The music tracks a player uploads for a division, in order: the routine track (one for the
+ * division, or one per round), then any extras. Empty when the division has no music.
+ */
+export function musicSlotsOf(d: DivisionDef | undefined): MusicSlotDef[] {
+  const m = musicConfigOf(d);
+  if (!m) return [];
+  const out: MusicSlotDef[] = [];
+  if (m.routine !== false) {
+    if (m.perRound) roundsOf(d).forEach((r, i) => out.push({ key: roundKey(r, i), label: r.name }));
+    else out.push({ key: MAIN_MUSIC_SLOT, label: 'Routine music' });
+  }
+  for (const e of m.extra ?? []) out.push(e);
+  return out;
+}
+
+export const hasMusic = (d: DivisionDef | undefined): boolean => musicSlotsOf(d).length > 0;
+
+/**
+ * Which slot the DJ plays for a round (1-based): that round's track, the division's one routine
+ * track, or the first extra when there is no routine music (a battle division).
+ */
+export function playSlotFor(d: DivisionDef | undefined, round = 1): string | null {
+  const m = musicConfigOf(d);
+  if (!m) return null;
+  if (m.routine !== false) {
+    if (!m.perRound) return MAIN_MUSIC_SLOT;
+    const r = roundsOf(d)[round - 1];
+    return r ? roundKey(r, round - 1) : null;
+  }
+  return m.extra?.[0]?.key ?? null;
+}
+
+/** Routine length in seconds for a round (1-based): the round's own, else the division's, else null. */
+export function routineSecondsOf(d: DivisionDef | undefined, round = 1): number | null {
+  return roundsOf(d)[round - 1]?.seconds ?? d?.routineSeconds ?? null;
+}
+
+/** 90 → "1:30", 180 → "3:00" */
+export function formatRoutineTime(totalSeconds: number): string {
+  const t = Math.max(0, Math.round(totalSeconds));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 }
 
 /**
@@ -577,10 +635,30 @@ export function configIssues(c: CompetitionConfig): string[] {
       }
     }
     out.push(...scoringIssues(d));
+    out.push(...musicIssues(d));
   }
   for (const k of c.combos) {
     for (const code of k.divisions) if (!codes.includes(code)) out.push(`combo names unknown division "${code}"`);
     if (k.divisions.length < 2) out.push('a combo needs at least two divisions');
+  }
+  return out;
+}
+
+function musicIssues(d: DivisionDef): string[] {
+  const out: string[] = [];
+  const m = musicConfigOf(d);
+  if (!m) return out;
+  if (m.routine === false && !(m.extra?.length)) out.push(`${d.code}: music has routine: false but no extra tracks, so there is nothing to upload`);
+  if (m.perRound && (!d.rounds || d.rounds.length === 0)) out.push(`${d.code}: music.perRound needs the division to have rounds`);
+  for (const e of m.extra ?? []) {
+    if (!MUSIC_KEY_RE.test(e.key)) out.push(`${d.code}: music extra key "${e.key}" must be lowercase letters, numbers, - or _ (up to 30)`);
+    if (e.key === MAIN_MUSIC_SLOT) out.push(`${d.code}: music extra key "main" is reserved for the routine track`);
+    if (!e.label.trim()) out.push(`${d.code}: music extra "${e.key}" needs a label`);
+  }
+  const keys = musicSlotsOf(d).map((x) => x.key);
+  for (const k of keys) {
+    if (!MUSIC_KEY_RE.test(k)) out.push(`${d.code}: music track key "${k}" must be lowercase letters, numbers, - or _ (up to 30); give the round a key`);
+    if (keys.filter((x) => x === k).length > 1) out.push(`${d.code}: two music tracks share the key "${k}"`);
   }
   return out;
 }
@@ -627,10 +705,14 @@ function scoringIssues(d: DivisionDef): string[] {
       const last = i === d.rounds!.length - 1;
       if (!last && !(Number.isInteger(r.advance) && r.advance! >= 1)) out.push(`${d.code}: round "${r.name}" needs advance ≥ 1`);
       if (last && r.advance !== undefined) out.push(`${d.code}: the last round can't have advance`);
+      if (r.seconds !== undefined && !SECONDS_OK(r.seconds)) out.push(`${d.code}: round "${r.name}" seconds must be a whole number 5–3600`);
     });
   }
+  if (d.routineSeconds !== undefined && !SECONDS_OK(d.routineSeconds)) out.push(`${d.code}: routineSeconds must be a whole number 5–3600`);
   return out;
 }
+
+const SECONDS_OK = (n: number) => Number.isInteger(n) && n >= 5 && n <= 3600;
 
 /** Idempotent SQL that makes vsyc_divisions / vsyc_division_styles match the config. */
 export function divisionsSql(c: CompetitionConfig): string {
@@ -646,7 +728,7 @@ export function divisionsSql(c: CompetitionConfig): string {
       q(d.code), q(d.name), q(s.format),
       f ? num(f.techCap) : 'null', f ? num(f.evalCap) : 'null', f ? String(f.negativeClicks) : 'false',
       num(f?.deductions?.stop ?? 0), num(f?.deductions?.discard ?? 0), num(f?.deductions?.detach ?? 0),
-      s.format === 'manual' ? num(s.max) : 'null', String(d.music), String(i + 1),
+      s.format === 'manual' ? num(s.max) : 'null', String(hasMusic(d)), String(i + 1),
       q(betterOf(s)), q(e.type), e.type === 'team' ? String(e.min) : 'null', e.type === 'team' ? String(e.max) : 'null',
       String(roundsOf(d).length), `${q(config)}::jsonb`,
     ].join(', ')})`;

@@ -5,6 +5,7 @@ import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import RunOrderManager from '@/components/RunOrderManager';
 import PrizePlanPanel from '@/components/PrizePlanPanel';
+import MusicManager from '@/components/MusicManager';
 import VolunteerManager from '@/components/VolunteerManager';
 import BudgetManager from '@/components/BudgetManager';
 import SurveyResults from '@/components/SurveyResults';
@@ -49,7 +50,7 @@ interface Contestant {
   paid_at: string | null;
   music_uploaded_at: string | null;
   /** One track per division (from /api/ops/dashboard) */
-  music?: { division: string; filename: string; is_fallback: boolean }[];
+  music?: { division: string; slot: string; filename: string; is_fallback: boolean }[];
   is_public: boolean;
   admin_notes: string | null;
   registration_source: string;
@@ -147,7 +148,7 @@ export default function AdminDashboardPage() {
   const [contestantQuery, setContestantQuery] = useState('');
   const [homeStateOnly, setHomeStateOnly] = useState(false);
   const [spectatorQuery, setSpectatorQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'run-order' | 'volunteers' | 'budget' | 'surveys'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'run-order' | 'music' | 'volunteers' | 'budget' | 'surveys'>('overview');
 
   const fetchStaffMe = async (accessToken: string): Promise<StaffMe | null> => {
     const res = await fetch('/api/staff/me', {
@@ -629,7 +630,7 @@ export default function AdminDashboardPage() {
         </header>
 
         <nav className="flex gap-2 mb-6 border-b border-navy-border overflow-x-auto">
-          {(['overview', 'run-order', 'volunteers', 'budget', 'surveys'] as const).map((tab) => (
+          {(['overview', 'run-order', 'music', 'volunteers', 'budget', 'surveys'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -638,7 +639,7 @@ export default function AdminDashboardPage() {
                 activeTab === tab ? 'border-gold text-gold' : 'border-transparent text-text-muted hover:text-text-body'
               }`}
             >
-              {tab === 'overview' ? 'Overview' : tab === 'run-order' ? 'Run Order' : tab === 'volunteers' ? 'Volunteers' : tab === 'budget' ? 'Budget' : 'Surveys'}
+              {tab === 'overview' ? 'Overview' : tab === 'run-order' ? 'Run Order' : tab === 'music' ? 'Music' : tab === 'volunteers' ? 'Volunteers' : tab === 'budget' ? 'Budget' : 'Surveys'}
             </button>
           ))}
         </nav>
@@ -648,6 +649,12 @@ export default function AdminDashboardPage() {
         {activeTab === 'run-order' && token && (
           <section className="border border-navy-border bg-navy p-4">
             <RunOrderManager token={token} />
+          </section>
+        )}
+
+        {activeTab === 'music' && token && (
+          <section className="border border-navy-border bg-navy p-4">
+            <MusicManager token={token} />
           </section>
         )}
 
@@ -1079,13 +1086,13 @@ function ContestantRow({
         <input aria-label="Show contestant publicly" title="Show contestant publicly" type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="w-4 h-4 accent-gold" />
       </td>
       <td className="py-2 pr-3 min-w-[170px] text-xs">
-        {/* Read-only: one track per division. Staff upload or replace them on the run order page. */}
+        {/* Read-only: one track per division and slot. Staff upload or replace them on the run order page. */}
         {(contestant.music ?? []).length === 0 ? (
           <span className="text-text-muted">no music</span>
         ) : (
           (contestant.music ?? []).map((m) => (
-            <div key={m.division} className={m.is_fallback ? 'text-gold' : 'text-[#7fff7f]'}>
-              <span className="font-bold">{m.division}</span>{' '}
+            <div key={`${m.division}:${m.slot}`} className={m.is_fallback ? 'text-gold' : 'text-[#7fff7f]'}>
+              <span className="font-bold">{m.division}{m.slot !== 'main' ? ` ${m.slot}` : ''}</span>{' '}
               {m.is_fallback ? 'LO-FI (no upload)' : m.filename}
             </div>
           ))
