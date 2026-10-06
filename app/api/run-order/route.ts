@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { runOrderDisplayName, isNameRestricted } from '@/lib/display-name';
 import { DIVISION_CODES, divisionByCode } from '@/contest.config';
-import { isTeamDivision, roundsOf } from '@/lib/divisions-core';
+import { isTeamDivision, roundsOf, routineSecondsOf } from '@/lib/divisions-core';
 
 type Division = string;
 
@@ -170,12 +170,12 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       return toPerformer(reg, row.position, row.status, row.registration_id, teamNames.get(row.registration_id));
     });
 
-    return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), source: 'run_order', performers }, { headers });
+    return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), routine_seconds: routineSecondsOf(def, round), source: 'run_order', performers }, { headers });
   }
 
   // Later rounds have no fallback: entrants are advanced into them.
   if (round > 1) {
-    return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), source: 'run_order', performers: [] }, { headers });
+    return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), routine_seconds: routineSecondsOf(def, round), source: 'run_order', performers: [] }, { headers });
   }
 
   // Fallback: registration order, only paid registrants in this division
@@ -198,5 +198,5 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     toPerformer(reg, i + 1, 'upcoming', reg.id, teamNames.get(reg.id)),
   );
 
-  return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), source: 'registration_order', performers }, { headers });
+  return NextResponse.json({ division, round, rounds: rounds.map((r) => r.name), routine_seconds: routineSecondsOf(def, round), source: 'registration_order', performers }, { headers });
 });
