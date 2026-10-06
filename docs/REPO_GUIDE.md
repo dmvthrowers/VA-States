@@ -255,6 +255,21 @@ organizer can always choose to publish anyway. The other #83 candidates (head-ju
 deduction notes, offline-tolerant tablet submission, category breakdowns) wait on the judges' debrief the
 issue asks for first.
 
+### Age split preview (site issue #81)
+
+A division with a `split` rule (`{ above, minBracket, labels }` in `contest.config.ts`; Sport has
+`{ above: 15, minBracket: 5 }`) can be previewed as a younger and an older bracket. The rule: at or
+below `above` entrants it's one division; above it, split only if both brackets would have at least
+`minBracket` players (a floor only: there is no maximum, so 5 and 40 is a valid split). The suggested cut leans toward a natural kid/adult line (the biggest jump in
+ages between neighbours), then the cut nearest the mean age (`lib/division-split.ts`, tested). Age
+is `age_on_event`, already collected at registration, so no date of birth is needed.
+
+`GET /api/admin/division-split[?division=SBJ&cut_age=13]` (admin) and the **Age split preview**
+panel on the run order screen show the paid entrants' age spread, a players-by-age list, the rule's
+verdict and the suggested cut, and let an organizer try another one. **Read-only: nothing is
+saved or applied.** Applying a split (separate run order, podium, champion and results per bracket)
+is not built; see the roadmap.
+
 ## 5. Config and environments
 
 All config is env vars; `.env.local.example` lists every name with notes. Production values live

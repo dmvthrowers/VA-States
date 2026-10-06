@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DIVISION_CODES, divisionByCode } from '@/contest.config';
 import { roundsOf } from '@/lib/divisions-core';
+import SplitPreviewPanel from '@/components/SplitPreviewPanel';
 import { advanceCount as advanceFor, nextActiveRound, roundTabs } from '@/lib/round-plan';
 import { useRoundPlans } from '@/lib/use-round-plans';
 import RoundPlanPanel from '@/components/RoundPlanPanel';
@@ -365,6 +366,8 @@ export default function RunOrderManager({ token }: { token: string }) {
           ))}
         </nav>
       </div>
+
+      <SplitPreviewPanel token={token} />
 
       <RoundPlanPanel token={token} />
 
