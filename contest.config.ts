@@ -201,6 +201,8 @@ export interface RoundDef {
   name: string;
   /** How many move on to the next round (leave out on the last round) */
   advance?: number;
+  /** Routine length in seconds for this round (e.g. 60, 90, 180). Falls back to the division's routineSeconds. */
+  seconds?: number;
 }
 
 export interface DivisionDef {
@@ -221,6 +223,11 @@ export interface DivisionDef {
   entry?: EntryDef;
   /** Rounds for freestyle, panel and manual divisions. Default: one round. */
   rounds?: RoundDef[];
+  /**
+   * How long a routine runs, in seconds. The DJ page shows it and times it so a track isn't cut
+   * early. A round's own `seconds` wins. Leave out when it varies or doesn't matter.
+   */
+  routineSeconds?: number;
 }
 
 /**
@@ -257,6 +264,7 @@ export const competition: {
       description: 'String Trick — single yo-yo on a single string. The most popular competitive style.',
       priceCents: 3000,
       music: true,
+      routineSeconds: 120,
       scoring: { format: 'freestyle', techCap: 60, evalCap: 10, negativeClicks: true, deductions: { stop: 1, discard: 3, detach: 5 } },
     },
     {
@@ -265,6 +273,7 @@ export const competition: {
       description: 'Multi-style division: 2A looping, 3A two-handed string, 4A offstring, 5A freehand.',
       priceCents: 2500,
       music: true,
+      routineSeconds: 120,
       styles: {
         min: 1,
         max: 2,
@@ -284,6 +293,7 @@ export const competition: {
       priceCents: 2000,
       music: true,
       cannotCombineWith: ['1A', 'X'],
+      routineSeconds: 90,
       scoring: { format: 'freestyle', techCap: 20, evalCap: 20, negativeClicks: false, deductions: null },
     },
   ],

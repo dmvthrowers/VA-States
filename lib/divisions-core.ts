@@ -38,6 +38,17 @@ export function roundsOf(d: DivisionDef | undefined): RoundDef[] {
   return multi ? d!.rounds! : [{ name: 'Final' }];
 }
 
+/** Routine length in seconds for a round (1-based): the round's own, else the division's, else null. */
+export function routineSecondsOf(d: DivisionDef | undefined, round = 1): number | null {
+  return roundsOf(d)[round - 1]?.seconds ?? d?.routineSeconds ?? null;
+}
+
+/** 90 → "1:30", 180 → "3:00" */
+export function formatRoutineTime(totalSeconds: number): string {
+  const t = Math.max(0, Math.round(totalSeconds));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+}
+
 /**
  * Divisions this registrant pays nothing for: team divisions priced per team, where they're
  * joining someone else's team (the captain pays).
@@ -627,10 +638,14 @@ function scoringIssues(d: DivisionDef): string[] {
       const last = i === d.rounds!.length - 1;
       if (!last && !(Number.isInteger(r.advance) && r.advance! >= 1)) out.push(`${d.code}: round "${r.name}" needs advance ≥ 1`);
       if (last && r.advance !== undefined) out.push(`${d.code}: the last round can't have advance`);
+      if (r.seconds !== undefined && !SECONDS_OK(r.seconds)) out.push(`${d.code}: round "${r.name}" seconds must be a whole number 5–3600`);
     });
   }
+  if (d.routineSeconds !== undefined && !SECONDS_OK(d.routineSeconds)) out.push(`${d.code}: routineSeconds must be a whole number 5–3600`);
   return out;
 }
+
+const SECONDS_OK = (n: number) => Number.isInteger(n) && n >= 5 && n <= 3600;
 
 /** Idempotent SQL that makes vsyc_divisions / vsyc_division_styles match the config. */
 export function divisionsSql(c: CompetitionConfig): string {

@@ -43,10 +43,12 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
    `.closed`): audit log, email `ADMIN_ALERT_EMAIL`, flag in `vsyc_payment_flags`. Subscribe the
    event in Stripe. Pure-logic test like `stripe-refund.test.mjs`.
 7. **Music, the rest of site issue #79.** Per-division tracks, the lo-fi fallback and the
-   reminder emails are built. Still open: fill `vsyc26-music/lofi/` with tracks cleared for
-   public play, expected routine length per division/round for the DJ view (site issue #80), a
-   scheduled run of the reminders (today staff press the button on the Music tab), and dropping
-   the old `music_path` / `music_filename` columns.
+   reminder emails are built, and so is routine length for the DJ view (`routineSeconds` /
+   round `seconds` in `contest.config.ts`, a start/clear timer on `/dj`, and a round selector).
+   Still open: fill `vsyc26-music/lofi/` with tracks cleared for public play, a scheduled run of
+   the reminders (today staff press the button on the Music tab), and dropping the old
+   `music_path` / `music_filename` columns. The rest of site issue #80 (round formats chosen by
+   entrant count, advancement, per-round music) is not started.
 8. **Rate-limit the admin routes.** Admin auth is a Supabase JWT plus an active staff row, so
    there's no password to guess here — this is about cost and abuse (each call hits Supabase
    Auth). A shared 60/IP/min limit inside `requireAdminRequest` is enough.
