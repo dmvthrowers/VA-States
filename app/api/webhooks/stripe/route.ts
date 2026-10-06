@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
 import { refundTransition, FULL_REFUND_UPDATE } from '@/lib/stripe-refund';
 import { applyPaidSession } from '@/lib/payments';
+import { handleDisputeEvent } from '@/lib/stripe-dispute-server';
 
 // Stripe needs the raw request body to verify the signature — never parse/cache.
 export const runtime = 'nodejs';
@@ -13,7 +14,8 @@ export const dynamic = 'force-dynamic';
 /**
  * Stripe webhook. On a completed Checkout Session we mark the matching
  * registration paid (or flag a duplicate payment); on a full charge.refunded
- * we mark it unpaid again. Every event is recorded in vsyc_stripe_events.
+ * we mark it unpaid again. A charge.dispute.created/closed opens or closes a flag and alerts the
+ * organizer without touching the registration. Every event is recorded in vsyc_stripe_events.
  * Idempotent: re-delivered events are safe to replay. If the webhook is late
  * or never arrives, the confirm page and the reconcile sweep record the
  * payment through the same applyPaidSession().
@@ -22,6 +24,7 @@ export const dynamic = 'force-dynamic';
  *   Endpoint: {BASE_URL}/api/webhooks/stripe
  *   Events:   checkout.session.completed  (also fine to add async_payment_succeeded)
  *             charge.refunded
+ *             charge.dispute.created, charge.dispute.closed
  *   Copy the signing secret into STRIPE_WEBHOOK_SECRET.
  */
 export async function POST(req: NextRequest) {
@@ -77,6 +80,11 @@ async function handleEvent(event: Stripe.Event): Promise<NextResponse> {
     // registration for the organizer. Idempotent across replays and the other
     // paths (confirm page, reconcile sweep) that call the same function.
     await applyPaidSession(event.data.object as Stripe.Checkout.Session, 'webhook');
+  }
+
+  if (event.type === 'charge.dispute.created' || event.type === 'charge.dispute.closed') {
+    // Flags the dispute for the organizer and emails them; never changes the registration.
+    await handleDisputeEvent(event);
   }
 
   if (event.type === 'charge.refunded') {
