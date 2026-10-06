@@ -64,7 +64,7 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 
 - Round format: prelims over 25 players, semis only over 50 (#80, rule decided). The app
   supports rounds now (`rounds` on a division in `contest.config.ts`, migration 0039).
-- Sport division split Youth/Adult when Sport has more than 15 players (#81, rule decided).
+- Sport Youth/Adult split (#81): **preview built** (`lib/division-split.ts`, admin panel, read-only). Not built: applying a split (per-bracket run order, podium, Virginia champion, results, survey audience) and publishing the rule. Waiting on two decisions: the minimum bracket size (5 is the default) and whether each bracket counts as its own division for the 12-prize plan (#82).
 - Capture Virginia-champion eligibility at registration (#82).
 - Judging portal: live score status, head-judge lock/unlock, audit log (#83).
 - Public idea board at `/ideas` — spec in `docs/specs/idea-board.md`.

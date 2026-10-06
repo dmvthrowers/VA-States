@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DIVISION_CODES, divisionByCode } from '@/contest.config';
 import { roundsOf } from '@/lib/divisions-core';
+import SplitPreviewPanel from '@/components/SplitPreviewPanel';
 
 const DIVISIONS = DIVISION_CODES;
 type Division = string;
@@ -325,6 +326,8 @@ export default function RunOrderManager({ token }: { token: string }) {
           ))}
         </nav>
       </div>
+
+      <SplitPreviewPanel token={token} />
 
       {rounds.length > 1 && (
         <nav aria-label="Round" className="flex gap-2 flex-wrap mb-6 -mt-2">
