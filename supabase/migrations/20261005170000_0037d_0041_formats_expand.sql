@@ -3,7 +3,7 @@
 -- Run as ONE transaction (Supabase → SQL Editor → paste → Run, or `npx supabase db push`).
 -- It is safe with the current VSYC-26 app live: x_substyle and the old unique keys stay,
 -- and a trigger keeps x_substyle and division_styles in step. Published results don't change.
--- The contract step (supabase/migrations/20261006030000_0042_formats_contract.sql) comes after the new code ships.
+-- The contract step (supabase/pending/0042_formats_contract.sql) comes after the new code ships.
 
 begin;
 set local lock_timeout = '10s';
@@ -223,7 +223,7 @@ alter table public.vsyc_scores
   add column panel_scores jsonb,
   add column manual_attempts numeric(9,2)[];
 -- VA-States expand phase: the old per-division uniques stay until the new code is live
--- (supabase/migrations/20261006030000_0042_formats_contract.sql drops them); the round-aware ones are added now.
+-- (supabase/pending/0042_formats_contract.sql drops them); the round-aware ones are added now.
 alter table public.vsyc_scores
   add constraint vsyc_scores_entry_judge_name_key unique (registration_id, division, round, judge_name),
   add constraint uq_vsyc_scores_judge_user_round unique (registration_id, division, round, judge_user_id);
