@@ -21,6 +21,18 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 | Unused `/api/dj/auth` PIN route deleted; `.env.local.example` no longer lists dead `ADMIN_*`/`*_PIN` vars and now lists `HEALTHCHECK_TOKEN`, `EVENT_FLAGS_CACHE_TTL_MS` | this PR |
 | Per-page `<title>`s, noindex on personal/ops pages, no site-wide canonical, post-event JSON-LD (no "InStock" ticket offers) | this PR |
 
+## Where things stand (2026-10-06)
+
+- **Production database:** every migration through 0047 is applied (checked read-only on 2026-10-06: the four
+  home-state columns and constraints exist, and the backfill matches: 18 Virginia registrations, 18 confirmed,
+  no overrides).
+- **Merged:** the VSYC-27 feature set above, the finance roadmap entry and the sponsor-form roadmap entry. The
+  registration template has the roles and portals work (grants table, `/staff` single pane, staff and roles
+  screen, sponsors, stream, media, MC, merch, volunteers, finance and event-setup screens).
+- **Not ported yet:** battles, round plans, disputes, split, champion, prizes and score status exist here but not in
+  the template.
+- **Decisions waiting on the owner:** sponsor form details (below), 2026 archive and purge retention, prize scale.
+
 ## Now (owner actions — dashboard, not code)
 
 1. **Close registration for VSYC-26.** The site says registration is closed, but the app still
@@ -104,9 +116,47 @@ at a public `/sponsor` page and the site links to it. Plan, built in the registr
 - **Switching over:** import the old JotForm submissions (CSV) into the pipeline as prospects, point the site's
   button at `/sponsor`, then remove the JotForm embed and its origins from that page's CSP.
 
-Open: which tiers and benefits to show, whether to show prices, whether sponsors ever pay online (Stripe) or
-always by invoice, which address gets the notice, and which domain serves the form (the registration
-subdomain or a path on it).
+**What the 2026 sponsor package already decides** (so the form mirrors it, not a new idea). The package lists six
+tiers: Diamond ($2,000+ cash, 1 slot), Platinum ($500+, 2 slots), Gold ($250+, 4 slots), Silver ($75+, open),
+Bronze ($50, open) and In-kind / local ($25+ in value, any form: product, services, gift cards, food). Gold, Silver
+and Bronze can add product at retail value alongside the payment, and product-only gifts map to an in-kind
+equivalent per tier ($500 / $150 / $75 retail). Each tier carries benefits (naming, table, MC shout-outs, logo
+size on the banner, brand team players, social posts, livestream credit) and some are slot-limited, so the form
+needs: tier choice with remaining slots shown, cash and/or product with a description and retail value, a table
+add-on ($75, $50 for hobby clubs, 10 tables in total, included for Gold and above), brand team player names for
+Diamond and Platinum, a logo upload (vector or 300 dpi PNG) with the August 15 deadline, shipping for advance
+product (by September 12), and the contact and brand details. The package's flow is: form, then a PayPal invoice
+(PayPal, Venmo, check or transfer; due within 14 days; sponsorships are final), then the logo goes out once
+payment clears; paid sponsors get a recap within 14 days of the event. Dates and prices belong in config, since
+they change every year.
+
+What this means for the build: the inquiry table keeps the chosen tier, cash amount, in-kind description and
+value, table request, team players, logo file and shipping needs; converting an inquiry creates the pipeline row
+with the deliverables for that tier already filled in as a checklist (banner logo, MC shout-outs, social post,
+Linktree, table, recap), which is what the sponsors screen already tracks. Slot counts (Diamond 1, Platinum 2,
+Gold 4) are enforced against committed and paid sponsors.
+
+Also from the outreach research (`Yo-Yo Brand Sponsorship Contact Directory`, early 2026): a contact list of 40+
+active brands and retailers (priority list of 15, plus seven defunct or dormant ones to drop). That is outreach
+data, not form data, so it should be imported into the sponsor pipeline as prospects (name, contact, notes,
+status "prospect") rather than kept in a PDF. It contains third-party contact details, so import it only into the
+admin-only pipeline, never into anything public.
+
+**Decided (2026-10-06):** the form shows each tier's price and how many slots are left; sponsors pay whichever way is
+easiest for them (the form only records how they would like to pay, and an invoice or link is sent after review, so
+there is no online checkout to build); notices go to the VSYC inbox (`vastateyoyocontest@gmail.com`, set as
+`SPONSOR_NOTICE_EMAIL`); and the form lives on the club's domain like the other tools, at
+`register.dmvthrowers.club/sponsor`, with the club site's sponsors page linking to it (replacing the JotForm embed,
+site issue #77).
+
+**Status:** built in the registration template (PR #40: form, review and convert, slots left, notices). The live app
+gets it by porting that PR; this app then needs migration 0048 and the notice address set in Vercel.
+
+**Still open for VSYC-27:** next year's tiers, prices and slot caps (the 2026 ones are above); whether an inquiry
+should hold a slot for a few days; table add-on with a cap and the hobby-club price; brand team player names now or
+after commitment; logo as a link or a real upload; permission to show the name publicly; shipping from outside the US;
+whether the club is a registered nonprofit (receipts and in-kind letters); refund and payment-term wording on the form;
+how long to keep dismissed inquiries. The full list is in the template's `docs/SPONSOR_FORM.md`.
 
 Beyond the sponsor form, the same shape is meant to carry every public form (vendor and merch-table
 applications, volunteer interest, media requests, feedback): forms defined in config, one public page, one
