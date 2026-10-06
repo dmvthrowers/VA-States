@@ -16,7 +16,7 @@ and detailed; read it first, this file adds orientation notes README doesn't cov
 
 ## Stack
 
-Next.js 15 App Router + TypeScript, Supabase (Postgres + auth, **a separate isolated project
+Next.js 16 App Router + TypeScript, Supabase (Postgres + auth, **a separate isolated project
 from `yoyo-player-map`'s Supabase** — see `.env.local.example`'s comment), Stripe Checkout +
 webhooks for payment, Resend for email, Upstash/Vercel KV for rate limiting, Tailwind CSS,
 Vercel deployment on `main`.
@@ -62,7 +62,8 @@ docs/             REPO_GUIDE.md (start here), ROADMAP.md (open work), specs/,
   `supabase/migrations/` changes and anything touching `lib/stripe.ts` or the webhook route
   with production-change care, not prototype care.
 - **Auth fails closed by design.** Staff and admins sign in with Supabase Auth; every
-  `/api/admin` route calls `requireAdminRequest()`, which needs a valid bearer token *and* an
+  `/api/admin` route is guarded by `requireAdminRequest()` (13 route files still define their own local
+  `requireAdmin()` helper; fold them into the shared one when you touch them), which needs a valid bearer token *and* an
   active `admin` row in `vsyc_staff_accounts` (judge/DJ/audio-tech roles get the day-of
   portals). Don't "fix" a local 401 by loosening that check — add yourself a staff row instead.
   There is no shared admin password or PIN: `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DJ_PIN` and
@@ -98,3 +99,9 @@ npm test                           # pure-logic tests for the money paths
 
 Post-deploy checklist is in `README.md`'s "Deployment" section — public registration/RSVP
 submit, Stripe webhook receiving signed events, admin auth, policies page.
+
+## Relationship to the template
+
+`yoyo-registration-template` is derived from this repo. **Fixes land here first**, then get ported
+to the template (shared pieces: `components/form/Field.tsx`, the SEO routes, the accessibility fixes).
+The two have drifted in other places (migrations, `db-backup.yml`, `DAY_OF.md`), so port by hand.

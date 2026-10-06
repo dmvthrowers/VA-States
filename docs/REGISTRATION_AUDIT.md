@@ -5,7 +5,7 @@
 # VSYC-26 Registration App — Readiness Audit
 
 **Date:** June 7, 2026
-**Repo:** `dmvthrowers/VA-States` (Next.js 15 + Supabase + Vercel)
+**Repo:** `dmvthrowers/VA-States` (Next.js 16 + Supabase + Vercel)
 **Goal:** A registration site + judge/DJ dashboards + competitor list + integrated payment, taking good ideas from compete.yoyocontest.com without copying it.
 
 ---

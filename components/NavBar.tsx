@@ -64,8 +64,19 @@ export default function NavBar({ activePage }: NavBarProps) {
         setMoreOpen(false);
       }
     }
+    // Escape closes the menu and puts focus back on the More button.
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setMoreOpen(false);
+        moreRef.current?.querySelector('button')?.focus();
+      }
+    }
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
   }, [moreOpen]);
 
   return (
@@ -167,7 +178,7 @@ export default function NavBar({ activePage }: NavBarProps) {
                 {moreOpen && (
                   <div
                     role="menu"
-                    className="absolute right-0 top-full mt-2 min-w-[160px] bg-navy-deep border border-navy-border shadow-lg py-1 z-[210]"
+                    className="absolute right-0 top-full mt-2 min-w-[160px] bg-navy-deep border border-navy-border py-1 z-[210]"
                   >
                     {MORE_LINKS.map(link => (
                       <a

@@ -16,6 +16,7 @@ module.exports = {
         gold:          '#C9A84C',
         'gold-light':  '#e8c97a',
         red:           '#B80000',  // canonical brand red (corrected from legacy #C8102E)
+        error:         '#ff6b6b',  // error TEXT on navy (6.7:1). Keep red for borders and fills.
         'red-dark':    '#7a0000',
         cream:         '#f5f0e8',
         'cream-mid':   '#ede8dc',

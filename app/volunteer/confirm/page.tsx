@@ -15,7 +15,7 @@ function ConfirmContent() {
       <h1 className="font-display font-black text-4xl text-gold mb-4">Thanks for volunteering!</h1>
       <p className="text-text-body mb-8">
         Your application is in and marked pending review. Check your email for a confirmation — the
-        event organizer will follow up to confirm your role and shift before September 19, 2026.
+        event organizer will follow up to confirm your role and shift.
       </p>
       {id && (
         <p className="text-xs text-text-muted mb-8">

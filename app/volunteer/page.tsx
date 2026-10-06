@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import { VOLUNTEER_ROLES, SHIFT_PREFERENCES, SHIFT_PREFERENCE_LABELS, OTHER_ROLE_KEY, isExperienceRequired, type ShiftPreference } from '@/lib/volunteer-roles';
+import { Field, inputCls } from '@/components/form/Field';
 
 type FormValues = {
   first_name: string;
@@ -171,18 +172,18 @@ export default function VolunteerPage() {
             <SectionHeader tag="STEP 1" title="Your Info" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="First Name *" error={errors.first_name?.message}>
-                <input {...register('first_name', { required: 'Required' })} className={inputCls(!!errors.first_name)} placeholder="Alex" />
+                <input {...register('first_name', { required: 'Enter your first name.' })} className={inputCls(!!errors.first_name)} placeholder="Alex" />
               </Field>
               <Field label="Last Name *" error={errors.last_name?.message}>
-                <input {...register('last_name', { required: 'Required' })} className={inputCls(!!errors.last_name)} placeholder="Kim" />
+                <input {...register('last_name', { required: 'Enter your last name.' })} className={inputCls(!!errors.last_name)} placeholder="Kim" />
               </Field>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <Field label="Email *" error={errors.email?.message} hint="Used for your confirmation and any follow-up">
-                <input {...register('email', { required: 'Required', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email' } })} type="email" className={inputCls(!!errors.email)} placeholder="you@example.com" />
+                <input {...register('email', { required: 'Enter your email so we can send your confirmation.', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Enter a valid email, like name@example.com.' } })} type="email" className={inputCls(!!errors.email)} placeholder="you@example.com" />
               </Field>
               <Field label="Phone *" error={errors.phone?.message} hint="For day-of coordination">
-                <input {...register('phone', { required: 'Required' })} type="tel" className={inputCls(!!errors.phone)} placeholder="(555) 555-5555" />
+                <input {...register('phone', { required: 'Enter a phone number we can reach you at.' })} type="tel" className={inputCls(!!errors.phone)} placeholder="(555) 555-5555" />
               </Field>
             </div>
             <div className="mt-4">
@@ -224,7 +225,7 @@ export default function VolunteerPage() {
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="1st Choice Role *" error={errors.role_choice_1?.message}>
-                <select {...register('role_choice_1', { required: 'Required' })} className={inputCls(!!errors.role_choice_1)}>
+                <select {...register('role_choice_1', { required: 'Choose a role.' })} className={inputCls(!!errors.role_choice_1)}>
                   <option value="">Select a role…</option>
                   {(['core', 'judge', 'non_core', 'other'] as const).map((cat) => (
                     <optgroup key={cat} label={CATEGORY_LABELS[cat]}>
@@ -253,7 +254,7 @@ export default function VolunteerPage() {
               <div className="mt-4">
                 <Field label="What's the idea? *" error={errors.other_role_description?.message} hint="Magician, lunch-break band, something else — tell us what it is">
                   <textarea
-                    {...register('other_role_description', { required: choseOther ? 'Tell us what the act/idea is' : false, maxLength: { value: 300, message: 'Max 300 characters' } })}
+                    {...register('other_role_description', { required: choseOther ? 'Tell us what the act or idea is.' : false, maxLength: { value: 300, message: 'Keep this under 300 characters.' } })}
                     className={`${inputCls(!!errors.other_role_description)} resize-none`}
                     rows={2}
                   />
@@ -287,7 +288,7 @@ export default function VolunteerPage() {
                   rows={3}
                 />
               </Field>
-              {errors.experience_notes && <p className="text-red text-xs mt-1">{errors.experience_notes.message}</p>}
+              {errors.experience_notes && <p className="text-error text-xs mt-1">{errors.experience_notes.message}</p>}
             </div>
           </section>
 
@@ -337,20 +338,20 @@ export default function VolunteerPage() {
               </div>
               <div className="border-t border-navy-border p-4">
                 <label className="flex gap-3 items-start cursor-pointer">
-                  <input {...register('code_of_conduct_accepted', { required: 'Required' })} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
+                  <input {...register('code_of_conduct_accepted', { required: 'Check this box to accept the code of conduct.' })} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
                   <span className="text-sm text-text-body">I agree to the VSYC-26 Code of Conduct.</span>
                 </label>
-                {errors.code_of_conduct_accepted && <p className="text-red text-xs mt-1">{errors.code_of_conduct_accepted.message}</p>}
+                {errors.code_of_conduct_accepted && <p className="text-error text-xs mt-1">{errors.code_of_conduct_accepted.message}</p>}
               </div>
             </div>
 
             <label className="flex gap-3 items-start cursor-pointer">
-              <input {...register('liability_accepted', { required: 'Required' })} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
+              <input {...register('liability_accepted', { required: 'Check this box to accept the waiver.' })} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
               <span className="text-sm text-text-body">
                 <strong className="text-white">Personal Responsibility:</strong> I understand that I am responsible for myself while volunteering at this event and DMV Throwers is not liable for injury or loss.
               </span>
             </label>
-            {errors.liability_accepted && <p className="text-red text-xs mt-1">{errors.liability_accepted.message}</p>}
+            {errors.liability_accepted && <p className="text-error text-xs mt-1">{errors.liability_accepted.message}</p>}
           </section>
 
           {serverError && (
@@ -385,26 +386,4 @@ function SectionHeader({ tag, title }: { tag: string; title: string }) {
       <div className="w-12 h-0.5 bg-gold mt-2" />
     </div>
   );
-}
-
-function Field({ label, hint, error, children }: {
-  label: string;
-  hint?: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-black tracking-caps text-gold mb-1.5">
-        {label}
-        {hint && <span className="text-gold/60 font-normal normal-case tracking-normal ml-1">— {hint}</span>}
-      </label>
-      {children}
-      {error && <p className="text-red text-xs mt-1">{error}</p>}
-    </div>
-  );
-}
-
-function inputCls(hasError: boolean) {
-  return `w-full bg-navy-deep border ${hasError ? 'border-red' : 'border-navy-border'} px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold transition-colors`;
 }

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import { Turnstile } from '@/components/Turnstile';
+import { Field, inputCls } from '@/components/form/Field';
 
 type FormValues = {
   first_name: string;
@@ -141,10 +142,10 @@ export default function SpectatePage() {
             <SectionHeader tag="STEP 1" title="Your Info" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="First Name *" error={errors.first_name?.message}>
-                <input {...register('first_name', { required: 'Required' })} className={inputCls(!!errors.first_name)} placeholder="Alex" />
+                <input {...register('first_name', { required: 'Enter your first name.' })} className={inputCls(!!errors.first_name)} placeholder="Alex" />
               </Field>
               <Field label="Last Name *" error={errors.last_name?.message}>
-                <input {...register('last_name', { required: 'Required' })} className={inputCls(!!errors.last_name)} placeholder="Kim" />
+                <input {...register('last_name', { required: 'Enter your last name.' })} className={inputCls(!!errors.last_name)} placeholder="Kim" />
               </Field>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -152,12 +153,12 @@ export default function SpectatePage() {
                 <input {...register('nickname')} className={inputCls(false)} placeholder="AKtheStringSlinger" />
               </Field>
               <Field label="State *" error={errors.state?.message}>
-                <input {...register('state', { required: 'Required', maxLength: { value: 2, message: '2-letter code' } })} className={inputCls(!!errors.state)} placeholder="VA" maxLength={2} />
+                <input {...register('state', { required: 'Fill in this field.', maxLength: { value: 2, message: '2-letter code' } })} className={inputCls(!!errors.state)} placeholder="VA" maxLength={2} />
               </Field>
             </div>
             <div className="mt-4">
               <Field label="Email *" error={errors.email?.message} hint="Used for your confirmation + calendar invite">
-                <input {...register('email', { required: 'Required', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email' } })} type="email" className={inputCls(!!errors.email)} placeholder="you@example.com" />
+                <input {...register('email', { required: 'Enter your email so we can send your confirmation.', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Enter a valid email, like name@example.com.' } })} type="email" className={inputCls(!!errors.email)} placeholder="you@example.com" />
               </Field>
             </div>
           </section>
@@ -177,7 +178,7 @@ export default function SpectatePage() {
             <Field label="Bio" hint="A couple sentences, optional">
               <textarea {...register('bio', { maxLength: { value: 1000, message: 'Max 1000 characters' } })} className={`${inputCls(!!errors.bio)} resize-none`} rows={3} />
             </Field>
-            {errors.bio && <p className="text-red text-xs mt-1">{errors.bio.message}</p>}
+            {errors.bio && <p className="text-error text-xs mt-1">{errors.bio.message}</p>}
 
             <div className="mt-4">
               <Field label="Pronouns" hint="Optional, shown on your public profile if you list publicly">
@@ -260,20 +261,20 @@ export default function SpectatePage() {
               </div>
               <div className="border-t border-navy-border p-4">
                 <label className="flex gap-3 items-start cursor-pointer">
-                  <input {...register('code_of_conduct_accepted', { required: 'Required' })} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
+                  <input {...register('code_of_conduct_accepted', { required: 'Check this box to accept the code of conduct.' })} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
                   <span className="text-sm text-text-body">I agree to the VSYC-26 Code of Conduct.</span>
                 </label>
-                {errors.code_of_conduct_accepted && <p className="text-red text-xs mt-1">{errors.code_of_conduct_accepted.message}</p>}
+                {errors.code_of_conduct_accepted && <p className="text-error text-xs mt-1">{errors.code_of_conduct_accepted.message}</p>}
               </div>
             </div>
 
             <label className="flex gap-3 items-start cursor-pointer">
-              <input {...register('liability_accepted', { required: 'Required' })} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
+              <input {...register('liability_accepted', { required: 'Check this box to accept the waiver.' })} type="checkbox" className="mt-0.5 w-4 h-4 accent-gold flex-shrink-0" />
               <span className="text-sm text-text-body">
                 <strong className="text-white">Personal Responsibility:</strong> I understand that I am responsible for myself at this event and DMV Throwers is not liable for injury or loss.
               </span>
             </label>
-            {errors.liability_accepted && <p className="text-red text-xs mt-1">{errors.liability_accepted.message}</p>}
+            {errors.liability_accepted && <p className="text-error text-xs mt-1">{errors.liability_accepted.message}</p>}
           </section>
 
           {serverError && (
@@ -309,26 +310,4 @@ function SectionHeader({ tag, title }: { tag: string; title: string }) {
       <div className="w-12 h-0.5 bg-gold mt-2" />
     </div>
   );
-}
-
-function Field({ label, hint, error, children }: {
-  label: string;
-  hint?: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-black tracking-caps text-gold mb-1.5">
-        {label}
-        {hint && <span className="text-gold/60 font-normal normal-case tracking-normal ml-1">— {hint}</span>}
-      </label>
-      {children}
-      {error && <p className="text-red text-xs mt-1">{error}</p>}
-    </div>
-  );
-}
-
-function inputCls(hasError: boolean) {
-  return `w-full bg-navy-deep border ${hasError ? 'border-red' : 'border-navy-border'} px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold transition-colors`;
 }

@@ -168,7 +168,6 @@ export default async function ResultsPage() {
 
         {!standings ? (
           <section style={{ border: '1px solid var(--navy-border)', background: 'var(--navy)', padding: '2.5rem 1.5rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🏆</div>
             <p style={{ color: '#fff', fontWeight: 700, margin: '0 0 0.5rem' }}>
               Results drop right after the contest.
             </p>

@@ -8,6 +8,7 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import { DIVISION_PLAYLIST_URLS } from '@/lib/contest-videos';
 import type { Division } from '@/lib/standings';
 import { slotTitle, type MusicSlot } from '@/lib/music';
+import { Field } from '@/components/form/Field';
 
 type AuthMode = 'login' | 'signup';
 
@@ -443,7 +444,7 @@ export default function PlayerPortalPage() {
                         <p className="text-xs text-gold mt-1">LO-FI (no upload): a lo-fi track will play for this one. Upload your own to replace it.</p>
                       )}
                       {slot.status === 'empty' && (
-                        <p className="text-xs text-red mt-1">Nothing uploaded yet{slot.labelled ? ` for ${slot.division} ${slot.label}` : ` for ${slot.division}`}.</p>
+                        <p className="text-xs text-error mt-1">Nothing uploaded yet{slot.labelled ? ` for ${slot.division} ${slot.label}` : ` for ${slot.division}`}.</p>
                       )}
                       {slot.track && (
                         <button
@@ -460,7 +461,7 @@ export default function PlayerPortalPage() {
                       )}
                     </div>
                   ))}
-                  {musicError && <p className="text-red text-xs">{musicError}</p>}
+                  {musicError && <p className="text-error text-xs">{musicError}</p>}
                 </div>
               )}
               {profile.music_upload_url ? (
@@ -578,14 +579,5 @@ export default function PlayerPortalPage() {
         }
       `}</style>
     </>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-xs font-black tracking-caps text-gold mb-1.5">{label}</label>
-      {children}
-    </div>
   );
 }

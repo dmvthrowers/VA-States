@@ -2,10 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { contest, competition } from '@/contest.config';
 import { fetchRegistrationTeams, type TeamSummary } from '@/lib/team-entries';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+
+/** j***@gmail.com: enough to recognise the address, not enough to harvest it. */
+function maskEmail(email: string | null): string {
+  if (!email || !email.includes('@')) return '';
+  const [name, domain] = email.split('@');
+  return `${name.slice(0, 1)}***@${domain}`;
+}
 
 export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ message: 'Missing id' }, { status: 400 });
+
+  // The id is a random UUID, but the link never expires, so keep guessing and scraping slow.
+  const allowed = await checkRateLimit(getClientIp(req.headers), 'confirm', 60, 60);
+  if (!allowed) return NextResponse.json({ message: 'Too many requests. Try again in a few minutes.' }, { status: 429 });
 
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -18,7 +30,8 @@ export async function GET(req: NextRequest) {
 
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://register.dmvthrowers.club';
   const musicDeadline = new Date(contest.deadlines.musicUpload);
-  const canUploadMusic = data.paid || data.fee_cents === 0;
+  // No upload link once the music deadline has passed, so a leaked confirm link can't hand out the token.
+  const canUploadMusic = (data.paid || data.fee_cents === 0) && Date.now() <= musicDeadline.getTime();
 
   // Teams they're on, with the join code to share (best-effort: the page still works without it).
   let teams: TeamSummary[] = [];
@@ -32,7 +45,7 @@ export async function GET(req: NextRequest) {
     id: data.id,
     first_name: data.first_name,
     last_name: data.last_name,
-    email: data.email,
+    email: maskEmail(data.email),
     divisions: data.divisions,
     division_styles: data.division_styles ?? {},
     fee_cents: data.fee_cents,
