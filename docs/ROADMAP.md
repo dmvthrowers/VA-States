@@ -66,8 +66,10 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
    dispatch (completed, refunded, bad signature).
 10. **CI action versions:** `actions/checkout@v4` and `actions/setup-node@v4` in `ci.yml` are
     behind; Dependabot's Actions group should pick these up — merge it when it lands.
-11. **Form label association:** the `Field` component in `app/page.tsx` renders `<label>`
-    without `htmlFor`, so screen readers don't tie labels to inputs.
+11. **Form label association: done** (this PR). `Field` already tied labels to inputs; the gaps were
+    18 sibling labels on the sign-in forms (`/judge`, `/dj`, `/player`, `/admin-dashboard`,
+    `/staff/profile`), the spectator portal, the comp code fields and the judge notes box, plus
+    the walk-up form's `Field` wrapper. Same fix in yoyo-registration-template.
 12. **Results data gaps** seen on `/results` (Oct 2): 1A missing ranks 1–9, X Division without
     rank numbers, two scores without a competitor name, some missing scores and cities. Check
     the official-results import rows.

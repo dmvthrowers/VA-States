@@ -187,8 +187,8 @@ export default function StaffProfilePage() {
             <h2 className="font-display font-bold text-xl text-white mb-2">Staff Sign In</h2>
             <form onSubmit={handleSignIn} className="space-y-4">
               <div>
-                <label className="block text-xs font-black tracking-caps text-gold mb-1.5">Email</label>
-                <input
+                <label htmlFor="profile-email" className="block text-xs font-black tracking-caps text-gold mb-1.5">Email</label>
+                <input id="profile-email"
                   aria-label="Staff email"
                   title="Staff email"
                   type="email"
@@ -199,8 +199,8 @@ export default function StaffProfilePage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-black tracking-caps text-gold mb-1.5">Password</label>
-                <input
+                <label htmlFor="profile-password" className="block text-xs font-black tracking-caps text-gold mb-1.5">Password</label>
+                <input id="profile-password"
                   aria-label="Staff password"
                   title="Staff password"
                   type="password"

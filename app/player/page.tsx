@@ -321,8 +321,8 @@ export default function PlayerPortalPage() {
             {mode === 'signup' ? (
               <form onSubmit={handleSignup} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-black tracking-caps text-gold mb-1.5">Registration ID</label>
-                  <input
+                  <label htmlFor="player-registration-id" className="block text-xs font-black tracking-caps text-gold mb-1.5">Registration ID</label>
+                  <input id="player-registration-id"
                     value={registrationId}
                     onChange={(e) => setRegistrationId(e.target.value)}
                     aria-label="Registration ID"
@@ -333,8 +333,8 @@ export default function PlayerPortalPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-black tracking-caps text-gold mb-1.5">Email</label>
-                  <input
+                  <label htmlFor="player-email" className="block text-xs font-black tracking-caps text-gold mb-1.5">Email</label>
+                  <input id="player-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -345,8 +345,8 @@ export default function PlayerPortalPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-black tracking-caps text-gold mb-1.5">Password</label>
-                  <input
+                  <label htmlFor="player-password" className="block text-xs font-black tracking-caps text-gold mb-1.5">Password</label>
+                  <input id="player-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -366,8 +366,8 @@ export default function PlayerPortalPage() {
             ) : (
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-black tracking-caps text-gold mb-1.5">Email</label>
-                  <input
+                  <label htmlFor="player-email-2" className="block text-xs font-black tracking-caps text-gold mb-1.5">Email</label>
+                  <input id="player-email-2"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -378,8 +378,8 @@ export default function PlayerPortalPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-black tracking-caps text-gold mb-1.5">Password</label>
-                  <input
+                  <label htmlFor="player-password-2" className="block text-xs font-black tracking-caps text-gold mb-1.5">Password</label>
+                  <input id="player-password-2"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

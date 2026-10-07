@@ -573,8 +573,8 @@ export default function AdminDashboardPage() {
 
           <form onSubmit={handleLogin} className="border border-navy-border bg-navy p-6 space-y-4">
             <div>
-              <label className="block text-xs font-black tracking-caps text-gold mb-1.5">Admin Email</label>
-              <input
+              <label htmlFor="admin-dashboard-admin-email" className="block text-xs font-black tracking-caps text-gold mb-1.5">Admin Email</label>
+              <input id="admin-dashboard-admin-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -584,8 +584,8 @@ export default function AdminDashboardPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-black tracking-caps text-gold mb-1.5">Password</label>
-              <input
+              <label htmlFor="admin-dashboard-password" className="block text-xs font-black tracking-caps text-gold mb-1.5">Password</label>
+              <input id="admin-dashboard-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
