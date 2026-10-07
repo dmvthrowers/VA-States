@@ -440,7 +440,7 @@ export default function FeeCalculatorPage() {
 
                 {/* Comp code input */}
                 <div style={{ marginTop: 8 }}>
-                  <label style={{
+                  <label htmlFor="fee-calculator-comp-code-optional" style={{
                     display: 'block',
                     fontFamily: 'var(--font-condensed)',
                     fontSize: '0.65rem',
@@ -453,7 +453,7 @@ export default function FeeCalculatorPage() {
                     Comp Code (optional)
                   </label>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <input
+                    <input id="fee-calculator-comp-code-optional"
                       type="text"
                       value={compCode}
                       onChange={e => { setCompCode(e.target.value.toUpperCase()); setCompApplied(false); setCompDiscountPercent(0); setCodeError(''); }}

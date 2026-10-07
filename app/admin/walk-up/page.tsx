@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { cloneElement, isValidElement, useId, useState } from 'react';
 import { calculateFeePreview, displayPrice, formatCents, type Division } from '@/lib/pricing';
 import { cleanStyles, selectionIssues, entryOf, styleCap, type DivisionStyles } from '@/lib/divisions-core';
 import { JOIN_CODE_RE, TEAM_NAME_MAX, entrySummary, normalizeJoinCode, teamPricingNote, type TeamChoice, type TeamSummary } from '@/lib/team-entries';
@@ -77,12 +77,17 @@ function teamsPayload(form: FormState): { teams: Record<string, TeamChoice>; pro
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  // Tie the label to its control so screen readers announce it (the control gets this id).
+  const generated = useId();
+  const own = isValidElement<{ id?: string }>(children) ? children.props.id : undefined;
+  const id = own ?? generated;
+  const control = isValidElement<{ id?: string }>(children) && !own ? cloneElement(children, { id }) : children;
   return (
     <div>
-      <label style={{ display: 'block', fontSize: '0.6rem', letterSpacing: '0.14em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.35rem' }}>
+      <label htmlFor={id} style={{ display: 'block', fontSize: '0.6rem', letterSpacing: '0.14em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.35rem' }}>
         {label}
       </label>
-      {children}
+      {control}
     </div>
   );
 }

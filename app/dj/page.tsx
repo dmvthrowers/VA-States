@@ -251,10 +251,10 @@ export default function DJPage() {
           </div>
 
           <form onSubmit={handleLogin} style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '2rem' }}>
-            <label style={{ display: 'block', fontSize: '0.65rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.5rem' }}>
+            <label htmlFor="dj-staff-email" style={{ display: 'block', fontSize: '0.65rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.5rem' }}>
               STAFF EMAIL
             </label>
-            <input
+            <input id="dj-staff-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -271,10 +271,10 @@ export default function DJPage() {
               }}
             />
 
-            <label style={{ display: 'block', fontSize: '0.65rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.5rem' }}>
+            <label htmlFor="dj-password" style={{ display: 'block', fontSize: '0.65rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.5rem' }}>
               PASSWORD
             </label>
-            <input
+            <input id="dj-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

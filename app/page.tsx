@@ -678,9 +678,9 @@ export default function RegisterPage() {
 
             {/* Comp code */}
             <div className="mt-5">
-              <label className="block text-xs font-black tracking-caps text-gold mb-2">COMP / SPONSOR CODE</label>
+              <label htmlFor="app-comp-sponsor-code" className="block text-xs font-black tracking-caps text-gold mb-2">COMP / SPONSOR CODE</label>
               <div className="flex gap-2">
-                <input
+                <input id="app-comp-sponsor-code"
                   {...register('comp_code', {
                     // Pass onChange through register options so RHF's internal
                     // tracking fires alongside our reset, preventing the field

@@ -314,8 +314,8 @@ export default function SpectatorPortalPage() {
             <p className="text-sm text-text-body mb-4">Enter the same email used on your spectator RSVP.</p>
             <form onSubmit={sendCode} className="space-y-4">
               <div>
-                <label className="block text-xs font-black tracking-caps text-gold mb-1.5">Email</label>
-                <input
+                <label htmlFor="portal-email" className="block text-xs font-black tracking-caps text-gold mb-1.5">Email</label>
+                <input id="portal-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -336,8 +336,8 @@ export default function SpectatorPortalPage() {
             {codeSent && (
               <form onSubmit={verifyCode} className="space-y-4 mt-5 pt-5 border-t border-navy-border">
                 <div>
-                  <label className="block text-xs font-black tracking-caps text-gold mb-1.5">{CODE_LENGTH}-digit code</label>
-                  <input
+                  <label htmlFor="portal-digit-code" className="block text-xs font-black tracking-caps text-gold mb-1.5">{CODE_LENGTH}-digit code</label>
+                  <input id="portal-digit-code"
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
