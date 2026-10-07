@@ -4,7 +4,20 @@
 competed, scores, placements, brackets) and delete everything else, so the next season starts
 clean and the app holds no old personal data or music.
 
-**Status.** Planned, not built. Decisions marked **(you)** need an owner answer before building.
+**Status.** Freeze and verify are built (steps 1–2 below); purge and reset are not, and wait on the decisions
+marked **(you)**. Nothing here deletes data.
+
+**Run it** (needs `.env.local` with the Supabase URL and service-role key, read-only use):
+
+```sh
+npm run archive -- --season 2026 --site ../dmvthrowers.github.io   # writes archive/2026/
+npm run archive:verify -- --season 2026 --site ../dmvthrowers.github.io
+```
+
+`--site` reuses that repo's `vsyc26-results.html` for the header, nav and footer so the site stays consistent;
+without it you get plain standalone pages. `archive` re-runs its own checks and refuses to write anything that
+fails them. Copy the output into the club site repo as a pull request and review it before merging.
+Code: `lib/season-archive.ts` (pure, tested) and `scripts/`.
 
 ## What is kept (the public record)
 
@@ -52,10 +65,10 @@ the site's rules.
 
 ## Process (what gets built)
 
-1. `npm run archive -- --season 2026`
+1. `npm run archive -- --season 2026` **(built)**
    - Reads only through the same code paths the public results page uses (so privacy rules can't
      drift), writes `archive/2026/`, prints a report: counts per division/round/match.
-2. `npm run archive:verify`
+2. `npm run archive:verify` **(built)**
    - Counts in the files match the database; no email, phone, address, birth date or Stripe id
      appears anywhere in the output; every minor not opted in is in restricted form.
 3. A person reviews the generated pages and merges the PR in the club site repo.
