@@ -23,6 +23,8 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 
 | Migration replay in CI (`migrations` job, `scripts/check-migrations.sh`), `npm run divisions` + `supabase/divisions.sql`, and the template's `divisions-core`, `formats` and `routine-length` tests | build plan 4.2, `supabase/migrations/README.md` |
 
+| Season purge and reset: `npm run purge` (dry run by default), migration 0060 (`vsyc_season_purge`, consent records, past champions), CI test of the purge | build plan 4.4, `docs/specs/season-archive.md`. Not run in production; migration 0060 is not applied |
+
 ## Where things stand (2026-10-06)
 
 - **Production database:** every migration through 0047 is applied (checked read-only on 2026-10-06: the four
