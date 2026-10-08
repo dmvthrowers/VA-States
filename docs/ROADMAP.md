@@ -21,6 +21,8 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 | Unused `/api/dj/auth` PIN route deleted; `.env.local.example` no longer lists dead `ADMIN_*`/`*_PIN` vars and now lists `HEALTHCHECK_TOKEN`, `EVENT_FLAGS_CACHE_TTL_MS` | this PR |
 | Per-page `<title>`s, noindex on personal/ops pages, no site-wide canonical, post-event JSON-LD (no "InStock" ticket offers) | this PR |
 
+| Judge scores survive a dropped connection (T19): saved on the phone first, sent when the signal returns, with a "saved, not sent yet" bar and a Send now button | build plan 4.5, `lib/score-outbox.ts`; ported from the registration template (#45) |
+
 ## Where things stand (2026-10-06)
 
 - **Production database:** every migration through 0047 is applied (checked read-only on 2026-10-06: the four
