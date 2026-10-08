@@ -1,21 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
+import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
 import { z } from 'zod';
-
-async function requireAdmin(req: NextRequest, requestId: string) {
-  const token = getBearerToken(req);
-  if (!token) return apiError('unauthorized', 'Missing bearer token', requestId);
-
-  const identity = await getStaffIdentityFromToken(token);
-  if (!identity || !identity.isActive || identity.role !== 'admin') {
-    return apiError('forbidden', 'Admin access required', requestId);
-  }
-
-  return identity;
-}
 
 // Accepts either a plain YYYY-MM-DD (from the dashboard's <input type="date">)
 // or a full ISO datetime with offset. Plain dates are normalized to end-of-day
