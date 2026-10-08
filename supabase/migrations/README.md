@@ -27,3 +27,13 @@ it. Supabase never reads it. Known quirks:
 
 Renaming the labels would also mean rewriting production's migration
 history, for no functional gain, so they stay as they are.
+
+
+## Replaying from scratch
+
+`scripts/check-migrations.sh` (run in CI as the `migrations` job) applies every file here, in order, to an empty
+Postgres with `supabase/ci/supabase-stubs.sql` standing in for Supabase's built-in schemas, then checks that every
+public table has row level security on. Seven older migrations (0010, 0012, 0014, 0015, 0017, 0018, 0022) got a
+`DROP VIEW IF EXISTS` line at the top (0014 also before dropping its old columns) because a view they rebuild depends
+on columns they alter; production applied them in an order where that did not matter. The edit changes nothing on a
+database that already ran them. Do not use the stubs or the script on a real project.
