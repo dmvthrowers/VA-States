@@ -23,4 +23,6 @@ if [ -n "$missing" ]; then
   echo "RLS is off on: $missing" >&2
   exit 1
 fi
-echo "migrations OK: $(ls supabase/migrations/*.sql | wc -l) files, RLS on every table"
+# The season purge function (migration 0060) against a small seeded season; rolls back when done.
+psql_ -At -f supabase/ci/purge-test.sql | grep "purge test OK" > /dev/null
+echo "migrations OK: $(ls supabase/migrations/*.sql | wc -l) files, RLS on every table, season purge test passes"
