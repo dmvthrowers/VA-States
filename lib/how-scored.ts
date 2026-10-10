@@ -71,6 +71,18 @@ export function howScored(d: DivisionDef): HowScored {
       };
     case 'showcase':
       return { headline: 'Showcase (not judged)', notes: ['Performances only. There are no scores or places.'] };
+    case 'addon': {
+      const ages = s.minAge != null && s.maxAge != null ? `Open to ages ${s.minAge} to ${s.maxAge}.`
+        : s.minAge != null ? `Open to ages ${s.minAge} and up.`
+        : s.maxAge != null ? `Open to ages ${s.maxAge} and under.` : '';
+      return {
+        headline: `Free add-on: placed from the ${s.parent} results`,
+        notes: [
+          `There is no separate round. Entrants are ranked by their ${s.parent} scores.`,
+          ...(ages ? [ages] : []),
+        ],
+      };
+    }
   }
 }
 

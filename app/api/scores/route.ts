@@ -19,7 +19,7 @@ type Division = string;
  *  - freestyle: clicker tally normalized per judge (×style multiplier) + 4 eval categories − deductions
  *  - panel: one 0–max score per criterion; the total is their sum
  *  - manual: one number per judge (best of N attempts), higher or lower is better
- * Ladder, bracket and showcase divisions are not scored here (see /api/ladder, /api/bracket).
+ * Ladder, bracket, showcase and add-on divisions are not scored here (see /api/ladder, /api/bracket).
  * The math lives in lib/divisions-core.ts and mirrors the vsyc_results view.
  */
 const sheetNumber = z.number().min(0).max(99).optional().default(0);
@@ -52,7 +52,7 @@ const scoreSubmitSchema = z.object({
   const sc = d.scoring;
   const issue = (message: string, path: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: [path] });
   if (data.round > roundsOf(d).length) issue(`${d.name} has ${roundsOf(d).length} round(s)`, 'round');
-  if (sc.format === 'ladder' || sc.format === 'bracket' || sc.format === 'showcase') {
+  if (sc.format === 'ladder' || sc.format === 'bracket' || sc.format === 'showcase' || sc.format === 'addon') {
     issue(`${d.name} isn't scored on a score sheet`, 'division');
     return;
   }

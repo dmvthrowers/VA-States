@@ -244,12 +244,27 @@ export interface BracketScoring {
   matchScoring?: { to: number; finalsTo?: number };
 }
 
+/**
+ * "addon": a $0 category that re-ranks another division's results (Girls, Student, Masters). Players tick it
+ * at registration (it needs the parent division ticked too); it has no run order, music or judging of its own.
+ * Its results are the parent's final standings, kept to the people who ticked the add-on and, if set, who fit
+ * the age bounds, renumbered. The description should say who it is for; the tick is the player's own.
+ */
+export interface AddOnScoring {
+  format: 'addon';
+  /** Code of the division whose results this one reuses (not itself an add-on) */
+  parent: string;
+  /** Inclusive age limits on the contest day, checked at registration. Leave out for no limit. */
+  minAge?: number;
+  maxAge?: number;
+}
+
 /** "showcase": performances in a run order, not judged (exhibitions, guest acts, kids' showcase). */
 export interface ShowcaseScoring {
   format: 'showcase';
 }
 
-export type Scoring = FreestyleScoring | ManualScoring | PanelScoring | LadderScoring | BracketScoring | ShowcaseScoring;
+export type Scoring = FreestyleScoring | ManualScoring | PanelScoring | LadderScoring | BracketScoring | ShowcaseScoring | AddOnScoring;
 
 /** Solo entries, or teams (doubles, groups, acts) where every member registers themselves. */
 export type EntryDef =

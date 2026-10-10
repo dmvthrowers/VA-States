@@ -95,3 +95,20 @@ planned rows never count toward the totals or the fundraising goal. Categories: 
 actual registration income is read live from paid fees), sponsor, merch, spectator income, venue, prizes, equipment,
 printing, food, insurance and other. `contest.budgetLeftoverNote` says where any surplus goes ("" hides it).
 Existing entries keep their category and count as actual. Needs migration `0057_open_books.sql` (applied 2026-10-10).
+
+## Add-on divisions (none configured)
+
+A `$0` division that re-ranks another division's results: Girls, Student, Masters. In `competition.divisions`:
+
+```ts
+{ code: 'GIRLS', name: 'Girls Freestyle', description: 'A free add-on for girls and women who enter 1A.',
+  priceCents: 0, music: false, scoring: { format: 'addon', parent: '1A', minAge: 8, maxAge: 17 /* both optional */ } }
+```
+
+Players tick it at registration, and it needs the parent ticked too (and, if set, an age inside the limits, checked on
+the form and on the server). The tick is the player's own: the description says who it is for, and the app collects
+nothing about gender or student status. The add-on has no run order, music or judging. Its results are the parent's
+standings kept to the people who ticked it, in the parent's order, renumbered from 1 with ties kept, and they appear
+when the parent's results are released. The parent must be a solo, ranked division (not a showcase, not another add-on).
+Run `npm run divisions` and apply `supabase/divisions.sql` after adding one. Needs migration `0059_addon_divisions.sql`
+(applied 2026-10-10). **No VA-States division is an add-on yet**; who qualifies for Girls is still an owner decision.

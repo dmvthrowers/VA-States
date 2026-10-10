@@ -85,6 +85,8 @@ export interface StandingsInput {
   matches?: BracketMatchRow[];
   /** Public names for ladder / bracket entrants, keyed `${division}:${registration_id}` */
   names?: Map<string, PublicEntry>;
+  /** Add-on divisions: the registrations that ticked each one (and fit its age limits), keyed by the add-on's code */
+  addOnMembers?: Record<string, Set<string>>;
 }
 
 export const nameKey = (division: string, registrationId: string) => `${division}:${registrationId}`;
@@ -296,7 +298,7 @@ export function emptyDivisionStandings(def: DivisionDef): DivisionStandings {
   return {
     format: f,
     better: betterOf(def.scoring),
-    rounds: f === 'showcase' ? [] : roundsOf(def).map((r) => ({ name: r.name, rows: [] })),
+    rounds: f === 'showcase' ? [] : f === 'addon' ? [] : roundsOf(def).map((r) => ({ name: r.name, rows: [] })),
     final: [],
   };
 }
@@ -319,7 +321,32 @@ export function divisionStandings(def: DivisionDef, input: StandingsInput): Divi
       return bracketStandings(def, (input.matches ?? []).filter((m) => m.division === def.code), names);
     case 'showcase':
       return emptyDivisionStandings(def);
+    case 'addon':
+      // Needs the parent's standings; computeStandings fills it in.
+      return emptyDivisionStandings(def);
   }
+}
+
+/**
+ * An add-on division's results: the parent's standings kept to the people who ticked the add-on, in the
+ * parent's order. People who shared a place in the parent share one here, and the places are renumbered
+ * from 1 (1, 2, 2, 4). Each of the parent's rounds is filtered the same way.
+ */
+export function addOnStandings(def: DivisionDef, parent: DivisionStandings, members: Set<string> | undefined): DivisionStandings {
+  const keep = (rows: StandingRow[]): StandingRow[] => {
+    const mine = rows.filter((r) => members?.has(r.registration_id));
+    let place = 0;
+    return mine.map((r, i) => {
+      if (i === 0 || mine[i - 1].place !== r.place) place = i + 1;
+      return { ...r, place };
+    });
+  };
+  return {
+    format: 'addon',
+    better: parent.better,
+    rounds: parent.rounds.map((r) => ({ name: r.name, rows: keep(r.rows) })),
+    final: keep(parent.final),
+  };
 }
 
 /**
@@ -342,7 +369,14 @@ export function stateChampions(rows: StandingRow[], state: string, eligible?: Re
 
 /** Pure: standings for every division from already-loaded rows. */
 export function computeStandings(input: StandingsInput, divisions: DivisionDef[] = competition.divisions): Record<Division, DivisionStandings> {
-  return Object.fromEntries(divisions.map((d) => [d.code, divisionStandings(d, input)]));
+  const out: Record<Division, DivisionStandings> = Object.fromEntries(divisions.map((d) => [d.code, divisionStandings(d, input)]));
+  // Add-ons borrow their parent's results, so they come last.
+  for (const d of divisions) {
+    if (d.scoring.format !== 'addon') continue;
+    const parent = out[d.scoring.parent];
+    if (parent) out[d.code] = addOnStandings(d, parent, input.addOnMembers?.[d.code]);
+  }
+  return out;
 }
 
 /**
@@ -411,7 +445,23 @@ export async function fetchStandings(supabase: AnyClient): Promise<Record<Divisi
   ];
   const names = await loadNames(supabase, wanted);
 
-  return computeStandings({ results: (resultsRes.data ?? []) as ResultRow[], ladder, matches, names });
+  // Add-on divisions: who ticked each one at registration, kept to its age limits.
+  const addOns = competition.divisions.flatMap((d) => (d.scoring.format === 'addon' ? [{ code: d.code, scoring: d.scoring }] : []));
+  const addOnMembers: Record<string, Set<string>> = {};
+  if (addOns.length) {
+    const { data, error } = await supabase.from('vsyc_registrations').select('id, divisions, age_on_event');
+    if (error) console.error('[standings] add-on members:', error.message);
+    for (const a of addOns) {
+      addOnMembers[a.code] = new Set(
+        (data ?? [])
+          .filter((r) => (r.divisions as string[] | null)?.includes(a.code))
+          .filter((r) => (a.scoring.minAge === undefined || r.age_on_event >= a.scoring.minAge) && (a.scoring.maxAge === undefined || r.age_on_event <= a.scoring.maxAge))
+          .map((r) => r.id as string),
+      );
+    }
+  }
+
+  return computeStandings({ results: (resultsRes.data ?? []) as ResultRow[], ladder, matches, names, addOnMembers });
 }
 
 /**
