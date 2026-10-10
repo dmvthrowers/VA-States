@@ -57,3 +57,10 @@ If a score is added or edited after the check, the gate closes again until it is
 takes back its check. Publishing without a check answers 409 with the reasons, and **Run the Day** shows them.
 The dashboard's `results_published` switch skips the gates on purpose: it is the "show everything" override.
 Needs migration `0052_release_checks.sql` (applied 2026-10-10).
+
+## MC cards
+
+`/mc/cards` (admins; linked from `/staff`) shows one card per competitor in run order for the announcer: the name as
+the public pages show it (the same privacy rules), how to say it, the intro line and the sponsor, as people gave them at
+sign-up. The three sign-up fields are optional (`name_pronunciation`, `intro_note`, `sponsor_name`). Cards reload every
+15 seconds and print as a fallback. Needs migration `0056_mc_card_fields.sql` (applied 2026-10-10).

@@ -27,6 +27,12 @@ const portals = [
     cta: 'Open schedule controls',
   },
   {
+    title: 'MC Cards',
+    description: 'One card per competitor in run order: how to say the name, the intro and the sponsor. Admins only.',
+    href: '/mc/cards',
+    cta: 'Open MC cards',
+  },
+  {
     title: 'Side Events',
     description: 'Stopwatch and tap counter for the side table, with a live leaderboard.',
     href: '/staff/side-events',
