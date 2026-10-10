@@ -106,6 +106,12 @@ export const contest = {
 
   contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contact@dmvthrowers.club',
 
+  /**
+   * Shade each row of the results tables by how close it is to the best score, so the gaps between
+   * places show without reading every number. Off by default.
+   */
+  resultsShading: false,
+
   links: {
     home: 'https://dmvthrowers.club/vsyc26.html',
     about: 'https://dmvthrowers.club/vsyc26.html',
