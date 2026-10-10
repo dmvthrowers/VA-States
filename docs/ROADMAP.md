@@ -227,3 +227,10 @@ are not started and need the retention decisions in the spec first (payment and 
   `checkout.session.completed` would mark that registration paid. Very unlikely in practice;
   the reconcile sweep's refunded check doesn't apply because no `payment_intent_id` was stored.
   Revisit if it ever happens.
+
+## Multi-event (stage 1a, foundation built)
+
+The template's multi-event design (`docs/MULTI_EVENT.md` there) is approved. VA-States has the foundation: `lib/events.ts`, and `events`, `organizers`,
+`defaultEvent` and `eventOf()` in `contest.config.ts`. VSYC-26 is the default event, its id pinned as `contest.eventId: 'vsyc26'`, and DMV Throwers is the
+default organizer. Nothing reads them yet, so nothing changes. Next, in the template first and then here: move the readers of `contest.date`,
+`contest.name` and `dayOf` onto `eventOf()`, add `event_id` to the data (migration, applied in the SQL editor), `/e/<event>/…` URLs, and scoped role grants.
