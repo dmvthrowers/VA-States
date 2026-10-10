@@ -71,3 +71,12 @@ Every registration, spectator and volunteer stores the version of the code of co
 Anyone who signed up before this was recorded has none. After you revise the code, bump the version and
 `lib/conduct-version.ts` says who is still on an old one. Recording only: nothing asks people to accept again.
 Needs migration `0054_conduct_version.sql` (applied 2026-10-10).
+
+## Open books
+
+The public budget page (`/budget`) adds a **By Category** section: income and costs by category, with a **Planned**
+column next to **Actual**. In the admin Budget tab, tick **Planned figure** to publish a number before the event;
+planned rows never count toward the totals or the fundraising goal. Categories: registration (planned only, since
+actual registration income is read live from paid fees), sponsor, merch, spectator income, venue, prizes, equipment,
+printing, food, insurance and other. `contest.budgetLeftoverNote` says where any surplus goes ("" hides it).
+Existing entries keep their category and count as actual. Needs migration `0057_open_books.sql` (applied 2026-10-10).

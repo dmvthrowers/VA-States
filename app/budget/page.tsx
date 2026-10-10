@@ -1,6 +1,8 @@
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import { getBudgetEntries, getBudgetSummary } from '@/lib/budget';
+import { contest } from '@/contest.config';
+import { buildBooks, type BookLine } from '@/lib/open-books';
 
 // Public, always-on transparency page — no event flag gate, since the whole
 // point is showing fundraising progress live as sponsor/merch figures come in.
@@ -13,6 +15,7 @@ function formatMoney(cents: number): string {
 export default async function BudgetPage() {
   const entries = await getBudgetEntries().catch(() => []);
   const summary = await getBudgetSummary(entries).catch(() => null);
+  const books = summary ? buildBooks(entries, summary.registration_income_cents) : null;
 
   return (
     <>
@@ -115,6 +118,45 @@ export default async function BudgetPage() {
                 </div>
               </div>
             </section>
+
+            {books && (books.income.length > 0 || books.expense.length > 0) && (
+              <section aria-labelledby="by-category" style={{ marginBottom: '2.5rem' }}>
+                <h2 id="by-category" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--gold)', fontSize: '1.2rem', margin: '0 0 0.5rem' }}>
+                  By Category
+                </h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0 0 1rem' }}>
+                  {books.has_planned ? 'Planned figures are published before the event; actuals are filled in as money moves.' : 'Actual figures, updated as money moves.'}
+                </p>
+                {[['Income', books.income], ['Expenses', books.expense]].map(([title, lines]) => (
+                  (lines as BookLine[]).length > 0 && (
+                    <div key={title as string} className="table-wrap" style={{ overflowX: 'auto', marginBottom: '1rem' }}>
+                      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '0.9rem', border: '1px solid var(--navy-border)' }}>
+                        <caption style={{ textAlign: 'left', color: '#fff', fontWeight: 700, padding: '0.5rem 0' }}>{title as string}</caption>
+                        <thead>
+                          <tr style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textAlign: 'right' }}>
+                            <th scope="col" style={{ textAlign: 'left', padding: '0.5rem 1rem' }}>Category</th>
+                            {books.has_planned && <th scope="col" style={{ padding: '0.5rem 1rem' }}>Planned</th>}
+                            <th scope="col" style={{ padding: '0.5rem 1rem' }}>Actual</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(lines as BookLine[]).map((l) => (
+                            <tr key={l.category} style={{ borderTop: '1px solid var(--navy-border)' }}>
+                              <th scope="row" style={{ textAlign: 'left', padding: '0.6rem 1rem', fontWeight: 400, color: 'var(--text-body)' }}>{l.label}</th>
+                              {books.has_planned && <td style={{ textAlign: 'right', padding: '0.6rem 1rem', fontFamily: 'monospace', color: 'var(--text-muted)' }}>{formatMoney(l.planned_cents)}</td>}
+                              <td style={{ textAlign: 'right', padding: '0.6rem 1rem', fontFamily: 'monospace', color: '#fff', fontWeight: 700 }}>{formatMoney(l.actual_cents)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                ))}
+                {contest.budgetLeftoverNote && (
+                  <p style={{ color: 'var(--text-body)', margin: 0 }}><strong style={{ color: 'var(--gold)' }}>Anything left over:</strong> {contest.budgetLeftoverNote}</p>
+                )}
+              </section>
+            )}
 
             <section style={{ border: '1px solid var(--navy-border)', background: 'var(--navy)', padding: '1.25rem 1.5rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ color: 'var(--text-body)', fontWeight: 700 }}>Net position</span>
