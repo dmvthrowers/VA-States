@@ -1,9 +1,10 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { BUDGET_CATEGORIES, BUDGET_CATEGORY_LABELS, type BudgetCategory } from '@/lib/open-books';
 
 type EntryType = 'income' | 'expense';
-type EntryCategory = 'sponsor' | 'merch' | 'other';
+type EntryCategory = BudgetCategory;
 
 interface BudgetEntry {
   id: string;
@@ -12,6 +13,7 @@ interface BudgetEntry {
   description: string;
   amount_cents: number;
   entry_date: string;
+  planned?: boolean;
 }
 
 interface BudgetSummary {
@@ -28,11 +30,7 @@ interface BudgetSummary {
   progress_percent: number;
 }
 
-const CATEGORY_LABELS: Record<EntryCategory, string> = {
-  sponsor: 'Sponsor / Donation',
-  merch: 'Merch',
-  other: 'Other',
-};
+const CATEGORY_LABELS = BUDGET_CATEGORY_LABELS;
 
 function formatMoney(cents: number): string {
   return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -49,6 +47,7 @@ export default function BudgetManager({ token }: { token: string }) {
 
   const [entryType, setEntryType] = useState<EntryType>('income');
   const [category, setCategory] = useState<EntryCategory>('sponsor');
+  const [planned, setPlanned] = useState(false);
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [entryDate, setEntryDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -117,6 +116,7 @@ export default function BudgetManager({ token }: { token: string }) {
           description: description.trim(),
           amount_cents: Math.round(dollars * 100),
           entry_date: entryDate,
+          planned,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -240,9 +240,7 @@ export default function BudgetManager({ token }: { token: string }) {
                   onChange={(e) => setCategory(e.target.value as EntryCategory)}
                   className="w-full bg-navy-deep border border-navy-border px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
                 >
-                  <option value="sponsor">Sponsor / Donation</option>
-                  <option value="merch">Merch</option>
-                  <option value="other">Other</option>
+                  {BUDGET_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
                 </select>
               </label>
 
@@ -282,6 +280,11 @@ export default function BudgetManager({ token }: { token: string }) {
                 />
               </label>
 
+              <label className="flex items-center gap-2 md:col-span-5 text-sm text-text-body">
+                <input type="checkbox" checked={planned} onChange={(e) => setPlanned(e.target.checked)} className="w-4 h-4 accent-gold" />
+                Planned figure (published before the event, never counted in the totals)
+              </label>
+
               <div className="md:col-span-5">
                 <button
                   type="submit"
@@ -317,7 +320,7 @@ export default function BudgetManager({ token }: { token: string }) {
                           {entry.entry_type === 'income' ? 'Income' : 'Expense'}
                         </span>
                       </td>
-                      <td className="py-2 pr-3 text-text-body">{CATEGORY_LABELS[entry.category]}</td>
+                      <td className="py-2 pr-3 text-text-body">{CATEGORY_LABELS[entry.category]}{entry.planned ? ' (planned)' : ''}</td>
                       <td className="py-2 pr-3 text-white">{entry.description}</td>
                       <td className="py-2 pr-3 text-white whitespace-nowrap">{formatMoney(entry.amount_cents)}</td>
                       <td className="py-2 pr-3">

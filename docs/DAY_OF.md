@@ -87,3 +87,11 @@ it (`/api/admin/bracket/score`). When a side reaches the target it is set as the
 at the target, so a score above it, or both sides on it, is refused. Running scores show on the public bracket. Taking a
 result back removes the scores of any later match whose entrants change. Needs migration
 `0058_bracket_match_scores.sql` (applied 2026-10-10). No VA-States division sets `matchScoring`, so brackets work as before.
+## Open books
+
+The public budget page (`/budget`) adds a **By Category** section: income and costs by category, with a **Planned**
+column next to **Actual**. In the admin Budget tab, tick **Planned figure** to publish a number before the event;
+planned rows never count toward the totals or the fundraising goal. Categories: registration (planned only, since
+actual registration income is read live from paid fees), sponsor, merch, spectator income, venue, prizes, equipment,
+printing, food, insurance and other. `contest.budgetLeftoverNote` says where any surplus goes ("" hides it).
+Existing entries keep their category and count as actual. Needs migration `0057_open_books.sql` (applied 2026-10-10).
