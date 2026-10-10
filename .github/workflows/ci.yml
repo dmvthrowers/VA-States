@@ -44,3 +44,27 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  migrations:
+    # Replays every migration on an empty Postgres, so a migration that only works on a database with history fails here.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Replay migrations
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: scripts/check-migrations.sh

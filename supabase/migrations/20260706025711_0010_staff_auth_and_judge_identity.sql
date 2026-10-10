@@ -1,3 +1,7 @@
+-- Replay fix (build plan 4.2): drop views rebuilt below before altering the columns they read, so this
+-- migration replays on a fresh database. A no-op on a database that already applied it.
+DROP VIEW IF EXISTS vsyc_results;
+
 -- Staff account model for judge/DJ authentication and per-user scoring identity.
 
 CREATE TABLE IF NOT EXISTS vsyc_staff_accounts (

@@ -1,3 +1,7 @@
+-- Replay fix (build plan 4.2): drop views rebuilt below before altering the columns they read, so this
+-- migration replays on a fresh database. A no-op on a database that already applied it.
+DROP VIEW IF EXISTS vsyc_public_profiles;
+
 -- Add socials to staff accounts so judges/DJs/admins can show Instagram/TikTok/YouTube
 -- on their public profile, same as competitors and spectators. Recreates
 -- vsyc_public_profiles to surface the real column instead of a hardcoded '{}'.

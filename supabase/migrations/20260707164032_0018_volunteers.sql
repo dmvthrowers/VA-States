@@ -1,3 +1,7 @@
+-- Replay fix (build plan 4.2): drop views rebuilt below before altering the columns they read, so this
+-- migration replays on a fresh database. A no-op on a database that already applied it.
+DROP VIEW IF EXISTS vsyc_volunteer_role_availability;
+
 -- VSYC-26 Volunteer program: role catalog + applications.
 -- Roles are event-runner discretion for final assignment (vsyc_volunteers.assigned_role),
 -- separate from the applicant's ranked preferences (role_choice_1 / role_choice_2).

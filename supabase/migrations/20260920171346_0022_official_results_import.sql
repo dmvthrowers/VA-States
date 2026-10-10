@@ -1,3 +1,7 @@
+-- Replay fix (build plan 4.2): drop views rebuilt below before altering the columns they read, so this
+-- migration replays on a fresh database. A no-op on a database that already applied it.
+DROP VIEW IF EXISTS vsyc_results;
+
 -- Applied to production 2026-09-20 (schema_migrations version 20260920171346, name 0022_official_results_import).
 -- Copied into the repo 2026-09-23 so the repo matches prod; SQL is verbatim from
 -- supabase_migrations.schema_migrations.

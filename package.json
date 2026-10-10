@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test 'lib/**/*.test.mjs'",
     "typecheck": "tsc --noEmit",
+    "divisions": "node --experimental-strip-types --no-warnings scripts/sync-divisions.mjs",
     "archive": "node --env-file-if-exists=.env.local --import tsx scripts/archive.ts",
     "archive:verify": "node --env-file-if-exists=.env.local --import tsx scripts/archive-verify.ts"
   },
