@@ -26,6 +26,7 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 | Migration replay in CI (`migrations` job, `scripts/check-migrations.sh`), `npm run divisions` + `supabase/divisions.sql`, and the template's `divisions-core`, `formats` and `routine-length` tests | build plan 4.2, `supabase/migrations/README.md` |
 
 | Season purge and reset: `npm run purge` (dry run by default), migration 0060 (`vsyc_season_purge`, consent records, past champions), CI test of the purge | build plan 4.4, `docs/specs/season-archive.md`. Not run in production; migration 0060 is not applied |
+| Plain-words "How it's scored" notes under each division on `/results`, and optional score shading (`contest.resultsShading`, off by default) | build plan 4.11, `lib/how-scored.ts`; ported from the registration template (#60). Frontend only; no migration |
 
 ## Where things stand (2026-10-06)
 
