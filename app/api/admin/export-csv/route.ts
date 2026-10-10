@@ -17,7 +17,7 @@ const COLUMNS = [
   'id', 'created_at', 'last_name', 'first_name', 'preferred_bracket_name',
   'age_on_event', 'divisions', 'division_styles', 'fee_cents', 'paid',
   'payment_method', 'comp_code', ...MUSIC_COLUMNS.map((m) => m.column), 'music_uploaded_at',
-  'email', 'phone', 'parent_email', 'registration_source', 'bracket_seed', 'admin_notes',
+  'email', 'phone', 'parent_email', 'registration_source', 'bracket_seed', 'admin_notes', 'code_of_conduct_version',
 ];
 
 function csvRow(values: string[]): string {

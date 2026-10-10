@@ -150,6 +150,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       liability_waiver_accepted: data.liability_waiver_accepted,
       photo_video_consent:       data.photo_video_consent,
       code_of_conduct_accepted:  data.code_of_conduct_accepted,
+      code_of_conduct_version:   contest.codeOfConductVersion,
       emergency_contact_name:         data.emergency_contact_name,
       emergency_contact_phone:        data.emergency_contact_phone,
       emergency_contact_relationship: data.emergency_contact_relationship,

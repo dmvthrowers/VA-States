@@ -64,3 +64,10 @@ Needs migration `0052_release_checks.sql` (applied 2026-10-10).
 the public pages show it (the same privacy rules), how to say it, the intro line and the sponsor, as people gave them at
 sign-up. The three sign-up fields are optional (`name_pronunciation`, `intro_note`, `sponsor_name`). Cards reload every
 15 seconds and print as a fallback. Needs migration `0056_mc_card_fields.sql` (applied 2026-10-10).
+## Code of conduct version
+
+Every registration, spectator and volunteer stores the version of the code of conduct they accepted
+(`code_of_conduct_version`, set from `contest.codeOfConductVersion`; the registrations CSV export includes it).
+Anyone who signed up before this was recorded has none. After you revise the code, bump the version and
+`lib/conduct-version.ts` says who is still on an old one. Recording only: nothing asks people to accept again.
+Needs migration `0054_conduct_version.sql` (applied 2026-10-10).
