@@ -1,22 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
+import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
 import { sendVolunteerConfirmedEmail } from '@/lib/email';
 import { getVolunteerRole } from '@/lib/volunteer-roles';
-
-async function requireAdmin(req: NextRequest, requestId: string) {
-  const token = getBearerToken(req);
-  if (!token) return apiError('unauthorized', 'Missing bearer token', requestId);
-
-  const identity = await getStaffIdentityFromToken(token);
-  if (!identity || !identity.isActive || identity.role !== 'admin') {
-    return apiError('forbidden', 'Admin access required', requestId);
-  }
-
-  return identity;
-}
 
 /**
  * POST /api/admin/volunteers/:id/resend-code

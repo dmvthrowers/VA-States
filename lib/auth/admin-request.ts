@@ -1,8 +1,21 @@
 import { NextRequest } from 'next/server';
 import { apiError } from '@/lib/api-error';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+
+/**
+ * Admin routes allow this many calls per IP per minute, across all of them. Admin auth is a Supabase login,
+ * not a password, so this is about cost and abuse (each call asks Supabase Auth to check the token), not
+ * guessing. A busy dashboard stays well under it; checkRateLimit fails open if the limiter is down.
+ */
+export const ADMIN_RATE_LIMIT = { max: 60, windowMinutes: 1 } as const;
 
 export async function requireAdminRequest(req: NextRequest, requestId: string) {
+  const allowed = await checkRateLimit(getClientIp(req.headers), 'admin', ADMIN_RATE_LIMIT.max, ADMIN_RATE_LIMIT.windowMinutes);
+  if (!allowed) {
+    return apiError('rate_limited', 'Too many requests. Wait a minute and try again.', requestId, { 'Retry-After': '60' });
+  }
+
   const token = getBearerToken(req);
   if (!token) {
     return apiError('unauthorized', 'Missing bearer token', requestId);

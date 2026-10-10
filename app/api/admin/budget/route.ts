@@ -2,20 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
+import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
 import { getBudgetEntries, getBudgetSummary } from '@/lib/budget';
-
-async function requireAdmin(req: NextRequest, requestId: string) {
-  const token = getBearerToken(req);
-  if (!token) return apiError('unauthorized', 'Missing bearer token', requestId);
-
-  const identity = await getStaffIdentityFromToken(token);
-  if (!identity || !identity.isActive || identity.role !== 'admin') {
-    return apiError('forbidden', 'Admin access required', requestId);
-  }
-
-  return identity;
-}
 
 const createEntrySchema = z.object({
   entry_type: z.enum(['income', 'expense']),
