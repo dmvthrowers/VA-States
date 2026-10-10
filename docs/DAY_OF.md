@@ -112,3 +112,18 @@ standings kept to the people who ticked it, in the parent's order, renumbered fr
 when the parent's results are released. The parent must be a solo, ranked division (not a showcase, not another add-on).
 Run `npm run divisions` and apply `supabase/divisions.sql` after adding one. Needs migration `0059_addon_divisions.sql`
 (applied 2026-10-10). **No VA-States division is an add-on yet**; who qualifies for Girls is still an owner decision.
+
+
+## Schedule clashes
+
+On **Run the Day** (`/admin/schedule`), a "Schedule clashes" panel lists players who are registered and paid in two divisions
+whose planned blocks overlap, for example a player in both 1A and X when the two blocks share a time. It reads the planned times in
+`dayOf.schedule`, not the live clock, so it is useful while you are building the schedule as well as on the day.
+
+- Each line says which two blocks clash, by how many minutes, and who is in both.
+- "Also warn when blocks are less than N minutes apart" adds tight turnarounds (a player finishing one block as the next starts).
+  The default is overlaps only.
+- Two blocks of the same division (prelims and finals) never clash with each other. Blocks without a division are ignored.
+- Read only: it changes nothing. Fix a clash by moving a block in `dayOf.schedule` or by asking the player to pick a division.
+- Data: `GET /api/admin/schedule-conflicts?gap=<minutes>`, for the same people who can run the day (admin, run-order editors, judges).
+  No migration. Logic and tests: `lib/schedule-conflicts.ts`.
