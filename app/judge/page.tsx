@@ -2,7 +2,7 @@
 
 import { roundTabs } from '@/lib/round-plan';
 import { useRoundPlans } from '@/lib/use-round-plans';
-import { useState, useEffect, useCallback, useId } from 'react';
+import { useState, useEffect, useCallback, useId, useMemo, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
 import RunOrderManager from '@/components/RunOrderManager';
@@ -11,6 +11,39 @@ import { contest, competition, divisionByCode } from '@/contest.config';
 import {
   betterOf, effectiveStyle, formatSummary, freestyleBreakdown, manualBest, manualBreakdown, panelMax, panelTotal, styleMultiplier,
 } from '@/lib/divisions-core';
+import {
+  OUTBOX_KEY, classify, enqueue, entryId, loadOutbox, markFailed, markSent, sendOrder, type OutboxEntry,
+} from '@/lib/score-outbox';
+
+// The outbox lives in localStorage; the page reads it as an external store so every change (this
+// tab or another) re-renders without copying it into state.
+const OUTBOX_EVENT = 'judge-score-outbox';
+function subscribeOutbox(onChange: () => void) {
+  window.addEventListener(OUTBOX_EVENT, onChange);
+  window.addEventListener('storage', onChange);
+  return () => {
+    window.removeEventListener(OUTBOX_EVENT, onChange);
+    window.removeEventListener('storage', onChange);
+  };
+}
+function readOutboxRaw(): string {
+  try {
+    return window.localStorage.getItem(OUTBOX_KEY) ?? '[]';
+  } catch {
+    return '[]';
+  }
+}
+function outboxStorage() {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+function outboxChanged() {
+  window.dispatchEvent(new Event(OUTBOX_EVENT));
+}
 
 /**
  * Score sheet per division comes from contest.config.ts → competition.divisions (docs/FORMATS.md):
@@ -171,6 +204,11 @@ export default function JudgePage() {
 
   const [myScores, setMyScores] = useState<ScoreEntry[]>([]);
   const [view, setView] = useState<'score' | 'manage'>('score');
+  // Scores saved on this phone but not sent yet (lib/score-outbox.ts): a dropped connection
+  // never loses a score; it is sent when the signal comes back.
+  const outboxRaw = useSyncExternalStore(subscribeOutbox, readOutboxRaw, () => '[]');
+  const outbox = useMemo(() => loadOutbox({ getItem: () => outboxRaw, setItem: () => {} }), [outboxRaw]);
+  const [flushing, setFlushing] = useState(false);
 
   const fetchStaffMe = useCallback(async (accessToken: string): Promise<StaffMe | null> => {
     const res = await fetch('/api/staff/me', {
@@ -209,6 +247,72 @@ export default function JudgePage() {
       // Keep existing UI state on transient failures.
     }
   }, []);
+
+  /** Send one saved score. Returns what happened; the outbox is updated either way. */
+  const sendEntry = useCallback(async (entry: OutboxEntry, accessToken: string) => {
+    let status: number | null = null;
+    let message = '';
+    let finalScore: number | undefined;
+    try {
+      const res = await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(entry.body),
+      });
+      status = res.status;
+      const json = await res.json().catch(() => ({})) as { final_score?: number; error?: { message?: string } };
+      finalScore = json.final_score;
+      message = json.error?.message ?? '';
+    } catch {
+      status = null;
+    }
+    const outcome = classify(status);
+    const store = outboxStorage();
+    if (outcome === 'sent') {
+      markSent(store, entry.id, entry.savedAt);
+    } else if (outcome === 'retry') {
+      markFailed(store, entry.id, 'No connection. It will send when the signal comes back.');
+    } else if (outcome === 'signed-out') {
+      markFailed(store, entry.id, 'Sign in again to send it.');
+    } else {
+      markFailed(store, entry.id, message || 'The server rejected this score.');
+    }
+    outboxChanged();
+    return { outcome, finalScore, message };
+  }, []);
+
+  /** Send every saved score, oldest first. Stops at the first connection or sign-in problem. */
+  const flushOutbox = useCallback(async (accessToken: string) => {
+    const pending = sendOrder(loadOutbox(outboxStorage()));
+    if (pending.length === 0) return;
+    setFlushing(true);
+    let sent = 0;
+    for (const entry of pending) {
+      const { outcome } = await sendEntry(entry, accessToken);
+      if (outcome === 'sent') sent += 1;
+      if (outcome === 'retry' || outcome === 'signed-out') break;
+    }
+    setFlushing(false);
+    if (sent > 0) await fetchMyScores(division, round, accessToken);
+  }, [sendEntry, fetchMyScores, division, round]);
+
+  // Send what's waiting as soon as the judge is signed in, when the connection comes back, and
+  // every 30 seconds while anything is waiting.
+  useEffect(() => {
+    if (!token) return;
+    const first = window.setTimeout(() => { void flushOutbox(token); }, 0);
+    const onOnline = () => { void flushOutbox(token); };
+    window.addEventListener('online', onOnline);
+    return () => {
+      window.clearTimeout(first);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [token, flushOutbox]);
+  useEffect(() => {
+    if (!token || outbox.length === 0) return;
+    const timer = window.setInterval(() => { void flushOutbox(token); }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [token, outbox.length, flushOutbox]);
 
   useEffect(() => {
     let active = true;
@@ -471,35 +575,38 @@ export default function JudgePage() {
           detach_count: deductions ? Number(detachCount) || 0 : 0,
         };
 
-    try {
-      const res = await fetch('/api/scores', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          registration_id: selectedId,
-          division,
-          round,
-          ...(needsStylePick ? { style_code: styleCode } : {}),
-          ...sheet,
-          notes: notes.trim() || undefined,
-        }),
-      });
-
-      const json = await res.json() as { final_score?: number; error?: { message?: string } };
-      if (res.ok) {
-        setSubmitMsg({ ok: true, text: `Saved - ${isManual ? `${(json.final_score ?? 0).toFixed(2)} ${manualUnit}` : `final score ${(json.final_score ?? 0).toFixed(1)}`}` });
-        await fetchMyScores(division, round, token);
-      } else {
-        setSubmitMsg({ ok: false, text: json.error?.message ?? 'Error saving score.' });
-      }
-    } catch {
-      setSubmitMsg({ ok: false, text: 'Network error - try again.' });
-    } finally {
+    // Save on the phone first, then send. A dropped connection leaves the score in the outbox.
+    const body = {
+      registration_id: selectedId,
+      division,
+      round,
+      ...(needsStylePick ? { style_code: styleCode } : {}),
+      ...sheet,
+      notes: notes.trim() || undefined,
+    };
+    const store = outboxStorage();
+    enqueue(store, body);
+    outboxChanged();
+    const entry = loadOutbox(store).find((x) => x.id === entryId(selectedId, division, round));
+    if (!entry) {
       setSubmitting(false);
+      return;
     }
+    const { outcome, finalScore, message } = await sendEntry(entry, token);
+    if (outcome === 'sent') {
+      setSubmitMsg({ ok: true, text: `Saved - ${isManual ? `${(finalScore ?? 0).toFixed(2)} ${manualUnit}` : `final score ${(finalScore ?? 0).toFixed(1)}`}` });
+      await fetchMyScores(division, round, token);
+    } else if (outcome === 'retry') {
+      setSubmitMsg({ ok: true, text: 'Saved on this phone, not sent yet. It will send when the signal comes back. Keep this page open.' });
+    } else if (outcome === 'signed-out') {
+      setSubmitMsg({ ok: false, text: 'Saved on this phone, not sent yet. Sign in again to send it.' });
+    } else {
+      // The server won't accept this sheet as it stands; don't keep retrying it.
+      markSent(store, entry.id, entry.savedAt);
+      outboxChanged();
+      setSubmitMsg({ ok: false, text: message || 'Error saving score.' });
+    }
+    setSubmitting(false);
   }
 
   if (!staff || !token) {
@@ -625,6 +732,10 @@ export default function JudgePage() {
             )}
             <button
               onClick={async () => {
+                if (outbox.length > 0 && !window.confirm(
+                  `${outbox.length} score${outbox.length === 1 ? ' is' : 's are'} saved on this phone but not sent yet. ` +
+                  'They stay here and send after you sign in again. Log out anyway?',
+                )) return;
                 await supabase.auth.signOut();
                 setToken(null);
                 setStaff(null);
@@ -636,6 +747,25 @@ export default function JudgePage() {
           </div>
         </div>
       </header>
+
+      {outbox.length > 0 && (
+        <div role="status" aria-live="polite" style={{ background: 'var(--gold)', color: 'var(--navy-deep)', padding: '0.6rem 1.5rem', fontSize: '0.8rem', fontWeight: 700 }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>
+              {outbox.length} score{outbox.length === 1 ? '' : 's'} saved on this phone, not sent yet.
+              {' '}{outbox.find((x) => x.lastError)?.lastError ?? 'Sending…'}
+            </span>
+            <button
+              type="button"
+              onClick={() => { void flushOutbox(token); }}
+              disabled={flushing}
+              style={{ background: 'var(--navy-deep)', color: '#fff', border: 'none', padding: '0.35rem 0.8rem', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.05em', cursor: 'pointer' }}
+            >
+              {flushing ? 'SENDING…' : 'SEND NOW'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {view === 'manage' ? (
         <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem' }}>
