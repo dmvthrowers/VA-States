@@ -47,3 +47,20 @@ export async function requireRunOrderEditorRequest(req: NextRequest, requestId: 
 
   return identity;
 }
+
+/**
+ * Score review and release (the scores-in board, the head judge's "checked") belong to admins and judges.
+ */
+export async function requireScoreReviewRequest(req: NextRequest, requestId: string) {
+  const token = getBearerToken(req);
+  if (!token) {
+    return apiError('unauthorized', 'Missing bearer token', requestId);
+  }
+
+  const identity = await getStaffIdentityFromToken(token);
+  if (!identity || !identity.isActive || !['admin', 'judge'].includes(identity.role)) {
+    return apiError('forbidden', 'Admin or judge access required', requestId);
+  }
+
+  return identity;
+}
