@@ -20,6 +20,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/side-events',
     '/results/bracket',
     '/sponsor',
+    ...(contest.judgesScores.enabled ? ['/results/judges'] : []),
     ...(contest.rulesPage.enabled ? ['/rules'] : []),
     ...(contest.guide.enabled ? ['/guide'] : []),
     ...(competition.divisions.some((d) => d.scoring.format === 'ladder') ? ['/tricks'] : []),
