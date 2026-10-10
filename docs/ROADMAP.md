@@ -79,8 +79,13 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
     `/staff/profile`), the spectator portal, the comp code fields and the judge notes box, plus
     the walk-up form's `Field` wrapper. Same fix in yoyo-registration-template.
 12. **Results data gaps** seen on `/results` (Oct 2): 1A missing ranks 1–9, X Division without
-    rank numbers, two scores without a competitor name, some missing scores and cities. Check
-    the official-results import rows.
+    rank numbers, two scores without a competitor name, some missing scores and cities. The import rows live in
+    the production database, not the repo, so the check needs one read-only query: paste
+    `scripts/results-gaps.sql` into the Supabase SQL editor and send back the output (counts and registration ids
+    only, no emails or phones). It looks at import rows with no final score, blank display names (an empty-string
+    bracket name is the likely cause of "no competitor name": `COALESCE` skips only NULL), blank cities, duplicate
+    judge rows and the rank order the public page computes. The fix (a data correction, and a view change if the
+    blank names come from the view) comes after that output.
 
 ## VSYC-27 features (from site issues #78–#83)
 
