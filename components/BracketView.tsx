@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { majorityPick, pollWinner } from '@/lib/divisions-core';
+import { evaluateMatchScore } from '@/lib/match-score';
 
 /**
  * A single-elimination battle bracket (GET /api/bracket).
@@ -29,6 +30,9 @@ export interface BracketMatchView {
   updated_at?: string;
   votes_a?: number | null;
   votes_b?: number | null;
+  /** Running match score, for divisions with matchScoring */
+  score_a?: number | null;
+  score_b?: number | null;
   a_name: string | null;
   b_name: string | null;
   winner_name: string | null;
@@ -41,6 +45,8 @@ export interface BracketData {
   third_place_match?: boolean;
   match_format?: string | null;
   rules?: string[];
+  /** Present when matches are won by points: first to `to`, the final first to `finals_to` */
+  match_scoring?: { to: number; finals_to: number } | null;
   rounds: number;
   matches: BracketMatchView[];
   placements: { entry: string; place: number; name?: string | null }[];
@@ -51,7 +57,8 @@ export type BracketAction =
   | { type: 'vote'; match_id: string; pick: 'a' | 'b' }
   | { type: 'winner'; match_id: string; winner: string | null }
   | { type: 'status'; match_id: string; status: MatchStatus }
-  | { type: 'poll'; match_id: string; votes_a: number | null; votes_b: number | null };
+  | { type: 'poll'; match_id: string; votes_a: number | null; votes_b: number | null }
+  | { type: 'score'; match_id: string; score_a: number | null; score_b: number | null };
 
 interface Props {
   division: string;
@@ -176,6 +183,7 @@ export default function BracketView({ division, token, mode, onAction, onData, p
       action.type === 'vote' ? ['/api/bracket/vote', { match_id: action.match_id, pick: action.pick }]
       : action.type === 'winner' ? ['/api/admin/bracket/winner', { match_id: action.match_id, winner: action.winner, expected_updated_at: m?.updated_at }]
       : action.type === 'status' ? ['/api/admin/bracket/status', { match_id: action.match_id, status: action.status }]
+      : action.type === 'score' ? ['/api/admin/bracket/score', { match_id: action.match_id, score_a: action.score_a, score_b: action.score_b, expected_updated_at: m?.updated_at }]
       : ['/api/admin/bracket/votes', { match_id: action.match_id, votes_a: action.votes_a, votes_b: action.votes_b }];
     try {
       const res = await fetch(url, {
@@ -187,7 +195,7 @@ export default function BracketView({ division, token, mode, onAction, onData, p
       if (!res.ok) {
         setMsg({ ok: false, text: json?.error?.message ?? 'That did not save. Try again.' });
       } else {
-        setMsg({ ok: true, text: action.type === 'vote' ? 'Vote saved.' : action.type === 'poll' ? 'Poll counts saved.' : 'Saved.' });
+        setMsg({ ok: true, text: action.type === 'vote' ? 'Vote saved.' : action.type === 'poll' ? 'Poll counts saved.' : action.type === 'score' ? 'Score saved.' : 'Saved.' });
         onAction?.(action);
       }
     } catch {
@@ -228,6 +236,7 @@ export default function BracketView({ division, token, mode, onAction, onData, p
           poll={poll}
           setPoll={setPoll}
           act={act}
+          matchScoring={data.match_scoring ?? null}
         />
       )}
       <p role="status" aria-live="polite" style={{ minHeight: '1.2rem', margin: '0.25rem 0 0.75rem', fontSize: '0.85rem', color: msg ? (msg.ok ? 'var(--gold-light)' : '#ff6b6b') : 'transparent' }}>
@@ -247,6 +256,7 @@ export default function BracketView({ division, token, mode, onAction, onData, p
                     m={m}
                     rounds={rounds}
                     audience={audience}
+                    scored={!!data.match_scoring}
                     mode={mode}
                     selected={interactive && selected?.id === m.id}
                     mine={data.votes?.[m.id]?.mine ?? null}
@@ -260,6 +270,7 @@ export default function BracketView({ division, token, mode, onAction, onData, p
                       m={third}
                       rounds={rounds}
                       audience={audience}
+                      scored={!!data.match_scoring}
                       mode={mode}
                       selected={interactive && selected?.id === third.id}
                       mine={data.votes?.[third.id]?.mine ?? null}
@@ -280,8 +291,8 @@ function matchTitle(m: BracketMatchView, rounds: number) {
   return m.is_third_place ? 'Third-place match' : `${roundLabel(m.round, rounds)}${m.round < rounds ? `, match ${m.position}` : ''}`;
 }
 
-function MatchCard({ m, rounds, audience, mode, selected, mine, onSelect }: {
-  m: BracketMatchView; rounds: number; audience: boolean; mode: Props['mode'];
+function MatchCard({ m, rounds, audience, scored, mode, selected, mine, onSelect }: {
+  m: BracketMatchView; rounds: number; audience: boolean; scored: boolean; mode: Props['mode'];
   selected: boolean; mine: 'a' | 'b' | null; onSelect?: () => void;
 }) {
   const isLive = m.status === 'live';
@@ -293,6 +304,7 @@ function MatchCard({ m, rounds, audience, mode, selected, mine, onSelect }: {
     const won = !!id && m.winner === id;
     const lost = !!m.winner && !!id && !won;
     const count = slot === 'a' ? m.votes_a : m.votes_b;
+    const points = slot === 'a' ? m.score_a : m.score_b;
     return (
       <span
         style={{
@@ -307,6 +319,7 @@ function MatchCard({ m, rounds, audience, mode, selected, mine, onSelect }: {
           {id ? name : bye ? 'Bye' : 'TBD'}
         </span>
         {showCounts && <span style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{count ?? 0}</span>}
+        {scored && points != null && <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem' }} aria-label={`score ${points}`}>{points}</span>}
         {mode === 'judge' && mine === slot && <span style={{ fontSize: '0.65rem', color: 'var(--gold)', fontWeight: 800 }}>YOUR VOTE</span>}
         {won && <span aria-label="winner" style={{ color: 'var(--gold)' }}>✓</span>}
       </span>
@@ -336,7 +349,7 @@ function MatchCard({ m, rounds, audience, mode, selected, mine, onSelect }: {
     border: `${isLive || selected ? 2 : 1}px solid ${selected ? 'var(--gold-light)' : isLive ? 'var(--red)' : 'var(--navy-border)'}`,
     opacity: !m.entry_a && !m.entry_b ? 0.7 : 1,
   };
-  const desc = `${matchTitle(m, rounds)}: ${m.a_name ?? 'TBD'} vs ${m.b_name ?? 'TBD'}${m.winner_name ? `, won by ${m.winner_name}` : ''}${isLive ? ', live now' : ''}`;
+  const desc = `${matchTitle(m, rounds)}: ${m.a_name ?? 'TBD'} vs ${m.b_name ?? 'TBD'}${scored && (m.score_a != null || m.score_b != null) ? `, score ${m.score_a ?? 0} to ${m.score_b ?? 0}` : ''}${m.winner_name ? `, won by ${m.winner_name}` : ''}${isLive ? ', live now' : ''}`;
 
   if (onSelect && canDecide(m)) {
     return (
@@ -348,8 +361,9 @@ function MatchCard({ m, rounds, audience, mode, selected, mine, onSelect }: {
   return <div role="group" aria-label={desc} style={box}>{inner}</div>;
 }
 
-function ControlPanel({ mode, match, rounds, audience, votes, busy, poll, setPoll, act }: {
+function ControlPanel({ mode, match, rounds, audience, votes, busy, poll, setPoll, act, matchScoring }: {
   mode: Props['mode']; match: BracketMatchView | null; rounds: number; audience: boolean;
+  matchScoring: BracketData['match_scoring'];
   votes?: { a: number; b: number; mine: 'a' | 'b' | null }; busy: boolean;
   poll: { a: string; b: string }; setPoll: (p: { a: string; b: string }) => void;
   act: (a: BracketAction) => void;
@@ -426,6 +440,18 @@ function ControlPanel({ mode, match, rounds, audience, votes, busy, poll, setPol
         </div>
       </div>
 
+      {ready && matchScoring && !audience && (
+        <ScoreEntry
+          key={`${match.id}:${match.score_a ?? ''}:${match.score_b ?? ''}:${match.updated_at ?? ''}`}
+          match={match}
+          target={!match.is_third_place && match.round === rounds ? matchScoring.finals_to : matchScoring.to}
+          aName={a}
+          bName={b}
+          busy={busy}
+          act={act}
+        />
+      )}
+
       {ready && (audience ? (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.5rem', alignItems: 'end', marginBottom: '0.75rem' }}>
           <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>
@@ -483,6 +509,44 @@ function ControlPanel({ mode, match, rounds, audience, votes, busy, poll, setPol
           {suggestedName ? `Suggested winner from the poll: ${suggestedName}. Save the counts, then confirm.` : 'Enter the poll counts, save, then confirm the winner.'}
         </p>
       )}
+    </div>
+  );
+}
+
+/** Running score entry for one match: first to `target` wins (master plan F1). Keyed by the saved score, so it resets when that changes. */
+function ScoreEntry({ match, target, aName, bName, busy, act }: {
+  match: BracketMatchView; target: number; aName: string; bName: string; busy: boolean; act: (a: BracketAction) => void;
+}) {
+  const [sa, setSa] = useState<number>(match.score_a ?? 0);
+  const [sb, setSb] = useState<number>(match.score_b ?? 0);
+  const outcome = evaluateMatchScore(sa, sb, target);
+  const changed = sa !== (match.score_a ?? 0) || sb !== (match.score_b ?? 0);
+  const step = (set: (n: number) => void, cur: number, d: number) => set(Math.min(target, Math.max(0, cur + d)));
+  const side = (name: string, v: number, set: (n: number) => void) => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
+      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, overflowWrap: 'anywhere', textAlign: 'center' }}>{name}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <button type="button" disabled={busy || v <= 0} style={btn(false)} aria-label={`Take a point off ${name}`} onClick={() => step(set, v, -1)}>−</button>
+        <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '1.6rem', minWidth: '2ch', textAlign: 'center', color: '#fff' }} aria-label={`${name} score`}>{v}</span>
+        <button type="button" disabled={busy || v >= target} style={btn(true)} aria-label={`Give ${name} a point`} onClick={() => step(set, v, 1)}>+</button>
+      </div>
+    </div>
+  );
+  return (
+    <div style={{ marginBottom: '0.75rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.5rem' }}>
+        {side(aName, sa, setSa)}
+        {side(bName, sb, setSb)}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+        <button type="button" disabled={busy || !changed || outcome.state === 'invalid'} style={btn(changed)}
+          onClick={() => act({ type: 'score', match_id: match.id, score_a: sa, score_b: sb })}>
+          {outcome.state === 'decided' ? 'Save score and set winner' : 'Save score'}
+        </button>
+        <span role="status" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          {outcome.state === 'decided' ? `${outcome.winner === 'a' ? aName : bName} reaches ${target}.` : outcome.message || `First to ${target} wins.`}
+        </span>
+      </div>
     </div>
   );
 }

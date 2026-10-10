@@ -26,6 +26,9 @@ export interface MatchRow {
   /** Audience poll counts (migration 0040), null until entered */
   votes_a?: number | null;
   votes_b?: number | null;
+  /** Running match score (migration 0058), null until entered; only divisions with matchScoring use it */
+  score_a?: number | null;
+  score_b?: number | null;
 }
 
 /** A row to insert (the database fills in id and updated_at). */
@@ -36,6 +39,8 @@ export interface StoredMatch extends BracketMatch {
   id: string;
   status: MatchStatus;
   updated_at: string;
+  score_a?: number | null;
+  score_b?: number | null;
 }
 
 /** The columns a winner change can touch. */
@@ -43,7 +48,7 @@ export interface MatchPatch {
   id: string;
   /** updated_at as read, for an optimistic-concurrency check on save */
   updated_at: string;
-  set: Partial<Pick<MatchRow, 'entry_a' | 'entry_b' | 'winner' | 'status' | 'votes_a' | 'votes_b'>>;
+  set: Partial<Pick<MatchRow, 'entry_a' | 'entry_b' | 'winner' | 'status' | 'votes_a' | 'votes_b' | 'score_a' | 'score_b'>>;
   /** The entrants changed, so votes cast on this match are about different people now. */
   entrantsChanged: boolean;
 }
@@ -83,6 +88,8 @@ export function toMatches(rows: MatchRow[]): StoredMatch[] {
     updated_at: r.updated_at,
     votes_a: r.votes_a ?? null,
     votes_b: r.votes_b ?? null,
+    score_a: r.score_a ?? null,
+    score_b: r.score_b ?? null,
   }));
 }
 
@@ -143,7 +150,7 @@ export function clearWinner(matches: BracketMatch[], match: BracketMatch): void 
  * Compare matches after setWinner / clearWinner with the rows as read, and return what to save.
  * `targetId` is the match whose result was set (or cleared): it becomes 'done' (or 'pending').
  * Any other match that loses its result goes back to 'pending'. A match whose entrants change
- * also loses its audience poll counts.
+ * also loses its audience poll counts and match score.
  */
 export function changedRows(before: MatchRow[], after: StoredMatch[], targetId: string): MatchPatch[] {
   const prev = new Map(before.map((r) => [r.id, r]));
@@ -163,6 +170,9 @@ export function changedRows(before: MatchRow[], after: StoredMatch[], targetId: 
     // A poll count was about the old pairing.
     if (entrantsChanged && (r.votes_a ?? null) !== null) set.votes_a = null;
     if (entrantsChanged && (r.votes_b ?? null) !== null) set.votes_b = null;
+    // So was a match score.
+    if (entrantsChanged && (r.score_a ?? null) !== null) set.score_a = null;
+    if (entrantsChanged && (r.score_b ?? null) !== null) set.score_b = null;
     if (Object.keys(set).length === 0) continue;
     out.push({
       id: m.id,

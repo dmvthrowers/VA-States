@@ -236,6 +236,12 @@ export interface BracketScoring {
   thirdPlaceByVotes?: boolean;
   /** Extra battle rules shown to players, e.g. "Music is random", "No repeating a routine". */
   rules?: string[];
+  /**
+   * Matches are won by points, first to `to` (the final: first to `finalsTo`), e.g. { to: 3, finalsTo: 5 } for
+   * kendama trick-deck battles. Staff enter each side's running score; reaching the target decides the winner.
+   * Leave out for plain win/lose matches.
+   */
+  matchScoring?: { to: number; finalsTo?: number };
 }
 
 /** "showcase": performances in a run order, not judged (exhibitions, guest acts, kids' showcase). */

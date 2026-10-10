@@ -72,6 +72,21 @@ Anyone who signed up before this was recorded has none. After you revise the cod
 `lib/conduct-version.ts` says who is still on an old one. Recording only: nothing asks people to accept again.
 Needs migration `0054_conduct_version.sql` (applied 2026-10-10).
 
+## Bracket match scores (off unless configured)
+
+For battles won on points (best-of-N), add `matchScoring` to a bracket division in `contest.config.ts`:
+
+```ts
+scoring: { format: 'bracket', seeding: 'random', thirdPlaceMatch: true, matchScoring: { to: 3, finalsTo: 5 } }
+```
+
+First to `to` wins a match; the final plays to `finalsTo` (default: same as `to`); the third-place match plays to `to`.
+On the admin and judge bracket screens the selected match shows a **+ / −** counter for each side; **Save score** stores
+it (`/api/admin/bracket/score`). When a side reaches the target it is set as the winner exactly as **Confirm** would
+(advancing, filling the third-place match), and a score that is no longer decisive takes a standing winner back. Play stops
+at the target, so a score above it, or both sides on it, is refused. Running scores show on the public bracket. Taking a
+result back removes the scores of any later match whose entrants change. Needs migration
+`0058_bracket_match_scores.sql` (applied 2026-10-10). No VA-States division sets `matchScoring`, so brackets work as before.
 ## Open books
 
 The public budget page (`/budget`) adds a **By Category** section: income and costs by category, with a **Planned**
