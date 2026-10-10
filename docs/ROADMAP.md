@@ -29,6 +29,7 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 | Plain-words "How it's scored" notes under each division on `/results`, and optional score shading (`contest.resultsShading`, off by default) | build plan 4.11, `lib/how-scored.ts`; ported from the registration template (#60). Frontend only; no migration |
 
 | Scores-in board: competitors down the side, judges across the top, a filled square when a score lands (admin Run Order tab); judges also see it on their page with a "you still owe" line | build plan 4.6, `lib/scores-in-board.ts`, `components/ScoresInBoard.tsx`; ported from the registration template (#55). Reads the existing `/api/admin/score-status` route; no migration |
+| Public `/prizes` page: what each division awards, from the same config as the admin prize plan | build plan 4.17 (S3), `lib/prize-table.ts`, `app/prizes`; ported from the registration template (#68). Static; no migration |
 
 ## Where things stand (2026-10-06)
 
