@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { verifyTurnstile, withoutTurnstileToken } from '@/lib/turnstile';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { inquiryRow, inquirySchema } from '@/lib/sponsor-inquiry';
 import { loadTierAvailability } from '@/lib/sponsor-availability';
@@ -38,7 +39,13 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('bad_request', 'Invalid JSON body', requestId);
   }
 
-  const parsed = inquirySchema(settings).safeParse(body);
+  // Turnstile bot check (no-op until TURNSTILE_SECRET_KEY is set)
+  const turnstileToken = (body as { turnstileToken?: unknown } | null)?.turnstileToken;
+  if (!(await verifyTurnstile(turnstileToken, getClientIp(req.headers)))) {
+    return apiError('forbidden', 'Please complete the security check and try again.', requestId);
+  }
+
+  const parsed = inquirySchema(settings).safeParse(withoutTurnstileToken(body));
   if (!parsed.success) {
     return apiError('bad_request', parsed.error.issues[0]?.message ?? 'Check the form and try again.', requestId);
   }

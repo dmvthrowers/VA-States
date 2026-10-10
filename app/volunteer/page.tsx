@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Turnstile } from '@/components/Turnstile';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -51,6 +52,8 @@ export default function VolunteerPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [cocOpen, setCocOpen] = useState(false);
   const [availability, setAvailability] = useState<RoleAvailability[]>([]);
 
@@ -118,6 +121,7 @@ export default function VolunteerPage() {
         photo_video_consent: values.photo_video_consent,
         liability_accepted: values.liability_accepted,
         code_of_conduct_accepted: values.code_of_conduct_accepted,
+        turnstileToken,
       };
 
       const res = await fetch('/api/volunteer-register', {
@@ -137,6 +141,7 @@ export default function VolunteerPage() {
     } catch {
       setServerError('Network error — please check your connection and try again.');
     } finally {
+      setTurnstileResetKey((k) => k + 1);
       setSubmitting(false);
     }
   };
@@ -359,6 +364,7 @@ export default function VolunteerPage() {
           )}
 
           <div className="pt-2">
+            <Turnstile onToken={setTurnstileToken} resetKey={turnstileResetKey} />
             <button
               type="submit"
               disabled={submitting}
