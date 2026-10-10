@@ -119,6 +119,12 @@ export const contest = {
    */
   codeOfConductVersion: '1',
 
+  /**
+   * Shown on the public budget page: where any money left after the event goes ("" hides it).
+   * Plain sentence, e.g. "Anything left over pays for next year's venue deposit and loaner yo-yos."
+   */
+  budgetLeftoverNote: '',
+
   links: {
     home: 'https://dmvthrowers.club/vsyc26.html',
     about: 'https://dmvthrowers.club/vsyc26.html',

@@ -1,7 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import type { BudgetCategory } from '@/lib/open-books';
 
 export type BudgetEntryType = 'income' | 'expense';
-export type BudgetEntryCategory = 'sponsor' | 'merch' | 'other';
+export type BudgetEntryCategory = BudgetCategory;
 
 export interface BudgetEntry {
   id: string;
@@ -12,6 +13,8 @@ export interface BudgetEntry {
   description: string;
   amount_cents: number;
   entry_date: string;
+  /** A figure published before the event; never counts toward actual totals */
+  planned: boolean;
 }
 
 export interface BudgetSummary {
@@ -28,9 +31,10 @@ export interface BudgetSummary {
   progress_percent: number;
 }
 
-function sumBy(entries: BudgetEntry[], entry_type: BudgetEntryType, category: BudgetEntryCategory): number {
+/** Actual (not planned) entries only; pass no category to sum every category. */
+function sumBy(entries: BudgetEntry[], entry_type: BudgetEntryType, category?: BudgetEntryCategory): number {
   return entries
-    .filter((e) => e.entry_type === entry_type && e.category === category)
+    .filter((e) => !e.planned && e.entry_type === entry_type && (category === undefined || e.category === category))
     .reduce((sum, e) => sum + e.amount_cents, 0);
 }
 
@@ -53,9 +57,10 @@ export async function getBudgetSummary(entries: BudgetEntry[]): Promise<BudgetSu
   const registration_income_cents = (registrations ?? []).reduce((sum, r) => sum + Number(r.fee_cents ?? 0), 0);
   const sponsor_income_cents = sumBy(entries, 'income', 'sponsor');
   const merch_income_cents = sumBy(entries, 'income', 'merch');
-  const other_income_cents = sumBy(entries, 'income', 'other');
+  // Everything that isn't sponsor or merch income, and every expense that isn't merch, rolls into "other".
+  const other_income_cents = sumBy(entries, 'income') - sponsor_income_cents - merch_income_cents;
   const merch_expense_cents = sumBy(entries, 'expense', 'merch');
-  const other_expense_cents = sumBy(entries, 'expense', 'other') + sumBy(entries, 'expense', 'sponsor');
+  const other_expense_cents = sumBy(entries, 'expense') - merch_expense_cents;
 
   const total_income_cents = registration_income_cents + sponsor_income_cents + merch_income_cents + other_income_cents;
   const total_expense_cents = merch_expense_cents + other_expense_cents;
@@ -80,7 +85,7 @@ export async function getBudgetEntries(): Promise<BudgetEntry[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('vsyc_budget_entries')
-    .select('id, created_at, updated_at, entry_type, category, description, amount_cents, entry_date')
+    .select('id, created_at, updated_at, entry_type, category, description, amount_cents, entry_date, planned')
     .order('entry_date', { ascending: false });
 
   if (error) throw new Error('Failed to load budget entries');
