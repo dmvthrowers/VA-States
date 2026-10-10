@@ -161,3 +161,14 @@ schedule), so it can never show scores early. Linked from `/results` when on, an
   `vsyc_results` view, which already applies them.
 - A judge who did not score someone shows a dash, and the average uses the scores that exist.
 - Logic and tests: `lib/judges-scores.ts`. No migration.
+
+## Setup safety
+
+- **Email log stub.** With no `RESEND_API_KEY`, emails are queued as before and one line is logged for each (subject and a masked
+  address, never the whole address). They are not marked failed and stay queued, rechecked hourly, until a key is set, so nothing is
+  lost. Production has a key, so this changes nothing today; it matters for a fresh copy or a rotated key.
+- **First admin, once.** `npm run first-admin -- --email you@example.org --name "Your Name" [--dry-run]` creates the first admin and
+  prints a one-time link to set a password. It changes nothing if an admin already exists. Run it from your own machine; it needs
+  `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+- Not ported on purpose: `npm run auth-emails`, which fills `[[PLACEHOLDERS]]` in the Supabase auth email templates. VA-States' templates
+  are hand-written, so there is nothing to fill.
