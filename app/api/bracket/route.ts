@@ -66,6 +66,9 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
     decided_by: bd.scoring.decidedBy ?? 'judges',
     third_place_match: bd.scoring.thirdPlaceMatch,
     match_format: bd.scoring.matchFormat ?? null,
+    match_scoring: bd.scoring.matchScoring
+      ? { to: bd.scoring.matchScoring.to, finals_to: bd.scoring.matchScoring.finalsTo ?? bd.scoring.matchScoring.to }
+      : null,
     rules: bd.scoring.rules ?? [],
     rounds: mainRounds(matches),
     matches: rows.map((r) => ({
@@ -80,6 +83,8 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       updated_at: r.updated_at,
       votes_a: r.votes_a ?? null,
       votes_b: r.votes_b ?? null,
+      score_a: r.score_a ?? null,
+      score_b: r.score_b ?? null,
       a_name: nameOf(r.entry_a),
       b_name: nameOf(r.entry_b),
       winner_name: nameOf(r.winner),

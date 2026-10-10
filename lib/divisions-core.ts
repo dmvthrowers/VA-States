@@ -737,7 +737,7 @@ function musicIssues(d: DivisionDef): string[] {
   return out;
 }
 
-function scoringIssues(d: DivisionDef): string[] {
+export function scoringIssues(d: DivisionDef): string[] {
   const out: string[] = [];
   const sc = d.scoring;
   const KEY_RE = /^[a-z][a-z0-9_]{0,30}$/;
@@ -764,7 +764,14 @@ function scoringIssues(d: DivisionDef): string[] {
       if (!(Number.isInteger(sc.attemptsPerTrick) && sc.attemptsPerTrick >= 1 && sc.attemptsPerTrick <= 10)) out.push(`${d.code}: ladder attemptsPerTrick must be 1–10`);
       for (const t of sc.tricks) if (!t.name.trim()) out.push(`${d.code}: a ladder trick has no name`);
       break;
-    case 'bracket':
+    case 'bracket': {
+      const ms = sc.matchScoring;
+      if (ms) {
+        if (!(Number.isInteger(ms.to) && ms.to >= 1 && ms.to <= 99)) out.push(`${d.code}: matchScoring.to must be a whole number from 1 to 99`);
+        if (ms.finalsTo !== undefined && !(Number.isInteger(ms.finalsTo) && ms.finalsTo >= 1 && ms.finalsTo <= 99)) out.push(`${d.code}: matchScoring.finalsTo must be a whole number from 1 to 99`);
+      }
+      break;
+    }
     case 'showcase':
       break;
     case 'addon': {
