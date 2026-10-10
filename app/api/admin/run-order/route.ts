@@ -3,7 +3,9 @@ import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireRunOrderEditorRequest } from '@/lib/auth/admin-request';
 import { z } from 'zod';
-import { DIVISION_CODES, divisionByCode } from '@/contest.config';
+import { DIVISION_CODES, dayOf, divisionByCode } from '@/contest.config';
+import { checkDrawMeta } from '@/lib/draw';
+import { logAudit } from '@/lib/audit';
 import { isTeamDivision, playSlotFor, roundsOf } from '@/lib/divisions-core';
 
 /** The round number for a division (1 when not given), or null if it has no such round. */
@@ -18,6 +20,13 @@ const saveRunOrderSchema = z.object({
   registration_ids: z.array(z.string().uuid()).min(1).max(200),
   /** 1-based round (default 1) */
   round: z.number().int().min(1).max(5).optional(),
+  /** How the order was made (published draws, docs/FORMATS.md). Required when dayOf.publishedDraws is on. */
+  draw: z.object({
+    method: z.enum(['random', 'rule', 'manual']),
+    seed: z.string().trim().max(64).optional(),
+    rule: z.string().trim().max(200).optional(),
+    reason: z.string().trim().max(300).optional(),
+  }).optional(),
 });
 
 /**
@@ -51,6 +60,8 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   if (new Set(registration_ids).size !== registration_ids.length) {
     return apiError('bad_request', 'A registration appears twice in the order', requestId);
   }
+  const drawProblem = checkDrawMeta(parsed.data.draw, registration_ids, dayOf.publishedDraws);
+  if (drawProblem) return apiError('bad_request', drawProblem, requestId);
   const supabase = createAdminClient();
 
   // Verify all registration IDs are paid + in this division
@@ -112,6 +123,21 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   if (insertError) {
     console.error('[admin/run-order] insert error:', insertError);
     return apiError('upstream_error', 'Failed to save run order', requestId);
+  }
+
+  // Record how the order was made. The order is already saved, so a failure here is logged, not fatal.
+  const draw = parsed.data.draw;
+  if (draw) {
+    const { error: drawError } = await supabase.from('vsyc_run_order_draws').insert({
+      division, round, method: draw.method,
+      seed: draw.method === 'random' ? draw.seed : null,
+      rule: draw.method === 'rule' ? draw.rule : null,
+      reason: draw.method === 'manual' ? draw.reason : null,
+      order_ids: registration_ids,
+      made_by: auth.email,
+    });
+    if (drawError) console.error('[admin/run-order] draw record error:', drawError);
+    await logAudit('run_order_saved', { actor: auth.email, details: { division, round, method: draw.method, seed: draw.seed ?? null, reason: draw.reason ?? null } });
   }
 
   return NextResponse.json(

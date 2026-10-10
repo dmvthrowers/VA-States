@@ -459,13 +459,20 @@ export const dayOf: {
   /** Let blocks start before their planned time when the day runs ahead (default: no) */
   allowEarlyStarts: boolean;
   /**
+   * Every saved run order must say how it was made (random draw with seed, a rule, or a hand edit
+   * with a reason), and the public run-order page shows it (docs/DAY_OF.md → Published draws).
+   * Off by default: orders save as before, and a draw is recorded only when one is sent.
+   */
+  publishedDraws: boolean;
+  /**
    * Hold a round's results back until every score is in and the head judge has checked them
-   * (docs/FORMATS.md → Release gates). Off by default: publishing works as it always has.
+   * (docs/DAY_OF.md → Release gates). Off by default: publishing works as it always has.
    */
   releaseGates: boolean;
   sideEvents: SideEventDef[];
 } = {
   allowEarlyStarts: false,
+  publishedDraws: false,
   releaseGates: false,
   schedule: [
     { id: 'doors', title: 'Doors open & kick off', start: '10:00', minutes: 30, kind: 'other', note: 'Registration desk open. Welcome and rules briefing.' },

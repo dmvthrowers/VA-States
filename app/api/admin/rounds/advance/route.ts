@@ -153,6 +153,15 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     return apiError('upstream_error', 'Failed to save the next-round run order', requestId);
   }
 
+  // Published draws: the next round is ordered by a rule, so say which.
+  const { error: drawError } = await supabase.from('vsyc_run_order_draws').insert({
+    division, round: toRound, method: 'rule',
+    rule: `Advancers from ${from.name}, in reverse rank order: the top seed performs last.`,
+    order_ids: rows.map((r) => r.registration_id),
+    made_by: auth.email,
+  });
+  if (drawError) console.error('[admin/rounds/advance] draw record error:', drawError);
+
   await logAudit('round_advanced', {
     actor: auth.email,
     details: { division, from_round, to_round: toRound, advance: count, count: rows.length, ties: tiePreview ? (ties ?? null) : null, tied: tiePreview?.tied.map((t) => t.registration_id) ?? [] },

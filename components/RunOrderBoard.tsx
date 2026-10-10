@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DIVISIONS } from '@/lib/standings';
 import { divisionByCode } from '@/contest.config';
 import { roundsOf } from '@/lib/divisions-core';
+import { verifyDraw } from '@/lib/draw';
 import { roundTabs } from '@/lib/round-plan';
 import { useRoundPlans } from '@/lib/use-round-plans';
 
@@ -17,6 +18,14 @@ interface Performer {
   registration_id: string;
   display_name: string;
   style: string | null;
+}
+
+interface Draw {
+  method: 'random' | 'rule' | 'manual';
+  seed: string | null;
+  rule: string | null;
+  reason: string | null;
+  created_at: string;
 }
 
 const STATUS_LABEL: Record<Status, string> = {
@@ -43,6 +52,7 @@ export default function RunOrderBoard() {
   const [performers, setPerformers] = useState<Performer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [draw, setDraw] = useState<Draw | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchRunOrder = useCallback(async (div: Division, rnd: number) => {
@@ -59,6 +69,13 @@ export default function RunOrderBoard() {
       }));
       setPerformers(list);
       setError(false);
+      // How the order was made (published draws). Optional: the board works without it.
+      try {
+        const dr = await fetch(`/api/run-order/draw?division=${encodeURIComponent(div)}&round=${rnd}`);
+        setDraw(dr.ok ? ((await dr.json()).draw ?? null) : null);
+      } catch {
+        setDraw(null);
+      }
     } catch {
       setError(true);
     } finally {
@@ -224,6 +241,21 @@ export default function RunOrderBoard() {
             );
           })}
         </div>
+      )}
+
+      {performers.length > 0 && draw && !loading && !error && (
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '1rem' }}>
+          {draw.method === 'random' && draw.seed && (
+            <>
+              Random draw, seed <code>{draw.seed}</code>
+              {verifyDraw(performers.map((p) => p.registration_id), draw.seed)
+                ? '. Checked in your browser: this order matches the seed.'
+                : '. This order no longer matches the seed (it was edited after the draw).'}
+            </>
+          )}
+          {draw.method === 'rule' && <>Ordered by rule: {draw.rule}</>}
+          {draw.method === 'manual' && <>Set by hand. Reason: {draw.reason}</>}
+        </p>
       )}
     </div>
   );
