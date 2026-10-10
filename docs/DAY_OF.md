@@ -29,3 +29,18 @@ Edit `contest.config.ts → dayOf`:
 **Publish results** on a judged block releases that division right away (`vsyc_results_releases`).
 The dashboard's `results_published` flag still publishes everything at once. `/results` and
 `GET /api/scores` honor both (`lib/results-visibility.ts`).
+
+## Published draws (off by default)
+
+Every saved run order can say how it was made, and the public run-order page shows it:
+
+- **Random draw**: the **Random draw** button picks a seed and orders everyone by it. The seed is published; the
+  page re-runs the draw in the visitor's browser and says whether the order matches. The algorithm is in
+  `lib/draw.ts` (sort the registration ids, then Fisher–Yates driven by sfc32 seeded from the seed text), so anyone
+  can re-run it. The server refuses a "random" order that isn't what its seed draws.
+- **Rule**: **Auto-sort by pref** and the next-round advance record the rule in words.
+- **Hand edit**: needs a reason, shown publicly.
+
+Set `dayOf.publishedDraws: true` and a save that doesn't say how the order was made is refused.
+With it off, orders save as before and a draw is recorded only when one is sent. Needs migration
+`0053_run_order_draws.sql` (applied 2026-10-10).
