@@ -72,6 +72,10 @@ export const registrationSchema = z.object({
   home_zip:               z.string().trim().max(10).optional().or(z.literal('')),
   home_state_confirmed:   z.boolean().optional(),
   club_affiliation:       z.string().trim().max(100).optional().or(z.literal('')),
+  // For the announcer (MC cards): how to say the name, how to introduce them, who backs them
+  name_pronunciation:     z.string().trim().max(60).optional().or(z.literal('')),
+  intro_note:             z.string().trim().max(200).optional().or(z.literal('')),
+  sponsor_name:           z.string().trim().max(80).optional().or(z.literal('')),
 
   // Minor — required only if age_on_event < 18 (enforced in superRefine)
   parent_name:      z.string().trim().max(100).optional().or(z.literal('')),
