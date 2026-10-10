@@ -6,9 +6,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { divisionByCode, type BracketScoring, type DivisionDef } from '@/contest.config';
 import { isTeamDivision, setWinner } from '@/lib/divisions-core';
+import { evaluateMatchScore, matchTarget, type ScoreOutcome } from '@/lib/match-score';
 import { runOrderDisplayName, isNameRestricted } from '@/lib/display-name';
 import {
-  changedRows, clearWinner, restrictedPublicName, syncThirdPlace, toMatches,
+  changedRows, clearWinner, mainRounds, restrictedPublicName, syncThirdPlace, toMatches,
   type MatchPatch, type MatchRow,
 } from '@/lib/bracket-store';
 
@@ -16,7 +17,7 @@ import {
 type Db = SupabaseClient<any, 'public', any>;
 
 export const MATCH_FIELDS =
-  'id, division, round, position, is_third_place, entry_a, entry_b, winner, status, updated_at, votes_a, votes_b';
+  'id, division, round, position, is_third_place, entry_a, entry_b, winner, status, updated_at, votes_a, votes_b, score_a, score_b';
 
 /** The division and its bracket rules, or null if it isn't a bracket division. */
 export function bracketDivision(code: string | null | undefined): { def: DivisionDef; scoring: BracketScoring } | null {
@@ -144,4 +145,60 @@ async function savePatches(db: Db, patches: MatchPatch[], targetId: string): Pro
     }
   }
   return 'ok';
+}
+
+
+export type ScoreResult =
+  | { ok: true; outcome: ScoreOutcome; changed: number; rows: MatchRow[] }
+  | { ok: false; code: 'not_found' | 'conflict' | 'unprocessable' | 'upstream_error'; message: string };
+
+/**
+ * Save a match's running score (F1) and, when it reaches the target, set the winner the same way a
+ * confirmed winner is set. A score that is no longer decisive takes a standing winner back. The score is
+ * saved first with the same optimistic check as winners; if the winner step then fails, the score stays and
+ * the caller can retry.
+ */
+export async function applyScore(
+  db: Db,
+  matchId: string,
+  scoreA: number | null,
+  scoreB: number | null,
+  expectedUpdatedAt?: string,
+): Promise<ScoreResult> {
+  const { data: target, error: tErr } = await db.from('vsyc_bracket_matches').select(MATCH_FIELDS).eq('id', matchId).maybeSingle();
+  if (tErr) return { ok: false, code: 'upstream_error', message: 'Failed to load match' };
+  if (!target) return { ok: false, code: 'not_found', message: 'Match not found' };
+  const t = target as MatchRow;
+  const bd = bracketDivision(t.division);
+  if (!bd?.scoring.matchScoring) return { ok: false, code: 'unprocessable', message: 'This division does not score matches by points' };
+  if (!t.entry_a || !t.entry_b) return { ok: false, code: 'unprocessable', message: 'This match needs two entrants first' };
+  if (expectedUpdatedAt && new Date(expectedUpdatedAt).getTime() !== new Date(t.updated_at).getTime()) {
+    return { ok: false, code: 'conflict', message: 'This match changed since you loaded it. Check the bracket and try again.' };
+  }
+
+  const { rows: all, error: lErr } = await loadMatches(db, t.division);
+  if (lErr) return { ok: false, code: 'upstream_error', message: 'Failed to load bracket' };
+  const isFinal = !t.is_third_place && t.round === mainRounds(all);
+  const outcome = evaluateMatchScore(scoreA, scoreB, matchTarget(bd.scoring.matchScoring, isFinal));
+  if (outcome.state === 'invalid') return { ok: false, code: 'unprocessable', message: outcome.message };
+
+  const { data: saved, error: sErr } = await db
+    .from('vsyc_bracket_matches')
+    .update({ score_a: scoreA, score_b: scoreB })
+    .eq('id', matchId)
+    .eq('updated_at', t.updated_at)
+    .select('updated_at');
+  if (sErr) return { ok: false, code: 'upstream_error', message: 'Failed to save the score' };
+  if (!saved || saved.length === 0) return { ok: false, code: 'conflict', message: 'Someone else changed this match at the same time. Check the bracket.' };
+  const freshStamp = (saved[0] as { updated_at: string }).updated_at;
+
+  const winnerId = outcome.winner === 'a' ? t.entry_a : outcome.winner === 'b' ? t.entry_b : null;
+  if (winnerId !== null || t.winner !== null) {
+    // Decided: advance the winner. Not decisive any more: take a standing winner back.
+    const w = await applyWinner(db, matchId, winnerId, freshStamp);
+    if (!w.ok) return w;
+    return { ok: true, outcome, changed: w.changed + 1, rows: w.rows };
+  }
+  const fresh = await loadMatches(db, t.division);
+  return { ok: true, outcome, changed: 1, rows: fresh.rows };
 }
