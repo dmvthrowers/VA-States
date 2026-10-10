@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useId, useMemo, useSyncExternalStore 
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
 import RunOrderManager from '@/components/RunOrderManager';
+import ScoresInBoard from '@/components/ScoresInBoard';
 import LadderSheet from '@/components/LadderSheet';
 import { contest, competition, divisionByCode } from '@/contest.config';
 import {
@@ -1151,6 +1152,14 @@ export default function JudgePage() {
               </div>
             )}
           </section>
+          {token && staff && (
+            <section style={{ background: 'var(--navy)', border: '1px solid var(--navy-border)', padding: '1rem', marginTop: '1rem' }}>
+              <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', fontWeight: 800, color: 'var(--gold)', marginBottom: '0.75rem' }}>
+                SCORES IN
+              </div>
+              <ScoresInBoard token={token} judgeName={staff.display_name} compact />
+            </section>
+          )}
         </aside>
         )}
         </>

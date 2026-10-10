@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
 import RunOrderManager from '@/components/RunOrderManager';
+import ScoresInBoard from '@/components/ScoresInBoard';
 import PrizePlanPanel from '@/components/PrizePlanPanel';
 import MusicManager from '@/components/MusicManager';
 import VolunteerManager from '@/components/VolunteerManager';
@@ -649,6 +650,12 @@ export default function AdminDashboardPage() {
         {activeTab === 'run-order' && token && (
           <section className="border border-navy-border bg-navy p-4">
             <RunOrderManager token={token} />
+          </section>
+        )}
+
+        {activeTab === 'run-order' && token && (
+          <section className="border border-navy-border bg-navy p-4 mt-4">
+            <ScoresInBoard token={token} />
           </section>
         )}
 
