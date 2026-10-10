@@ -114,6 +114,26 @@ Run `npm run divisions` and apply `supabase/divisions.sql` after adding one. Nee
 (applied 2026-10-10). **No VA-States division is an add-on yet**; who qualifies for Girls is still an owner decision.
 
 
+## Rules page (off here until the rules text is set)
+
+`/rules` shows the current rules version, each division's scoring in a line, and a dated list of every change, newest
+first (`contest.rulesPage` in `contest.config.ts`). When you change a rule, add an entry at the top of `changes` and
+set `version` to match; a test fails if they disagree or a date is malformed. Publish it before registration opens.
+`enabled: false` drops the page and its footer link. Your own full rules page (`contest.links.rules`) is linked from it.
+
+## Contest guide (off here until the copy is checked)
+
+`/guide` is one public page built from `contest.config.ts`: date and venue, every division with its fee, how it is
+judged and its routine length, the registration and music-upload deadlines (in the venue's time zone and, when it
+differs, the reader's own), and a "Never competed before?" path: divisions marked `beginnerFriendly: true`, the
+`contest.guide.bring` list and the day's planned schedule. Nothing to write by hand; change the config and the page
+follows. `contest.guide.enabled: false` drops the page and its footer link.
+
+## Trick lists page
+
+`/tricks` lists the tricks of every `ladder` division in order, with how the ladder works (tries per trick, or points).
+It is built from `competition.divisions`, so it appears, with a footer link and a sitemap entry, only when a ladder
+division exists. Nothing to write by hand.
 ## Schedule clashes
 
 On **Run the Day** (`/admin/schedule`), a "Schedule clashes" panel lists players who are registered and paid in two divisions

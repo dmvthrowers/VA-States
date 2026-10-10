@@ -3,6 +3,7 @@
 /** VSYC-26 Footer — matches ui_kits/vsyc26/index.html footer pattern */
 
 import Image from 'next/image';
+import { competition, contest } from '@/contest.config';
 
 const SITE_HOME = 'https://dmvthrowers.club/vsyc26-register.html';
 
@@ -21,6 +22,9 @@ const FOOTER_LINKS = [
   { label: 'FAQ',         href: 'https://dmvthrowers.club/vsyc26-faq.html' },
   { label: 'Policies',    href: '/policies' },
   { label: 'Prizes',      href: '/prizes' },
+  ...(contest.rulesPage.enabled ? [{ label: 'Rules', href: '/rules' }] : []),
+  ...(contest.guide.enabled ? [{ label: 'Guide', href: '/guide' }] : []),
+  ...(competition.divisions.some((d) => d.scoring.format === 'ladder') ? [{ label: 'Tricks', href: '/tricks' }] : []),
   { label: 'Staff',       href: '/staff' },
   { label: 'Yo-Yo Resources', href: 'https://dmvthrowers.club/resources.html#links' },
   { label: 'GitHub',      href: 'https://github.com/dmvthrowers' },

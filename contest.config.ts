@@ -125,6 +125,40 @@ export const contest = {
    */
   budgetLeftoverNote: '',
 
+  /**
+   * Rules with a changelog (docs/DAY_OF.md → Rules page). /rules shows the current version, how each
+   * division is scored, and every change with its date. Off here until the rules text and dates are set;
+   * `enabled: false` drops the page and its footer link.
+   */
+  rulesPage: {
+    enabled: false,
+    /** The current version, e.g. "1.1". Must match the newest entry in `changes`. */
+    version: '1.0',
+    /** The rules were first published on this date (YYYY-MM-DD) */
+    publishedOn: '2026-01-01',
+    /** Newest first. */
+    changes: [
+      { version: '1.0', date: '2026-01-01', summary: ['First published.'] },
+    ] as { version: string; date: string; summary: string[] }[],
+  },
+
+  /**
+   * The public contest guide at /guide (docs/DAY_OF.md → Contest guide): everything a player needs
+   * before signing up, built from the settings in this file. Off here until the copy is checked;
+   * `enabled: false` drops the page and its footer link. `bring` is the "what to bring" list for a
+   * first-timer; mark newcomer-friendly divisions with `beginnerFriendly: true` on the division.
+   */
+  guide: {
+    enabled: false,
+    intro: 'New here? This page has what you need before you sign up.',
+    bring: [
+      'Your yo-yos and spare string',
+      'A water bottle and a snack',
+      'A photo ID if you are 18 or older',
+      'A parent or guardian, if you are under 18',
+    ] as readonly string[],
+  },
+
   links: {
     home: 'https://dmvthrowers.club/vsyc26.html',
     about: 'https://dmvthrowers.club/vsyc26.html',
@@ -341,6 +375,8 @@ export interface DivisionDef {
   styles?: { options: StyleDef[]; min: number; max: number };
   /** Division codes this one can't be entered together with */
   cannotCombineWith?: string[];
+  /** Shown as a good place to start on the contest guide's first-contest path */
+  beginnerFriendly?: boolean;
   scoring: Scoring;
   /** Solo (default) or team entries */
   entry?: EntryDef;
