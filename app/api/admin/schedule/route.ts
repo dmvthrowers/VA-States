@@ -8,6 +8,7 @@ import { logAudit } from '@/lib/audit';
 import { dayOf } from '@/contest.config';
 import { applyScheduleAction, type ScheduleState } from '@/lib/schedule-core';
 import { buildScheduleFeed } from '@/lib/schedule-feed';
+import { gateFor } from '@/lib/release-gate-server';
 
 /**
  * Day-of schedule controls (docs/FORMATS.md → Live schedule). Admins and run-order editors
@@ -82,6 +83,15 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   const division = item.division ?? null;
   const round = item.round ?? 1;
 
+  // Release gates (off unless dayOf.releaseGates): hold the results until the board is full and checked.
+  if (division && action === 'publish' && dayOf.releaseGates) {
+    const gate = await gateFor(supabase, division, round);
+    if (!gate.ok) return apiError('upstream_error', 'Failed to check the scores before publishing', requestId);
+    if (!gate.verdict.open) {
+      return apiError('conflict', `Results are held back: ${gate.verdict.reasons.join(' ')}`, requestId);
+    }
+  }
+
   // Release first, then the state: if the state write fails, the same action can be retried.
   if (division && action === 'publish') {
     const { error } = await supabase.from('vsyc_results_releases').upsert(
@@ -98,6 +108,11 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     if (error) {
       console.error('[admin/schedule] unrelease error:', error);
       return apiError('upstream_error', 'Failed to withdraw the results', requestId);
+    }
+    // A reset also takes back the head judge's check, so a re-run is checked again.
+    if (dayOf.releaseGates) {
+      const { error: checkError } = await supabase.from('vsyc_release_checks').delete().eq('division', division).eq('round', round);
+      if (checkError) console.error('[admin/schedule] uncheck error:', checkError);
     }
   }
 

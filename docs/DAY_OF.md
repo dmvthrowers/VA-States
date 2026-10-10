@@ -44,3 +44,16 @@ Every saved run order can say how it was made, and the public run-order page sho
 Set `dayOf.publishedDraws: true` and a save that doesn't say how the order was made is refused.
 With it off, orders save as before and a draw is recorded only when one is sent. Needs migration
 `0053_run_order_draws.sql` (applied 2026-10-10).
+## Release gates (off by default)
+
+Set `dayOf.releaseGates: true` in `contest.config.ts` and a round's results can be published from **Run the Day**
+only when two things are true:
+
+1. The scores-in board is full: the round has a run order, every competitor has finished performing and has a
+   score from every judge who scored anyone (the same check as `/api/admin/score-status`).
+2. The head judge has tapped **Mark scores checked** (admins and judges).
+
+If a score is added or edited after the check, the gate closes again until it is re-checked. Resetting a block
+takes back its check. Publishing without a check answers 409 with the reasons, and **Run the Day** shows them.
+The dashboard's `results_published` switch skips the gates on purpose: it is the "show everything" override.
+Needs migration `0052_release_checks.sql` (applied 2026-10-10).

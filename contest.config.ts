@@ -457,10 +457,16 @@ export const dayOf: {
    * Off by default: orders save as before, and a draw is recorded only when one is sent.
    */
   publishedDraws: boolean;
+  /**
+   * Hold a round's results back until every score is in and the head judge has checked them
+   * (docs/DAY_OF.md → Release gates). Off by default: publishing works as it always has.
+   */
+  releaseGates: boolean;
   sideEvents: SideEventDef[];
 } = {
   allowEarlyStarts: false,
   publishedDraws: false,
+  releaseGates: false,
   schedule: [
     { id: 'doors', title: 'Doors open & kick off', start: '10:00', minutes: 30, kind: 'other', note: 'Registration desk open. Welcome and rules briefing.' },
     { id: 'sbj', title: 'Sport / Beginner / Junior', start: '10:30', minutes: 90, division: 'SBJ' },

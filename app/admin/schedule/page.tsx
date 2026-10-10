@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import BracketStaffGate from '@/components/BracketStaffGate';
 import { ScheduleList, useScheduleFeed } from '@/components/ScheduleView';
 import type { FeedItem } from '@/lib/schedule-feed-core';
@@ -60,12 +60,51 @@ async function loadReport(token: string, i: FeedItem): Promise<ScoreReport | nul
   }
 }
 
+interface GateItem { item_id: string; open: boolean; reasons: string[]; checked: boolean; checked_by: string | null }
+
 function Controls({ token }: { token: string }) {
+  // Release gates (dayOf.releaseGates): null until loaded or when the account can't see them.
+  const [gates, setGates] = useState<{ enabled: boolean; items: GateItem[] } | null>(null);
   const [report, setReport] = useState<{ title: string; data: ScoreReport } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const { feed, setFeed, error } = useScheduleFeed('/api/admin/schedule', 10000, token, refreshKey);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    const load = () => {
+      fetch('/api/admin/release-check', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => { if (live) setGates(data && data.enabled ? data : null); })
+        .catch(() => { if (live) setGates(null); });
+    };
+    load();
+    const id = setInterval(load, 10000);
+    return () => { live = false; clearInterval(id); };
+  }, [token, refreshKey]);
+
+  async function setChecked(i: FeedItem, checked: boolean) {
+    if (!i.division) return;
+    setBusy(i.id);
+    setMsg(null);
+    try {
+      const res = await fetch('/api/admin/release-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ division: i.division, round: i.round ?? 1, checked }),
+      });
+      const json = await res.json().catch(() => ({}));
+      setMsg(res.ok
+        ? { ok: true, text: checked ? `${i.title}: scores checked.` : `${i.title}: check taken back.` }
+        : { ok: false, text: json?.error?.message ?? 'That did not work.' });
+      setRefreshKey((k) => k + 1);
+    } catch {
+      setMsg({ ok: false, text: 'Network error. Check your connection and try again.' });
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function check(i: FeedItem) {
     setBusy(i.id);
@@ -159,6 +198,20 @@ function Controls({ token }: { token: string }) {
                   {busy === i.id ? '…' : a.label}
                 </button>
               ))}
+              {(() => {
+                const g = gates?.items.find((x) => x.item_id === i.id);
+                if (!g || !i.division || i.results_published || (i.status !== 'judging' && i.status !== 'done')) return null;
+                return (
+                  <>
+                    <button type="button" disabled={busy !== null} style={btn(g.checked ? 'outline' : 'gold')} onClick={() => setChecked(i, !g.checked)}>
+                      {g.checked ? 'Take back check' : 'Mark scores checked'}
+                    </button>
+                    <span role="status" style={{ flexBasis: '100%', fontSize: '0.75rem', color: g.open ? 'var(--gold-light)' : 'var(--text-muted)' }}>
+                      {g.open ? `Ready to publish${g.checked_by ? `. Checked by ${g.checked_by}.` : '.'}` : `Held back: ${g.reasons.join(' ')}`}
+                    </span>
+                  </>
+                );
+              })()}
             </div>
           )}
         />
