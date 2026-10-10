@@ -57,3 +57,11 @@ If a score is added or edited after the check, the gate closes again until it is
 takes back its check. Publishing without a check answers 409 with the reasons, and **Run the Day** shows them.
 The dashboard's `results_published` switch skips the gates on purpose: it is the "show everything" override.
 Needs migration `0052_release_checks.sql` (applied 2026-10-10).
+
+## Code of conduct version
+
+Every registration, spectator and volunteer stores the version of the code of conduct they accepted
+(`code_of_conduct_version`, set from `contest.codeOfConductVersion`; the registrations CSV export includes it).
+Anyone who signed up before this was recorded has none. After you revise the code, bump the version and
+`lib/conduct-version.ts` says who is still on an old one. Recording only: nothing asks people to accept again.
+Needs migration `0054_conduct_version.sql` (applied 2026-10-10).

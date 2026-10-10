@@ -117,6 +117,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
       liability_waiver_accepted: data.liability_waiver_accepted,
       photo_video_consent:       true,   // assumed at walk-up
       code_of_conduct_accepted:  data.code_of_conduct_accepted,
+      code_of_conduct_version:   contest.codeOfConductVersion,
       emergency_contact_name:    null,
       emergency_contact_phone:   null,
       volunteer_interest:        false,

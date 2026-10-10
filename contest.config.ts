@@ -112,6 +112,13 @@ export const contest = {
    */
   resultsShading: false,
 
+  /**
+   * Version of the code of conduct people accept at sign-up. It is stored with each registration,
+   * spectator and volunteer, so after you revise the code, bump this and you can see who accepted
+   * the old one (docs/DAY_OF.md → Code of conduct version).
+   */
+  codeOfConductVersion: '1',
+
   links: {
     home: 'https://dmvthrowers.club/vsyc26.html',
     about: 'https://dmvthrowers.club/vsyc26.html',
