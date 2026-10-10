@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import BracketStaffGate from '@/components/BracketStaffGate';
 import { ScheduleList, useScheduleFeed } from '@/components/ScheduleView';
+import ScheduleConflicts from '@/components/ScheduleConflicts';
 import type { FeedItem } from '@/lib/schedule-feed-core';
 import type { ScheduleAction } from '@/lib/schedule-core';
 
@@ -216,6 +217,7 @@ function Controls({ token }: { token: string }) {
           )}
         />
       )}
+      <ScheduleConflicts token={token} />
     </div>
   );
 }

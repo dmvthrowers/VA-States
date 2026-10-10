@@ -34,3 +34,14 @@ export async function verifyTurnstile(token: unknown, ip: string): Promise<boole
     return true;
   }
 }
+
+/**
+ * A copy of a request body without its `turnstileToken`. For forms whose own schema is strict (the
+ * sponsor inquiry, the forms engine): the token is not one of their answers and would be refused.
+ */
+export function withoutTurnstileToken(body: unknown): unknown {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
+  const { turnstileToken: _token, ...rest } = body as Record<string, unknown>;
+  void _token;
+  return rest;
+}
