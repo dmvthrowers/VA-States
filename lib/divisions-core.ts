@@ -62,6 +62,7 @@ export const FORMATS: Record<ScoringFormat, FormatCaps> = {
   ladder: { label: 'Trick ladder', scoreSheet: false, runOrder: false, rounds: false, ranked: true, ownScreen: true },
   bracket: { label: 'Battle bracket', scoreSheet: false, runOrder: false, rounds: false, ranked: true, ownScreen: true },
   showcase: { label: 'Showcase', scoreSheet: false, runOrder: true, rounds: false, ranked: false, ownScreen: false },
+  addon: { label: 'Add-on (reuses another division\'s results)', scoreSheet: false, runOrder: false, rounds: false, ranked: true, ownScreen: false },
 };
 
 export const formatCaps = (format: ScoringFormat): FormatCaps => FORMATS[format];
@@ -224,8 +225,11 @@ export interface SelectionIssue {
   message: string;
 }
 
-/** Checks a division + style selection against the config. Empty array = valid. */
-export function selectionIssues(selected: string[], styles: DivisionStyles, c: CompetitionConfig): SelectionIssue[] {
+/**
+ * Checks a division + style selection against the config. Empty array = valid.
+ * Pass `opts.age` (age on contest day) to also check an add-on's age limits.
+ */
+export function selectionIssues(selected: string[], styles: DivisionStyles, c: CompetitionConfig, opts: { age?: number } = {}): SelectionIssue[] {
   const issues: SelectionIssue[] = [];
   const byCode = new Map(c.divisions.map((d) => [d.code, d]));
 
@@ -239,6 +243,19 @@ export function selectionIssues(selected: string[], styles: DivisionStyles, c: C
       if (selected.includes(other)) {
         issues.push({ path: 'divisions', message: `${d!.name} can't be combined with ${byCode.get(other)?.name ?? other}` });
       }
+    }
+  }
+  for (const code of selected) {
+    const d = byCode.get(code);
+    if (d?.scoring.format !== 'addon') continue;
+    const parent = byCode.get(d.scoring.parent);
+    if (!selected.includes(d.scoring.parent)) {
+      issues.push({ path: 'divisions', message: `${d.name} is a free add-on to ${parent?.name ?? d.scoring.parent}. Select ${parent?.name ?? d.scoring.parent} too.` });
+    }
+    const { minAge, maxAge } = d.scoring;
+    if (opts.age !== undefined && ((minAge !== undefined && opts.age < minAge) || (maxAge !== undefined && opts.age > maxAge))) {
+      const range = minAge !== undefined && maxAge !== undefined ? `${minAge}–${maxAge}` : minAge !== undefined ? `${minAge} and up` : `${maxAge} and under`;
+      issues.push({ path: 'divisions', message: `${d.name} is for ages ${range}` });
     }
   }
   for (const [code, picked] of Object.entries(styles)) {
@@ -654,6 +671,7 @@ export function formatSummary(d: DivisionDef): string {
     case 'ladder': return `Trick ladder: ${s.tricks.length} tricks, ${s.attemptsPerTrick} ${s.attemptsPerTrick === 1 ? 'try' : 'tries'} each`;
     case 'bracket': return `Battle bracket${s.matchFormat ? ` (${s.matchFormat})` : ''}${s.decidedBy === 'audience' ? ', audience vote' : ', judges vote'}`;
     case 'showcase': return 'Showcase (not judged)';
+    case 'addon': return 'Free add-on: placed from the main division\'s results';
   }
 }
 
@@ -686,6 +704,12 @@ export function configIssues(c: CompetitionConfig): string[] {
     }
     out.push(...scoringIssues(d));
     out.push(...musicIssues(d));
+    if (d.scoring.format === 'addon') {
+      const parent = c.divisions.find((x) => x.code === (d.scoring as { parent: string }).parent);
+      if (!parent) out.push(`${d.code}: add-on parent "${(d.scoring as { parent: string }).parent}" is not a division`);
+      else if (parent.scoring.format === 'addon' || parent.scoring.format === 'showcase') out.push(`${d.code}: an add-on's parent must be a ranked division, not ${parent.scoring.format === 'addon' ? 'another add-on' : 'a showcase'}`);
+      else if (entryOf(parent).type !== 'solo') out.push(`${d.code}: an add-on's parent must be a solo division`);
+    }
   }
   for (const k of c.combos) {
     for (const code of k.divisions) if (!codes.includes(code)) out.push(`combo names unknown division "${code}"`);
@@ -743,6 +767,17 @@ function scoringIssues(d: DivisionDef): string[] {
     case 'bracket':
     case 'showcase':
       break;
+    case 'addon': {
+      if (d.priceCents !== 0) out.push(`${d.code}: an add-on division must cost $0 (priceCents: 0)`);
+      if (hasMusic(d)) out.push(`${d.code}: an add-on division has no music of its own`);
+      if (d.styles) out.push(`${d.code}: an add-on division can't have styles`);
+      if (d.entry && d.entry.type !== 'solo') out.push(`${d.code}: an add-on division is solo`);
+      for (const [k, v] of [['minAge', sc.minAge], ['maxAge', sc.maxAge]] as const) {
+        if (v !== undefined && !(Number.isInteger(v) && v >= 1 && v <= 120)) out.push(`${d.code}: ${k} must be a whole number from 1 to 120`);
+      }
+      if (sc.minAge !== undefined && sc.maxAge !== undefined && sc.minAge > sc.maxAge) out.push(`${d.code}: minAge is above maxAge`);
+      break;
+    }
   }
   const e = entryOf(d);
   if (e.type === 'team' && !(Number.isInteger(e.min) && Number.isInteger(e.max) && e.min >= 1 && e.max >= Math.max(2, e.min) && e.max <= 50)) {

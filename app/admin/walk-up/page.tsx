@@ -114,7 +114,7 @@ export default function WalkUpPage() {
 
   const teamCheck = teamsPayload(form);
   const issues = [
-    ...selectionIssues(form.divisions, cleanStyles(form.divisions, form.division_styles), competition),
+    ...selectionIssues(form.divisions, cleanStyles(form.divisions, form.division_styles), competition, { age: parseInt(form.age_on_event, 10) || undefined }),
     ...teamCheck.problems.map((message) => ({ message })),
   ];
 

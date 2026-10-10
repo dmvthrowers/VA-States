@@ -305,7 +305,7 @@ export default function RegisterPage() {
       return;
     }
     const divisionStyles = cleanStyles(values.divisions, values.division_styles);
-    const issues = selectionIssues(values.divisions, divisionStyles, competition);
+    const issues = selectionIssues(values.divisions, divisionStyles, competition, { age: parseInt(values.age_on_event, 10) || undefined });
     if (issues.length > 0) {
       setServerError(issues.map(i => i.message).join('. '));
       return;
@@ -588,7 +588,7 @@ export default function RegisterPage() {
                         </div>
                       </div>
                       <span className="font-display font-bold text-gold text-lg flex-shrink-0 text-right">
-                        {displayPrice(d.priceCents)}
+                        {d.scoring.format === 'addon' ? 'Free add-on' : displayPrice(d.priceCents)}
                         {perTeamPriced(d) && <span className="block text-[0.65rem] font-sans font-semibold text-gold/60 tracking-normal">per {teamLabel(d).toLowerCase()}</span>}
                       </span>
                     </div>

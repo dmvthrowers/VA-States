@@ -42,7 +42,7 @@ const walkUpSchema = z.object({
   /** If true, marks this as paid immediately (cash collected at table) */
   paid_at_table:             z.boolean().default(false),
 }).superRefine((data, ctx) => {
-  addSelectionIssues(data.divisions, data.division_styles, ctx);
+  addSelectionIssues(data.divisions, data.division_styles, ctx, data.age_on_event);
   addTeamIssues(data.divisions, data.teams, ctx);
 });
 

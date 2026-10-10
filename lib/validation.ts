@@ -28,8 +28,8 @@ export const divisionsSchema = z.array(z.string().trim().max(20)).min(1, 'Select
 export const divisionStylesSchema = z.record(z.string().max(20), z.array(z.string().max(20)).max(20)).optional().default({});
 
 /** Adds the config's division/style rules (combinations, style counts) as zod issues. */
-export function addSelectionIssues(divisions: string[], styles: Record<string, string[]> | undefined, ctx: z.RefinementCtx) {
-  for (const issue of selectionIssues(divisions, styles ?? {}, competition)) {
+export function addSelectionIssues(divisions: string[], styles: Record<string, string[]> | undefined, ctx: z.RefinementCtx, age?: number) {
+  for (const issue of selectionIssues(divisions, styles ?? {}, competition, { age })) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: issue.message, path: [issue.path] });
   }
 }
@@ -149,7 +149,7 @@ export const registrationSchema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a 5-digit ZIP code', path: ['home_zip'] });
   }
 
-  addSelectionIssues(data.divisions, data.division_styles, ctx);
+  addSelectionIssues(data.divisions, data.division_styles, ctx, data.age_on_event);
   addTeamIssues(data.divisions, data.teams, ctx);
 });
 

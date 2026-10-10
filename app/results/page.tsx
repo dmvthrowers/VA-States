@@ -115,11 +115,15 @@ function StandingsList({ rows, label, champions, better }: { rows: StandingRow[]
   );
 }
 
+/** The division whose release gates results: an add-on follows its parent. */
+const gateCode = (d: { code: string; scoring: { format: string } }): string =>
+  d.scoring.format === 'addon' ? (d.scoring as unknown as { parent: string }).parent : d.code;
+
 export default async function ResultsPage() {
   const vis = await getVisibility();
   const resultsPublished = vis.all;
   // Divisions with at least one released round, in config order.
-  const shown = competition.divisions.filter((d) => isPublished(vis, d.code));
+  const shown = competition.divisions.filter((d) => isPublished(vis, gateCode(d)));
   const loaded = shown.length ? await getStandings() : null;
   const standings = loaded?.standings ?? null;
   const eligible = loaded?.eligible ?? undefined;
@@ -186,8 +190,9 @@ export default async function ResultsPage() {
             const full = standings[code];
             if (!full) return null;
             // Released rounds only; the overall order waits for the last round's release.
-            const rounds = full.rounds.filter((_, i) => isPublished(vis, code, i + 1));
-            const finalOut = full.rounds.length <= 1 || isPublished(vis, code, full.rounds.length);
+            const gate = gateCode(d);
+            const rounds = full.rounds.filter((_, i) => isPublished(vis, gate, i + 1));
+            const finalOut = full.rounds.length <= 1 || isPublished(vis, gate, full.rounds.length);
             const ds = { ...full, rounds, final: finalOut ? full.final : [] };
             // A round a division skipped (final only under 25 entrants) has no rows and isn't shown.
             const played = ds.rounds.filter((r) => r.rows.length > 0);
