@@ -27,6 +27,8 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 
 | Season purge and reset: `npm run purge` (dry run by default), migration 0060 (`vsyc_season_purge`, consent records, past champions), CI test of the purge | build plan 4.4, `docs/specs/season-archive.md`. Not run in production; migration 0060 is not applied |
 
+| Scores-in board: competitors down the side, judges across the top, a filled square when a score lands (admin Run Order tab); judges also see it on their page with a "you still owe" line | build plan 4.6, `lib/scores-in-board.ts`, `components/ScoresInBoard.tsx`; ported from the registration template (#55). Reads the existing `/api/admin/score-status` route; no migration |
+
 ## Where things stand (2026-10-06)
 
 - **Production database:** every migration through 0047 is applied (checked read-only on 2026-10-06: the four
