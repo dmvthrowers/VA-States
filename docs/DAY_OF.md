@@ -147,3 +147,17 @@ whose planned blocks overlap, for example a player in both 1A and X when the two
 - Read only: it changes nothing. Fix a clash by moving a block in `dayOf.schedule` or by asking the player to pick a division.
 - Data: `GET /api/admin/schedule-conflicts?gap=<minutes>`, for the same people who can run the day (admin, run-order editors, judges).
   No migration. Logic and tests: `lib/schedule-conflicts.ts`.
+
+## Judges' Scores
+
+Off by default. Set `contest.judgesScores.enabled: true` and `/results/judges` shows, for every released round, a table
+of each judge's score for each competitor with the average, best first (the same order as the results). Each round
+appears only once its results are released (the `results_published` flag, or **Publish results** on the admin
+schedule), so it can never show scores early. Linked from `/results` when on, and in the sitemap.
+
+- Judges appear as **Judge A, B, C**, in the same order on every table, unless `contest.judgesScores.showJudgeNames` is `true`.
+  A judge did not agree to be named just by scoring, so ask them before turning names on.
+- Competitor names follow the same public-name rules as the results (minors' privacy included): the page reads the
+  `vsyc_results` view, which already applies them.
+- A judge who did not score someone shows a dash, and the average uses the scores that exist.
+- Logic and tests: `lib/judges-scores.ts`. No migration.

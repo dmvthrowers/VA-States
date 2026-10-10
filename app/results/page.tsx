@@ -160,6 +160,12 @@ export default async function ResultsPage() {
             <a href="/results/run-order" style={{ color: 'var(--gold-light)' }}>See who&rsquo;s up next in the live run order →</a>
             {' · '}
             <a href="/schedule" style={{ color: 'var(--gold-light)' }}>Live schedule →</a>
+            {contest.judgesScores.enabled && shown.length > 0 && (
+              <>
+                {' · '}
+                <a href="/results/judges" style={{ color: 'var(--gold-light)' }}>Judges&rsquo; Scores →</a>
+              </>
+            )}
           </p>
           {(WINNERS_PLAYLIST_URL || LIVESTREAM_URL) && (
             <p style={{ color: 'var(--text-body)', margin: '0.5rem 0 0' }}>

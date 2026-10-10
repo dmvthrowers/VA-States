@@ -111,6 +111,12 @@ export const contest = {
    * places show without reading every number. Off by default.
    */
   resultsShading: false,
+  /**
+   * Judges' Scores at /results/judges: every judge's score for every competitor in a released round
+   * (docs/DAY_OF.md → Judges' Scores). Off by default. Judges show as Judge A, B, C unless
+   * `showJudgeNames` is true: a judge did not agree to be named just by scoring, so ask first.
+   */
+  judgesScores: { enabled: false, showJudgeNames: false },
 
   /**
    * Version of the code of conduct people accept at sign-up. It is stored with each registration,
