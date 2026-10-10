@@ -16,6 +16,7 @@ import {
   type ResendError,
   type SendFailure,
 } from './email-policy';
+import { STUB_RECHECK_MS, providerConfigured, stubLine } from './email-stub';
 
 // =============================================================================
 // Email outbox
@@ -74,7 +75,8 @@ async function recordUsage(quotaUsed: number | null): Promise<void> {
   }
 }
 
-type SendResult = { kind: 'sent'; quotaUsed: number | null } | SendFailure;
+/** `stub`: no mail provider is set; the email is logged and stays queued without using up its attempts. */
+type SendResult = { kind: 'sent'; quotaUsed: number | null } | { kind: 'stub' } | SendFailure;
 
 /**
  * One send through Resend's REST API. (The SDK version in this repo doesn't
@@ -82,7 +84,10 @@ type SendResult = { kind: 'sent'; quotaUsed: number | null } | SendFailure;
  */
 async function sendViaResend(r: RenderedEmail): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
-  if (!key) return { kind: 'retry', error: 'resend_not_configured' };
+  if (!providerConfigured(process.env) || !key) {
+    console.warn(stubLine(r.subject, r.to));
+    return { kind: 'stub' };
+  }
 
   // One quick in-place retry for the per-second throttle, which clears in
   // about a second; anything longer goes back to the outbox.
@@ -129,6 +134,13 @@ async function settleRow(row: Pick<OutboxRow, 'id' | 'attempts'>, result: SendRe
     await supabase.from('email_outbox').update({ sent_at: now.toISOString() }).eq('id', row.id);
     await recordUsage(result.quotaUsed);
     return 'sent';
+  }
+  if (result.kind === 'stub') {
+    // Not a failure: wait for a provider without spending attempts, so nothing goes dead.
+    await supabase.from('email_outbox')
+      .update({ not_before: new Date(now.getTime() + STUB_RECHECK_MS).toISOString(), last_error: 'email_provider_not_set', claimed_at: null })
+      .eq('id', row.id);
+    return 'queued';
   }
   if (result.kind === 'quota') {
     await supabase.from('email_outbox')
@@ -193,7 +205,7 @@ export async function queueEmail(email: OutboxEmail, opts: QueueOptions = {}): P
       await recordUsage(result.quotaUsed);
       return { ok: true };
     }
-    return { ok: false, error: result.error };
+    return { ok: false, error: result.kind === 'stub' ? 'email_provider_not_set' : result.error };
   }
   if (!data?.length) return { ok: true }; // dedupe_key already stored: queued or sent before
 

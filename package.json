@@ -15,6 +15,7 @@
     "divisions": "node --experimental-strip-types --no-warnings scripts/sync-divisions.mjs",
     "archive": "node --env-file-if-exists=.env.local --import tsx scripts/archive.ts",
     "purge": "node --env-file-if-exists=.env.local --import tsx scripts/purge.ts",
+    "first-admin": "node --env-file-if-exists=.env.local --import tsx scripts/first-admin.ts",
     "archive:verify": "node --env-file-if-exists=.env.local --import tsx scripts/archive-verify.ts"
   },
   "dependencies": {
