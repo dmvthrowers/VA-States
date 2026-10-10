@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { verifyTurnstile } from '@/lib/turnstile';
 import { volunteerSchema } from '@/lib/validation';
 import { logAudit } from '@/lib/audit';
 import { contest } from '@/contest.config';
@@ -30,6 +31,12 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
   let body: unknown;
   try { body = await req.json(); } catch {
     return apiError('bad_request', 'Invalid JSON body', requestId);
+  }
+
+  // Turnstile bot check (no-op until TURNSTILE_SECRET_KEY is set)
+  const turnstileToken = (body as { turnstileToken?: unknown } | null)?.turnstileToken;
+  if (!(await verifyTurnstile(turnstileToken, ip))) {
+    return apiError('forbidden', 'Please complete the security check and try again.', requestId);
   }
 
   const parsed = volunteerSchema.safeParse(body);
