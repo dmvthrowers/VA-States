@@ -30,6 +30,9 @@ type FormValues = {
   home_zip: string;
   home_state_confirmed: boolean;
   club_affiliation: string;
+  name_pronunciation: string;
+  intro_note: string;
+  sponsor_name: string;
   parent_name: string;
   parent_email: string;
   parent_consented: boolean;
@@ -489,6 +492,19 @@ export default function RegisterPage() {
               </Field>
               <Field label="Club Affiliation" hint="Optional">
                 <input {...register('club_affiliation')} className={inputCls(false)} placeholder="DMV Throwers" />
+              </Field>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <Field label="How to Say Your Name" hint="Optional. For the announcer, e.g. “sam RIV-air-ah”">
+                <input {...register('name_pronunciation')} maxLength={60} className={inputCls(false)} />
+              </Field>
+              <Field label="Sponsor" hint="Optional. Who gets a shout-out">
+                <input {...register('sponsor_name')} maxLength={80} className={inputCls(false)} />
+              </Field>
+            </div>
+            <div className="mt-4">
+              <Field label="How Should the Announcer Introduce You?" hint="Optional. One line, up to 200 characters">
+                <input {...register('intro_note')} maxLength={200} className={inputCls(false)} />
               </Field>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
