@@ -26,6 +26,7 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 | Migration replay in CI (`migrations` job, `scripts/check-migrations.sh`), `npm run divisions` + `supabase/divisions.sql`, and the template's `divisions-core`, `formats` and `routine-length` tests | build plan 4.2, `supabase/migrations/README.md` |
 
 | Season purge and reset: `npm run purge` (dry run by default), migration 0060 (`vsyc_season_purge`, consent records, past champions), CI test of the purge | build plan 4.4, `docs/specs/season-archive.md`. Not run in production; migration 0060 is not applied |
+| Public `/prizes` page: what each division awards, from the same config as the admin prize plan | build plan 4.17 (S3), `lib/prize-table.ts`, `app/prizes`; ported from the registration template (#68). Static; no migration |
 
 ## Where things stand (2026-10-06)
 
