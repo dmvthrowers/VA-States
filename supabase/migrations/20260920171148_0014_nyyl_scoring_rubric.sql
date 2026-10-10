@@ -1,3 +1,7 @@
+-- Replay fix (build plan 4.2): drop views rebuilt below before altering the columns they read, so this
+-- migration replays on a fresh database. A no-op on a database that already applied it.
+DROP VIEW IF EXISTS vsyc_results;
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Switch judge scoring from the old 3-category (execution/difficulty/
 -- presentation, /300) model to the NYYL rubric:
@@ -29,6 +33,9 @@ ALTER TABLE vsyc_scores
                            CHECK (deduction_discard >= 0),
   ADD COLUMN IF NOT EXISTS deduction_cut         numeric(4,2) NOT NULL DEFAULT 0
                            CHECK (deduction_cut >= 0);
+
+-- Replay fix: the view reads these columns, so it must go before they do (production applied it in a different order).
+DROP VIEW IF EXISTS vsyc_results;
 
 ALTER TABLE vsyc_scores
   DROP COLUMN IF EXISTS execution,

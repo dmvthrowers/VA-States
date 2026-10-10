@@ -1,3 +1,7 @@
+-- Replay fix (build plan 4.2): drop views rebuilt below before altering the columns they read, so this
+-- migration replays on a fresh database. A no-op on a database that already applied it.
+DROP VIEW IF EXISTS vsyc_public_profiles;
+
 -- Public profile expansion: spectator volunteer/pronouns + staff public bios with role labels.
 
 ALTER TABLE vsyc_spectators

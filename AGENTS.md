@@ -62,8 +62,8 @@ docs/             REPO_GUIDE.md (start here), ROADMAP.md (open work), specs/,
   `supabase/migrations/` changes and anything touching `lib/stripe.ts` or the webhook route
   with production-change care, not prototype care.
 - **Auth fails closed by design.** Staff and admins sign in with Supabase Auth; every
-  `/api/admin` route is guarded by `requireAdminRequest()` (13 route files still define their own local
-  `requireAdmin()` helper; fold them into the shared one when you touch them), which needs a valid bearer token *and* an
+  `/api/admin` and `/api/ops` route is guarded by `requireAdminRequest()` (lib/auth/admin-request.ts, also limited to 60
+  calls per IP per minute), which needs a valid bearer token *and* an
   active `admin` row in `vsyc_staff_accounts` (judge/DJ/audio-tech roles get the day-of
   portals). Don't "fix" a local 401 by loosening that check — add yourself a staff row instead.
   There is no shared admin password or PIN: `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DJ_PIN` and

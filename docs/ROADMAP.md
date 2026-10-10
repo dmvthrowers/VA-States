@@ -23,6 +23,10 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 
 | Judge scores survive a dropped connection (T19): saved on the phone first, sent when the signal returns, with a "saved, not sent yet" bar and a Send now button | build plan 4.5, `lib/score-outbox.ts`; ported from the registration template (#45) |
 
+| Migration replay in CI (`migrations` job, `scripts/check-migrations.sh`), `npm run divisions` + `supabase/divisions.sql`, and the template's `divisions-core`, `formats` and `routine-length` tests | build plan 4.2, `supabase/migrations/README.md` |
+
+| Season purge and reset: `npm run purge` (dry run by default), migration 0060 (`vsyc_season_purge`, consent records, past champions), CI test of the purge | build plan 4.4, `docs/specs/season-archive.md`. Not run in production; migration 0060 is not applied |
+
 ## Where things stand (2026-10-06)
 
 - **Production database:** every migration through 0047 is applied (checked read-only on 2026-10-06: the four
@@ -61,11 +65,15 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
    DJ timer are done (PRs #64/#65; run migration 0044 first). Still to do: put cleared lo-fi tracks
    in `vsyc26-music/lofi/`, and drop the old `music_path` / `music_filename` columns once a contest
    has run on the new tables.
-8. **Rate-limit the admin routes.** Admin auth is a Supabase JWT plus an active staff row, so
-   there's no password to guess here — this is about cost and abuse (each call hits Supabase
-   Auth). A shared 60/IP/min limit inside `requireAdminRequest` is enough.
-9. **Route-level tests for the money paths:** `/api/register` validation branches and webhook
-   dispatch (completed, refunded, bad signature).
+8. **Rate-limit the admin routes: done.** `requireAdminRequest` allows 60 calls per IP per minute across every admin
+   and ops route (all 13 local copies of the helper now call the shared one). It answers 429 with `Retry-After`; the
+   run-order guard used by judges and DJs on the day is not limited. Watch it if a venue puts many admins behind one
+   address: raise `ADMIN_RATE_LIMIT` in `lib/auth/admin-request.ts`.
+9. **Route-level tests for the money paths: done.** `lib/testing/` runs the real `/api/register` and
+   `/api/webhooks/stripe` routes and the admin guard with the database, Stripe, limiter and email stubbed
+   (`route-harness.mjs`): 12 webhook cases (signature, dispatch, duplicates, refunds, failures), 17 register cases
+   (rate limit, bad JSON, bot check, validation, honeypot, paused, comp codes, insert failure, the 201 path), 6 guard
+   cases. Add a module to the harness's stub list when a route needs one.
 10. **CI action versions:** `actions/checkout@v4` and `actions/setup-node@v4` in `ci.yml` are
     behind; Dependabot's Actions group should pick these up — merge it when it lands.
 11. **Form label association: done** (this PR). `Field` already tied labels to inputs; the gaps were
@@ -73,8 +81,13 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
     `/staff/profile`), the spectator portal, the comp code fields and the judge notes box, plus
     the walk-up form's `Field` wrapper. Same fix in yoyo-registration-template.
 12. **Results data gaps** seen on `/results` (Oct 2): 1A missing ranks 1–9, X Division without
-    rank numbers, two scores without a competitor name, some missing scores and cities. Check
-    the official-results import rows.
+    rank numbers, two scores without a competitor name, some missing scores and cities. The import rows live in
+    the production database, not the repo, so the check needs one read-only query: paste
+    `scripts/results-gaps.sql` into the Supabase SQL editor and send back the output (counts and registration ids
+    only, no emails or phones). It looks at import rows with no final score, blank display names (an empty-string
+    bracket name is the likely cause of "no competitor name": `COALESCE` skips only NULL), blank cities, duplicate
+    judge rows and the rank order the public page computes. The fix (a data correction, and a view change if the
+    blank names come from the view) comes after that output.
 
 ## VSYC-27 features (from site issues #78–#83)
 

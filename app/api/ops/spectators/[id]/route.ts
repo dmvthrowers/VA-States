@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
+import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
 import { z } from 'zod';
 
 const updateSpectatorSchema = z.object({
@@ -11,18 +11,6 @@ const updateSpectatorSchema = z.object({
   club: z.string().trim().max(100).optional().or(z.literal('')),
   is_public: z.boolean().optional(),
 }).strict();
-
-async function requireAdmin(req: NextRequest, requestId: string) {
-  const token = getBearerToken(req);
-  if (!token) return apiError('unauthorized', 'Missing bearer token', requestId);
-
-  const identity = await getStaffIdentityFromToken(token);
-  if (!identity || !identity.isActive || identity.role !== 'admin') {
-    return apiError('forbidden', 'Admin access required', requestId);
-  }
-
-  return identity;
-}
 
 export const PATCH = withErrorHandling(async (requestId, req: NextRequest, context: { params: Promise<{ id: string }> }) => {
   const auth = await requireAdmin(req, requestId);

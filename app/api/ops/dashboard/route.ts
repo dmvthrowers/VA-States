@@ -1,23 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
+import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
 import { getEventFlagBoolean } from '@/lib/event-flags';
 import { fetchAllTeamMemberships, type TeamSummary } from '@/lib/team-entries';
 import { competition, contest } from '@/contest.config';
 import { isHomeStateEligible } from '@/lib/residency';
-
-async function requireAdmin(req: NextRequest, requestId: string) {
-  const token = getBearerToken(req);
-  if (!token) return apiError('unauthorized', 'Missing bearer token', requestId);
-
-  const identity = await getStaffIdentityFromToken(token);
-  if (!identity || !identity.isActive || identity.role !== 'admin') {
-    return apiError('forbidden', 'Admin access required', requestId);
-  }
-
-  return identity;
-}
 
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
   const auth = await requireAdmin(req, requestId);
