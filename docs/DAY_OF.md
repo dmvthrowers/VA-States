@@ -29,3 +29,17 @@ Edit `contest.config.ts → dayOf`:
 **Publish results** on a judged block releases that division right away (`vsyc_results_releases`).
 The dashboard's `results_published` flag still publishes everything at once. `/results` and
 `GET /api/scores` honor both (`lib/results-visibility.ts`).
+
+## Release gates (off by default)
+
+Set `dayOf.releaseGates: true` in `contest.config.ts` and a round's results can be published from **Run the Day**
+only when two things are true:
+
+1. The scores-in board is full: the round has a run order, every competitor has finished performing and has a
+   score from every judge who scored anyone (the same check as `/api/admin/score-status`).
+2. The head judge has tapped **Mark scores checked** (admins and judges).
+
+If a score is added or edited after the check, the gate closes again until it is re-checked. Resetting a block
+takes back its check. Publishing without a check answers 409 with the reasons, and **Run the Day** shows them.
+The dashboard's `results_published` switch skips the gates on purpose: it is the "show everything" override.
+Needs migration `0052_release_checks.sql` (applied 2026-10-10).

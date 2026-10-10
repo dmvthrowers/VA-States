@@ -451,9 +451,15 @@ export const dayOf: {
   schedule: ScheduleItem[];
   /** Let blocks start before their planned time when the day runs ahead (default: no) */
   allowEarlyStarts: boolean;
+  /**
+   * Hold a round's results back until every score is in and the head judge has checked them
+   * (docs/FORMATS.md → Release gates). Off by default: publishing works as it always has.
+   */
+  releaseGates: boolean;
   sideEvents: SideEventDef[];
 } = {
   allowEarlyStarts: false,
+  releaseGates: false,
   schedule: [
     { id: 'doors', title: 'Doors open & kick off', start: '10:00', minutes: 30, kind: 'other', note: 'Registration desk open. Welcome and rules briefing.' },
     { id: 'sbj', title: 'Sport / Beginner / Junior', start: '10:30', minutes: 90, division: 'SBJ' },
