@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DIVISION_CODES, divisionByCode } from '@/contest.config';
 import { roundsOf } from '@/lib/divisions-core';
+import { drawOrder, newSeed, type DrawMeta } from '@/lib/draw';
 import SplitPreviewPanel from '@/components/SplitPreviewPanel';
 import { advanceCount as advanceFor, nextActiveRound, roundTabs } from '@/lib/round-plan';
 import { useRoundPlans } from '@/lib/use-round-plans';
@@ -96,6 +97,9 @@ export default function RunOrderManager({ token }: { token: string }) {
   const [advanceMsg, setAdvanceMsg] = useState<string | null>(null);
 
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
+  // How the unsaved order was made (published draws): sent with the save, cleared when it loads or saves.
+  const [draw, setDraw] = useState<DrawMeta | null>(null);
+  const [drawReason, setDrawReason] = useState('');
   const [uploadStatus, setUploadStatus] = useState<Record<string, 'uploading' | 'done' | 'error'>>({});
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -110,6 +114,8 @@ export default function RunOrderManager({ token }: { token: string }) {
         const json: AdminRunOrderData = await res.json();
         setData(json);
         setOrderedIds(json.ordered.map((r) => r.registration_id));
+        setDraw(null);
+        setDrawReason('');
       }
     } catch {}
     setLoading(false);
@@ -130,6 +136,7 @@ export default function RunOrderManager({ token }: { token: string }) {
     next.splice(fromIdx, 1);
     next.splice(toIdx, 0, id);
     setOrderedIds(next);
+    setDraw({ method: 'manual' });
   }
 
   function moveUp(idx: number) {
@@ -144,10 +151,14 @@ export default function RunOrderManager({ token }: { token: string }) {
 
   function removeFromOrder(id: string) {
     setOrderedIds(orderedIds.filter((x) => x !== id));
+    setDraw({ method: 'manual' });
   }
 
   function addToOrder(id: string) {
-    if (!orderedIds.includes(id)) setOrderedIds([...orderedIds, id]);
+    if (!orderedIds.includes(id)) {
+      setOrderedIds([...orderedIds, id]);
+      setDraw({ method: 'manual' });
+    }
   }
 
   function handleDragStart(idx: number) {
@@ -199,6 +210,17 @@ export default function RunOrderManager({ token }: { token: string }) {
     });
 
     setOrderedIds(unique);
+    setDraw({ method: 'rule', rule: 'Time preferences: early first, then no preference, then late, conflicts last. Ties keep their registration order.' });
+  }
+
+  /** Random draw of everyone who can be in the order (paid, not yet performing). The seed is published with it. */
+  function randomDraw() {
+    if (!data) return;
+    if (orderedIds.some(isLocked)) return;
+    const ids = [...new Set([...orderedIds, ...data.unscheduled.filter((u) => u.paid).map((u) => u.registration_id)])];
+    const seed = newSeed();
+    setOrderedIds(drawOrder(ids, seed));
+    setDraw({ method: 'random', seed });
   }
 
   async function saveOrder() {
@@ -208,7 +230,10 @@ export default function RunOrderManager({ token }: { token: string }) {
       const res = await fetch('/api/admin/run-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ division, round, registration_ids: orderedIds }),
+        body: JSON.stringify({
+          division, round, registration_ids: orderedIds,
+          ...(draw ? { draw: draw.method === 'manual' ? { method: 'manual', reason: drawReason.trim() } : draw } : {}),
+        }),
       });
       const json = await res.json();
       if (res.ok) {
@@ -404,6 +429,14 @@ export default function RunOrderManager({ token }: { token: string }) {
               </button>
               <button
                 type="button"
+                onClick={randomDraw}
+                disabled={orderedIds.some(isLocked)}
+                className="border border-navy-border text-text-body px-3 py-1.5 text-xs font-bold tracking-caps disabled:opacity-50"
+              >
+                Random draw
+              </button>
+              <button
+                type="button"
                 onClick={saveOrder}
                 disabled={saving}
                 className={`px-4 py-1.5 text-xs font-black tracking-caps ${saving ? 'bg-navy-border text-text-muted' : 'bg-gold text-navy-deep'}`}
@@ -412,6 +445,25 @@ export default function RunOrderManager({ token }: { token: string }) {
               </button>
               {saveMsg && <span className={`text-sm font-bold ${saveMsg.ok ? 'text-[#7fff7f]' : 'text-[#ff6b6b]'}`}>{saveMsg.text}</span>}
             </div>
+
+            {draw && (
+              <div className="mb-4 text-sm text-text-body">
+                {draw.method === 'random' && <p>Random draw, seed <code>{draw.seed}</code>. The seed is published with the order so anyone can re-run it.</p>}
+                {draw.method === 'rule' && <p>Rule: {draw.rule}</p>}
+                {draw.method === 'manual' && (
+                  <label className="block">
+                    <span className="text-xs font-black tracking-caps text-text-muted">Reason for the hand edit (shown publicly)</span>
+                    <input
+                      type="text"
+                      value={drawReason}
+                      onChange={(e) => setDrawReason(e.target.value)}
+                      maxLength={300}
+                      className="mt-1 w-full border border-navy-border bg-navy-deep px-3 py-2 text-sm text-white"
+                    />
+                  </label>
+                )}
+              </div>
+            )}
 
             <div className="border border-navy-border min-h-[80px]">
               {orderedIds.length === 0 && (
