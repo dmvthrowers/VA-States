@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { portalsFor } from '@/lib/roles';
 import { z } from 'zod';
 
 const staffSocialsSchema = z.object({
@@ -35,6 +36,9 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
       auth_user_id: identity.authUserId,
       email: identity.email,
       role: identity.role,
+      /** Every role held, and the one menu of screens they allow (the server still checks each screen) */
+      grants: identity.grants,
+      portals: portalsFor(identity.grants).map(({ id, label, href, ready }) => ({ id, label, href, ready })),
       display_name: identity.displayName,
       pronouns: identity.pronouns,
       bio: identity.bio,
