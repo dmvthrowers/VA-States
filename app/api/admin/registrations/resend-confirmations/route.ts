@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
 import type { OutboxEmail } from '@/lib/email';
 import { enqueueEmails } from '@/lib/outbox';
@@ -24,7 +24,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://register.dmvthrowe
  * without queueing anything.
  */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'registrations.edit');
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json().catch(() => ({}));

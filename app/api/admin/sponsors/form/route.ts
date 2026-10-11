@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { normalizeSettings, renamedTiers } from '@/lib/sponsor-settings';
 import { defaultSettings, loadSponsorSettings } from '@/lib/sponsor-settings-server';
 
@@ -10,7 +10,7 @@ const noStore = (requestId: string) => ({ 'x-request-id': requestId, 'Cache-Cont
 
 /** GET /api/admin/sponsors/form: the settings in use, the config defaults, and whether they have been customized. */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'sponsors.manage');
   if (auth instanceof NextResponse) return auth;
   const { settings, customized } = await loadSponsorSettings();
   return NextResponse.json({ settings, defaults: defaultSettings(), customized }, { headers: noStore(requestId) });
@@ -22,7 +22,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
  * it, so slot counts keep working. Needs `sponsors.manage`.
  */
 export const PUT = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'sponsors.manage');
   if (auth instanceof NextResponse) return auth;
 
   let json: { settings?: unknown };
@@ -58,7 +58,7 @@ export const PUT = withErrorHandling(async (requestId, req: NextRequest) => {
 
 /** DELETE /api/admin/sponsors/form: forget the saved copy and go back to the config defaults. */
 export const DELETE = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'sponsors.manage');
   if (auth instanceof NextResponse) return auth;
   const { error } = await createAdminClient().from('vsyc_sponsor_form').delete().eq('id', true);
   if (error) return apiError('upstream_error', 'Could not reset the settings', requestId);

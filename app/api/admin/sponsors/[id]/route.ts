@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { cleanDeliverables } from '@/lib/sponsors';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { sponsorFields } from '@/lib/sponsors-server';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export const PATCH = withErrorHandling(async (requestId, req: NextRequest, ctx: Ctx) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'sponsors.manage');
   if (auth instanceof NextResponse) return auth;
   const { id } = await ctx.params;
 
@@ -42,7 +42,7 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest, ctx: 
 });
 
 export const DELETE = withErrorHandling(async (requestId, req: NextRequest, ctx: Ctx) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'sponsors.manage');
   if (auth instanceof NextResponse) return auth;
   const { id } = await ctx.params;
 

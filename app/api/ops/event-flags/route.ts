@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { clearEventFlagCache, getEventFlagBoolean } from '@/lib/event-flags';
 import { z } from 'zod';
 
@@ -11,7 +11,7 @@ const eventFlagsPatchSchema = z.object({
 }).strict();
 
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'event.configure');
   if (auth instanceof NextResponse) return auth;
 
   return NextResponse.json(
@@ -24,7 +24,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 });
 
 export const PATCH = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'event.configure');
   if (auth instanceof NextResponse) return auth;
 
   let body: unknown;

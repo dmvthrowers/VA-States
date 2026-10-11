@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 
 const goalSchema = z.object({
   goal_cents: z.number().int().min(0),
 }).strict();
 
 export const PATCH = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'finance.edit');
   if (auth instanceof NextResponse) return auth;
 
   let body: unknown;
