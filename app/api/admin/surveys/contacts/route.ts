@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
 
 /**
@@ -21,7 +21,7 @@ const contactSchema = z.object({
 
 /** GET /api/admin/surveys/contacts — every contact, grouped client-side. */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'players.view_private');
   if (auth instanceof NextResponse) return auth;
 
   const { data, error } = await createAdminClient()
@@ -35,7 +35,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 
 /** POST /api/admin/surveys/contacts — add one contact. */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'players.view_private');
   if (auth instanceof NextResponse) return auth;
 
   const parsed = contactSchema.safeParse(await req.json().catch(() => ({})));
@@ -62,7 +62,7 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
 
 /** DELETE /api/admin/surveys/contacts?id=… — remove one contact. */
 export const DELETE = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'players.view_private');
   if (auth instanceof NextResponse) return auth;
 
   const id = req.nextUrl.searchParams.get('id') ?? '';

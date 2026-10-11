@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { apiError } from '@/lib/api-error';
-import { canAny, type Capability } from '@/lib/roles';
+import { isAdmin, can, canAny, type Capability } from '@/lib/roles';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
@@ -23,7 +23,7 @@ export async function requireAdminRequest(req: NextRequest, requestId: string) {
   }
 
   const identity = await getStaffIdentityFromToken(token);
-  if (!identity || !identity.isActive || identity.role !== 'admin') {
+  if (!identity || !identity.isActive || !isAdmin(identity.grants)) {
     return apiError('forbidden', 'Admin access required', requestId);
   }
 
@@ -42,7 +42,7 @@ export async function requireRunOrderEditorRequest(req: NextRequest, requestId: 
   }
 
   const identity = await getStaffIdentityFromToken(token);
-  if (!identity || !identity.isActive || !['admin', 'dj', 'audio_tech', 'judge'].includes(identity.role)) {
+  if (!identity || !identity.isActive || !can(identity.grants, 'runorder.edit')) {
     return apiError('forbidden', 'Admin, DJ/audio, or judge staff access required', requestId);
   }
 
@@ -59,7 +59,7 @@ export async function requireScoreReviewRequest(req: NextRequest, requestId: str
   }
 
   const identity = await getStaffIdentityFromToken(token);
-  if (!identity || !identity.isActive || !['admin', 'judge'].includes(identity.role)) {
+  if (!identity || !identity.isActive || !can(identity.grants, 'scores.review')) {
     return apiError('forbidden', 'Admin or judge access required', requestId);
   }
 
@@ -72,6 +72,12 @@ export async function requireScoreReviewRequest(req: NextRequest, requestId: str
  * The older guards above still check the account's single role; they move to this one route by route.
  */
 export async function requireCapabilityRequest(req: NextRequest, requestId: string, ...capabilities: Capability[]) {
+  // Same per-IP limit as requireAdminRequest: a route that moves here from there stays throttled.
+  const allowed = await checkRateLimit(getClientIp(req.headers), 'admin', ADMIN_RATE_LIMIT.max, ADMIN_RATE_LIMIT.windowMinutes);
+  if (!allowed) {
+    return apiError('rate_limited', 'Too many requests. Wait a minute and try again.', requestId, { 'Retry-After': '60' });
+  }
+
   const token = getBearerToken(req);
   if (!token) {
     return apiError('unauthorized', 'Missing bearer token', requestId);

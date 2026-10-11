@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { logAudit } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { contest } from '@/contest.config';
 import { emptySlotsByPlayer, lofiDisplayName, planFallbacks } from '@/lib/music';
 import { divisionName, slotLabel, slotsOf } from '@/lib/music-config';
@@ -22,7 +22,7 @@ export const runtime = 'nodejs';
  * Only after the music deadline, unless `force: true`. `dry_run` (the default) just reports.
  */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'registrations.edit');
   if (auth instanceof NextResponse) return auth;
 
   const body = (await req.json().catch(() => ({}))) as { dry_run?: unknown; force?: unknown };

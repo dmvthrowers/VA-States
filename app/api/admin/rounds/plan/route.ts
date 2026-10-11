@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
 import { competition, divisionByCode } from '@/contest.config';
 import { roundsOf } from '@/lib/divisions-core';
@@ -17,7 +17,7 @@ import { countEntrants, loadPlans } from '@/lib/round-plan-server';
  * fewer people entered since it was confirmed).
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'event.configure');
   if (auth instanceof NextResponse) return auth;
   const db = createAdminClient();
   const { plans, error } = await loadPlans(db);
@@ -59,7 +59,7 @@ const schema = z.object({
  * skip a round that already has scores.
  */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'event.configure');
   if (auth instanceof NextResponse) return auth;
   let body: unknown;
   try { body = await req.json(); } catch { return apiError('bad_request', 'Invalid JSON body', requestId); }

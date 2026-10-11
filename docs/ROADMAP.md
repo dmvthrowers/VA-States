@@ -42,7 +42,7 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
   screen, sponsors, stream, media, MC, merch, volunteers, finance and event-setup screens).
 - **Roles port (template → here), in stages:** (A) `lib/roles.ts`, the grants table (migration 0063, not applied) and
   `grants` on the staff identity, with `requireCapabilityRequest`; nothing changes for anyone because an account with no grant
-  row falls back to its role. (B) forms on our own system (migration 0061, `forms: []` so off), Next: (C) switch routes to capabilities one by one,
+  row falls back to its role. (B) forms on our own system (migration 0061, `forms: []` so off), (C, in progress) the admin guards now read grants (`isAdmin`, `runorder.edit`, `scores.review`) and 18 admin routes ask for a capability (registrations.edit, players.view_private, event.configure, staff.manage); the budget, sponsors, volunteers, ops and MC routes still ask for admin and move next. Next:
   (D) the `/staff` pane and role pages, behind a flag. See `docs/ROLES.md`.
 - **Decisions waiting on the owner:** sponsor form details (below), 2026 archive and purge retention, prize scale.
 

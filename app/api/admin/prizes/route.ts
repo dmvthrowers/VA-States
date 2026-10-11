@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { competition, contest } from '@/contest.config';
 import { isTeamDivision } from '@/lib/divisions-core';
 import { prizePlan } from '@/lib/prizes';
@@ -16,7 +16,7 @@ import { prizePlan } from '@/lib/prizes';
  * won't award its champion prize. Read-only.
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'event.configure');
   if (auth instanceof NextResponse) return auth;
 
   const db = createAdminClient();

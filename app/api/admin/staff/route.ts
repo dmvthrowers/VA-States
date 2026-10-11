@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { z } from 'zod';
 
 const createStaffSchema = z.object({
@@ -19,7 +19,7 @@ function generateTemporaryPassword(length = 16): string {
 }
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'staff.manage');
   if (auth instanceof NextResponse) return auth;
 
   let body: unknown;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { competition, divisionByCode } from '@/contest.config';
 import { previewSplit } from '@/lib/division-split';
 
@@ -14,7 +14,7 @@ import { previewSplit } from '@/lib/division-split';
  * `cut_age` with `division` to see what a different cut would give. Nothing is saved or applied.
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'event.configure');
   if (auth instanceof NextResponse) return auth;
 
   const only = req.nextUrl.searchParams.get('division');

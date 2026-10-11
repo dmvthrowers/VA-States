@@ -5,7 +5,7 @@ import { calculateFee } from '@/lib/pricing';
 import { generateToken } from '@/lib/tokens';
 import { logAudit } from '@/lib/audit';
 import { sendConfirmationEmail } from '@/lib/email';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { z } from 'zod';
 import { divisionsSchema, divisionStylesSchema, addSelectionIssues, teamsSchema, addTeamIssues } from '@/lib/validation';
 import { cleanStyles } from '@/lib/divisions-core';
@@ -54,7 +54,7 @@ const walkUpSchema = z.object({
  * Skips the online registration window check.
  */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'registrations.edit');
   if (auth instanceof NextResponse) return auth;
 
   let body: unknown;
