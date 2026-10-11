@@ -1,6 +1,6 @@
 import { buildVsyc26Ics } from './ics';
 import { enqueueEmails, queueEmail, type QueueOptions } from './outbox';
-import { divisionByCode } from '@/contest.config';
+import { contest, divisionByCode } from '@/contest.config';
 import type { TeamSummary } from './team-entries';
 import { joinDivisions, playerSlots } from './music';
 import { slotsOf } from './music-config';
@@ -39,6 +39,7 @@ export type OutboxEmail =
   | { template: 'survey_invite'; params: SurveyInviteParams }
   | { template: 'admin_alert'; params: AdminAlertParams }
   | { template: 'sponsor_inquiry_notice'; params: SponsorInquiryNoticeParams }
+  | { template: 'form_notice'; params: FormNoticeParams }
   | { template: 'sponsor_inquiry_received'; params: SponsorInquiryReceivedParams };
 
 export function renderEmail(e: OutboxEmail): RenderedEmail {
@@ -54,6 +55,7 @@ export function renderEmail(e: OutboxEmail): RenderedEmail {
     case 'survey_invite': return renderSurveyInvite(e.params);
     case 'admin_alert': return renderAdminAlert(e.params);
     case 'sponsor_inquiry_notice': return renderSponsorInquiryNotice(e.params);
+    case 'form_notice': return renderFormNotice(e.params);
     case 'sponsor_inquiry_received': return renderSponsorInquiryReceived(e.params);
   }
 }
@@ -354,6 +356,36 @@ function sponsorNoticeAddress(): string {
 /** Tell the organizer a new sponsor inquiry came in. */
 export async function sendSponsorInquiryNoticeEmail(p: SponsorInquiryNoticeParams, opts?: QueueOptions): Promise<EmailResult> {
   return queueEmail({ template: 'sponsor_inquiry_notice', params: p }, { priority: 1, ...opts });
+}
+
+interface FormNoticeParams {
+  formTitle: string;
+}
+
+function formNoticeAddress(): string {
+  return process.env.FORMS_NOTICE_EMAIL || process.env.ADMIN_ALERT_EMAIL || `contact@dmvthrowers.club`;
+}
+
+/**
+ * Tell the organizer a form was submitted. It names the form and links to the review screen, and never repeats the
+ * answers: some forms (conduct reports) hold sensitive details that shouldn't sit in an inbox.
+ */
+export async function sendFormNoticeEmail(p: FormNoticeParams, opts?: QueueOptions): Promise<EmailResult> {
+  return queueEmail({ template: 'form_notice', params: p }, { priority: 1, ...opts });
+}
+
+function renderFormNotice(p: FormNoticeParams): RenderedEmail {
+  const subject = `New answer to the form "${p.formTitle}"`;
+  return {
+    to: formNoticeAddress(),
+    subject: `[${contest.shortName}] ${subject}`,
+    html: emailWrap(`
+      <h1 style="font-family:Georgia,serif;font-size:1.4rem;color:#C9A84C;margin:0 0 16px;">${esc(subject)}</h1>
+      <p style="font-size:0.85rem;margin:0 0 10px;">Open the review screen to read it. The answers are not included in this email.</p>
+      <a href="${BASE_URL}/forms-review" style="display:inline-block;background:#C9A84C;color:#0d1428;font-weight:800;font-size:0.78rem;letter-spacing:0.1em;padding:10px 20px;text-decoration:none;margin-top:8px;">REVIEW ANSWERS →</a>
+    `),
+    text: [subject, '', 'Open the review screen to read it. The answers are not included in this email.', `Review: ${BASE_URL}/forms-review`].join('\n'),
+  };
 }
 
 /** A plain confirmation to the person who sent the form. */

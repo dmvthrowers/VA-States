@@ -24,7 +24,7 @@ Both repos start the same through **0036**.
 | 0051 | (not used yet) | `0051_payment_dispute_flags` (same change as VA-States 0046) |
 | 0052–0059 | (not used yet) | `0052_release_checks`, `0053_run_order_draws`, `0054_conduct_version`, `0055_photo_consent_optional`, `0056_mc_card_fields`, `0057_open_books`, `0058_bracket_match_scores`, `0059_addon_divisions` |
 | 0060 | `0060_season_purge` | `0060_season_purge` (same change) |
-| 0061 | (not used yet, comes with the forms port) | `0061_form_submissions` |
+| 0061 | `0061_form_submissions` (written 2026-10-11, **not applied**) | `0061_form_submissions` (same change) |
 | 0062 | (not used yet) | `0062_home_state_eligibility` (same change as VA-States 0047) |
 | 0063 | `0063_role_grants` (written 2026-10-11, **not applied**) | `0044_role_grants` + `0045_role_grants_revoked_by` (same change, merged) |
 

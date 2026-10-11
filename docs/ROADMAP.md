@@ -42,7 +42,7 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
   screen, sponsors, stream, media, MC, merch, volunteers, finance and event-setup screens).
 - **Roles port (template → here), in stages:** (A) `lib/roles.ts`, the grants table (migration 0063, not applied) and
   `grants` on the staff identity, with `requireCapabilityRequest`; nothing changes for anyone because an account with no grant
-  row falls back to its role. Next: (B) forms on our own system (template 0061), (C) switch routes to capabilities one by one,
+  row falls back to its role. (B) forms on our own system (migration 0061, `forms: []` so off), Next: (C) switch routes to capabilities one by one,
   (D) the `/staff` pane and role pages, behind a flag. See `docs/ROLES.md`.
 - **Decisions waiting on the owner:** sponsor form details (below), 2026 archive and purge retention, prize scale.
 

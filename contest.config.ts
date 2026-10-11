@@ -7,6 +7,7 @@
  * Safe to import from both server and browser code: nothing secret belongs in this file.
  */
 
+import type { FormDef } from './lib/forms';
 import { buildEvents, buildOrganizers, eventOf as pickEvent, type EventInput, type OrganizerDef } from './lib/events.ts';
 
 export const contest = {
@@ -125,6 +126,15 @@ export const contest = {
    * `showJudgeNames` is true: a judge did not agree to be named just by scoring, so ask first.
    */
   judgesScores: { enabled: false, showJudgeNames: false },
+
+  /**
+   * Forms on our own system (docs/FORMS.md): a list of simple forms, each at /forms/<id>. Describe the
+   * fields here; answers are saved in your own database and shown to staff with the `forms.review`
+   * capability (admins, and anyone an admin grants the Form answers reader role). An empty list turns the whole
+   * feature off, which is how VA-States ships: its contact and report forms stay on the club site until chosen.
+   * Field types: text, longtext, email, phone, url, number, select, multiselect, checkbox.
+   */
+  forms: [] as FormDef[],
 
   /**
    * Version of the code of conduct people accept at sign-up. It is stored with each registration,
