@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { BUDGET_CATEGORIES, entryIssue } from '@/lib/open-books';
 
 const patchEntrySchema = z.object({
@@ -15,7 +15,7 @@ const patchEntrySchema = z.object({
 }).strict();
 
 export const PATCH = withErrorHandling(async (requestId, req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'finance.edit');
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await ctx.params;
@@ -63,7 +63,7 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest, ctx: 
 });
 
 export const DELETE = withErrorHandling(async (requestId, req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'finance.edit');
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await ctx.params;

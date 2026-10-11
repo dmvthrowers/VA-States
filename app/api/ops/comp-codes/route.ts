@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
 import { z } from 'zod';
 
@@ -23,7 +23,7 @@ const createCodeSchema = z.object({
 }).strict();
 
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'registrations.edit');
   if (auth instanceof NextResponse) return auth;
 
   const supabase = createAdminClient();
@@ -38,7 +38,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 });
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'registrations.edit');
   if (auth instanceof NextResponse) return auth;
 
   let body: unknown;

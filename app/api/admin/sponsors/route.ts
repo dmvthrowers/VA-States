@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { sponsorFields } from '@/lib/sponsors-server';
 import { cleanDeliverables, summarizeSponsors, type Deliverable } from '@/lib/sponsors';
 
@@ -10,7 +10,7 @@ import { cleanDeliverables, summarizeSponsors, type Deliverable } from '@/lib/sp
  * finer-grained roles (organizer, a sponsor's own read-only login).
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'sponsors.manage');
   if (auth instanceof NextResponse) return auth;
 
   const supabase = createAdminClient();
@@ -25,7 +25,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 });
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'sponsors.manage');
   if (auth instanceof NextResponse) return auth;
 
   let body: unknown;

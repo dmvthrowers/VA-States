@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { z } from 'zod';
 
 const updateSpectatorSchema = z.object({
@@ -13,7 +13,7 @@ const updateSpectatorSchema = z.object({
 }).strict();
 
 export const PATCH = withErrorHandling(async (requestId, req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'registrations.edit');
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await context.params;

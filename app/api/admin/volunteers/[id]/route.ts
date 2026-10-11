@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
 import { sendVolunteerConfirmedEmail } from '@/lib/email';
 import { VOLUNTEER_ROLE_KEYS, VOLUNTEER_STATUSES, getVolunteerRole } from '@/lib/volunteer-roles';
@@ -77,7 +77,7 @@ async function createVolunteerCompCode(
  * code already issued) does not regenerate or re-send.
  */
 export const PATCH = withErrorHandling(async (requestId, req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'volunteers.manage');
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await context.params;

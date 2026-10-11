@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { inquiryToSponsor } from '@/lib/sponsor-inquiry';
 import { loadSponsorSettings } from '@/lib/sponsor-settings-server';
 
@@ -14,7 +14,7 @@ const body = z.object({ action: z.enum(['convert', 'dismiss']) }).strict();
  * dismiss marks it dismissed. Each only works on a new inquiry, so a double click can't create two sponsors.
  */
 export const POST = withErrorHandling(async (requestId, req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'sponsors.manage');
   if (auth instanceof NextResponse) return auth;
   const { id } = await ctx.params;
 

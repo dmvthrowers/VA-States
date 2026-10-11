@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { getBudgetEntries, getBudgetSummary } from '@/lib/budget';
 import { BUDGET_CATEGORIES, entryIssue } from '@/lib/open-books';
 
@@ -23,7 +23,7 @@ const createEntrySchema = z.object({
  * computed summary (registration income + entries vs. the goal). Admin-only.
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'finance.edit');
   if (auth instanceof NextResponse) return auth;
 
   const entries = await getBudgetEntries();
@@ -33,7 +33,7 @@ export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
 });
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'finance.edit');
   if (auth instanceof NextResponse) return auth;
 
   let body: unknown;

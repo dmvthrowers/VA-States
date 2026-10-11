@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 
 /**
  * GET /api/admin/volunteers
@@ -10,7 +10,7 @@ import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
  * email, phone, emergency contact). Admin-only.
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'volunteers.manage');
   if (auth instanceof NextResponse) return auth;
 
   const supabase = createAdminClient();

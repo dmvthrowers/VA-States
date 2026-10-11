@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { DIVISION_CODES, divisionByCode } from '@/contest.config';
 import { roundsOf } from '@/lib/divisions-core';
 import { isNameRestricted, publicDisplayName } from '@/lib/display-name';
@@ -14,7 +14,7 @@ import { buildMcCards, type McCardRow } from '@/lib/mc-cards';
  * rules because the announcer reads them to the room. Never cached.
  */
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'mc.script');
   if (auth instanceof NextResponse) return auth;
 
   const division = req.nextUrl.searchParams.get('division');

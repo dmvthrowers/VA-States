@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
 import { z } from 'zod';
 
@@ -21,7 +21,7 @@ const patchCodeSchema = z.object({
 type RouteParams = { params: Promise<{ code: string }> };
 
 export const PATCH = withErrorHandling(async (requestId, req: NextRequest, ctx: RouteParams) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'registrations.edit');
   if (auth instanceof NextResponse) return auth;
 
   const { code: rawCode } = await ctx.params;
@@ -62,7 +62,7 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest, ctx: 
 });
 
 export const DELETE = withErrorHandling(async (requestId, req: NextRequest, ctx: RouteParams) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'registrations.edit');
   if (auth instanceof NextResponse) return auth;
 
   const { code: rawCode } = await ctx.params;

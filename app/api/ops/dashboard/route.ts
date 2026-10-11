@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest as requireAdmin } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { getEventFlagBoolean } from '@/lib/event-flags';
 import { fetchAllTeamMemberships, type TeamSummary } from '@/lib/team-entries';
 import { competition, contest } from '@/contest.config';
 import { isHomeStateEligible } from '@/lib/residency';
 
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdmin(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'players.view_private');
   if (auth instanceof NextResponse) return auth;
 
   const supabase = createAdminClient();
