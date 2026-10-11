@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
 import { buildBracket, isTeamDivision } from '@/lib/divisions-core';
 import { bracketRows, hasRealWinner, seedEntrants, type EntrantCandidate } from '@/lib/bracket-store';
@@ -25,7 +25,7 @@ const schema = z.object({
  * `{ division, action: 'reset' }` deletes the bracket (and its votes).
  */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'event.configure');
   if (auth instanceof NextResponse) return auth;
 
   let body: unknown;

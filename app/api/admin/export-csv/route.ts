@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { competition } from '@/contest.config';
 import { slotKey } from '@/lib/music';
 import { slotsOf } from '@/lib/music-config';
@@ -25,7 +25,7 @@ function csvRow(values: string[]): string {
 }
 
 export const GET = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'players.view_private');
   if (auth instanceof NextResponse) return auth;
 
   const supabase = createAdminClient();

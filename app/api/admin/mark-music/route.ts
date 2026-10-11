@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { logAudit } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminRequest } from '@/lib/auth/admin-request';
+import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { resolveSlot } from '@/lib/music-config';
 
 /**
@@ -12,7 +12,7 @@ import { resolveSlot } from '@/lib/music-config';
  * `filename` must name an object already in the music bucket when marking received.
  */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
-  const auth = await requireAdminRequest(req, requestId);
+  const auth = await requireCapabilityRequest(req, requestId, 'registrations.edit');
   if (auth instanceof NextResponse) return auth;
 
   let body: unknown;
