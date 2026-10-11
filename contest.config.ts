@@ -128,6 +128,18 @@ export const contest = {
   judgesScores: { enabled: false, showJudgeNames: false },
 
   /**
+   * The photo and video release. VA-States requires it for every competitor (owner decision), so this is
+   * 'required' and the registration form here always asks for it. The media team's do-not-photograph list reads it.
+   */
+  photoConsent: 'required' as 'required' | 'optional',
+
+  /**
+   * The single staff pane at /staff (docs/ROLES.md): one sign-in, one menu built from the roles a person holds.
+   * Off: /staff keeps the plain list of staff links. Turn on once staff have been given their roles at /admin/staff.
+   */
+  staffPane: { enabled: false },
+
+  /**
    * Forms on our own system (docs/FORMS.md): a list of simple forms, each at /forms/<id>. Describe the
    * fields here; answers are saved in your own database and shown to staff with the `forms.review`
    * capability (admins, and anyone an admin grants the Form answers reader role). An empty list turns the whole
