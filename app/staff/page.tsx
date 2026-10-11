@@ -27,6 +27,18 @@ const portals = [
     cta: 'Open schedule controls',
   },
   {
+    title: 'Staff and Roles',
+    description: 'Create staff accounts and choose what each person can do. Admins only.',
+    href: '/admin/staff',
+    cta: 'Open staff and roles',
+  },
+  {
+    title: 'Form Answers',
+    description: 'Read and handle answers to the public forms. Admins and the Form answers reader role.',
+    href: '/forms-review',
+    cta: 'Open form answers',
+  },
+  {
     title: 'MC Cards',
     description: 'One card per competitor in run order: how to say the name, the intro and the sponsor. Admins only.',
     href: '/mc/cards',

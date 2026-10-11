@@ -4,11 +4,12 @@ import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { z } from 'zod';
+import { GRANTABLE_ROLES } from '@/lib/roles';
 
 const createStaffSchema = z.object({
   email: z.string().trim().email().max(320),
   display_name: z.string().trim().min(1).max(100),
-  role: z.enum(['judge', 'dj', 'audio_tech', 'admin']),
+  role: z.string().refine((r) => (GRANTABLE_ROLES as string[]).includes(r), 'That role cannot be granted by hand'),
   password: z.string().min(8).max(128).optional().or(z.literal('')),
   is_active: z.boolean().optional(),
   is_public_profile: z.boolean().optional(),
@@ -70,6 +71,12 @@ export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
     await supabase.auth.admin.deleteUser(userData.user.id);
     return apiError('upstream_error', 'Created auth account, but could not save staff record', requestId);
   }
+
+  // Keep the grants table in step with the account's first role. If this fails the legacy role still applies.
+  const { error: grantError } = await supabase
+    .from('vsyc_role_grants')
+    .insert({ auth_user_id: userData.user.id, role, granted_by: auth.authUserId });
+  if (grantError) console.error('[admin/staff] could not record the first role grant:', grantError.message);
 
   return NextResponse.json(
     {
