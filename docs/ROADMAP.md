@@ -40,8 +40,10 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 - **Merged:** the VSYC-27 feature set above, the finance roadmap entry and the sponsor-form roadmap entry. The
   registration template has the roles and portals work (grants table, `/staff` single pane, staff and roles
   screen, sponsors, stream, media, MC, merch, volunteers, finance and event-setup screens).
-- **Not ported yet:** battles, round plans, disputes, split, champion, prizes and score status exist here but not in
-  the template.
+- **Roles port (template → here), in stages:** (A) `lib/roles.ts`, the grants table (migration 0063, not applied) and
+  `grants` on the staff identity, with `requireCapabilityRequest`; nothing changes for anyone because an account with no grant
+  row falls back to its role. Next: (B) forms on our own system (template 0061), (C) switch routes to capabilities one by one,
+  (D) the `/staff` pane and role pages, behind a flag. See `docs/ROLES.md`.
 - **Decisions waiting on the owner:** sponsor form details (below), 2026 archive and purge retention, prize scale.
 
 ## Now (owner actions — dashboard, not code)

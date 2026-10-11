@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { apiError } from '@/lib/api-error';
+import { canAny, type Capability } from '@/lib/roles';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
@@ -60,6 +61,25 @@ export async function requireScoreReviewRequest(req: NextRequest, requestId: str
   const identity = await getStaffIdentityFromToken(token);
   if (!identity || !identity.isActive || !['admin', 'judge'].includes(identity.role)) {
     return apiError('forbidden', 'Admin or judge access required', requestId);
+  }
+
+  return identity;
+}
+
+/**
+ * Signed in, active, and holding at least one of `capabilities` (admin holds them all). New routes ask for the
+ * capability that matches what they do (docs/ROLES.md), so a role added later gets exactly what it should.
+ * The older guards above still check the account's single role; they move to this one route by route.
+ */
+export async function requireCapabilityRequest(req: NextRequest, requestId: string, ...capabilities: Capability[]) {
+  const token = getBearerToken(req);
+  if (!token) {
+    return apiError('unauthorized', 'Missing bearer token', requestId);
+  }
+
+  const identity = await getStaffIdentityFromToken(token);
+  if (!identity || !identity.isActive || !canAny(identity.grants, capabilities)) {
+    return apiError('forbidden', 'You do not have access to this', requestId);
   }
 
   return identity;
