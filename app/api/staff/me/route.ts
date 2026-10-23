@@ -3,7 +3,7 @@ import { withErrorHandling, apiError } from '@/lib/api-error';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { portalsFor } from '@/lib/roles';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 
 const staffSocialsSchema = z.object({
   instagram: z.string().trim().max(100).optional().or(z.literal('')),

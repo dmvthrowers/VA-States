@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { competition, contest } from '@/contest.config';
 import { US_STATE_CODES, isZip, residencyIssues } from '@/lib/residency';
 import { selectionIssues } from './divisions-core';
@@ -92,9 +92,9 @@ export const registrationSchema = z.object({
   comp_code: z.string().trim().toUpperCase().max(40).optional().or(z.literal('')),
 
   // Waivers — all must be true
-  liability_waiver_accepted: z.literal(true, { errorMap: () => ({ message: 'Liability waiver is required' }) }),
-  photo_video_consent:       z.literal(true, { errorMap: () => ({ message: 'Photo/video consent is required' }) }),
-  code_of_conduct_accepted:  z.literal(true, { errorMap: () => ({ message: 'Code of Conduct agreement is required' }) }),
+  liability_waiver_accepted: z.literal(true, { error: 'Liability waiver is required' }),
+  photo_video_consent:       z.literal(true, { error: 'Photo/video consent is required' }),
+  code_of_conduct_accepted:  z.literal(true, { error: 'Code of Conduct agreement is required' }),
 
   // Required for competitors
   emergency_contact_name:         z.string().trim().min(1, 'Emergency contact name is required').max(100),
@@ -177,8 +177,8 @@ export const spectatorSchema = z.object({
   is_public: z.boolean().optional().default(false),
   volunteer_interest: z.boolean().optional(),
 
-  liability_accepted:       z.literal(true, { errorMap: () => ({ message: 'Please acknowledge you are responsible for yourself at the event' }) }),
-  code_of_conduct_accepted: z.literal(true, { errorMap: () => ({ message: 'Code of Conduct agreement is required' }) }),
+  liability_accepted:       z.literal(true, { error: 'Please acknowledge you are responsible for yourself at the event' }),
+  code_of_conduct_accepted: z.literal(true, { error: 'Code of Conduct agreement is required' }),
 
   _hp: honeypotSchema,
 });
@@ -217,8 +217,8 @@ export const volunteerSchema = z.object({
   emergency_contact_phone: z.string().trim().max(20).optional().or(z.literal('')),
   photo_video_consent:     z.boolean().optional().default(false),
 
-  liability_accepted:       z.literal(true, { errorMap: () => ({ message: 'Please acknowledge you are responsible for yourself at the event' }) }),
-  code_of_conduct_accepted: z.literal(true, { errorMap: () => ({ message: 'Code of Conduct agreement is required' }) }),
+  liability_accepted:       z.literal(true, { error: 'Please acknowledge you are responsible for yourself at the event' }),
+  code_of_conduct_accepted: z.literal(true, { error: 'Code of Conduct agreement is required' }),
 
   _hp: honeypotSchema,
 }).superRefine((data, ctx) => {

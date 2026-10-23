@@ -6,7 +6,7 @@ import { generateToken } from '@/lib/tokens';
 import { logAudit } from '@/lib/audit';
 import { sendConfirmationEmail } from '@/lib/email';
 import { requireCapabilityRequest } from '@/lib/auth/admin-request';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { divisionsSchema, divisionStylesSchema, addSelectionIssues, teamsSchema, addTeamIssues } from '@/lib/validation';
 import { cleanStyles } from '@/lib/divisions-core';
 import { joiningDivisions, resolveTeamJoins, writeTeams, type TeamSummary } from '@/lib/team-entries';
@@ -37,8 +37,8 @@ const walkUpSchema = z.object({
   parent_name:               z.string().trim().max(120).optional(),
   parent_email:              z.string().trim().email().max(254).optional(),
   parent_consented:          z.boolean().default(false),
-  liability_waiver_accepted: z.literal(true, { errorMap: () => ({ message: 'Waiver must be accepted' }) }),
-  code_of_conduct_accepted:  z.literal(true, { errorMap: () => ({ message: 'Code of conduct must be accepted' }) }),
+  liability_waiver_accepted: z.literal(true, { error: 'Waiver must be accepted' }),
+  code_of_conduct_accepted:  z.literal(true, { error: 'Code of conduct must be accepted' }),
   /** If true, marks this as paid immediately (cash collected at table) */
   paid_at_table:             z.boolean().default(false),
 }).superRefine((data, ctx) => {

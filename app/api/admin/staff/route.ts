@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireCapabilityRequest } from '@/lib/auth/admin-request';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { GRANTABLE_ROLES } from '@/lib/roles';
 
 const createStaffSchema = z.object({

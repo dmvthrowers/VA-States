@@ -3,7 +3,7 @@ import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { isPublished, publishedDivisions } from '@/lib/results-visibility';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { loadPlan } from '@/lib/round-plan-server';
 import { isRoundActive } from '@/lib/round-plan';
 import { DIVISION_CODES, divisionByCode } from '@/contest.config';
@@ -24,7 +24,7 @@ type Division = string;
  */
 const sheetNumber = z.number().min(0).max(99).optional().default(0);
 const scoreSubmitSchema = z.object({
-  registration_id:       z.string().uuid(),
+  registration_id:       z.string().guid(),
   division:              z.string().trim().max(20).refine((d) => DIVISION_CODES.includes(d), 'Unknown division'),
   /** Which of the competitor's styles this routine was judged under (only needed when they registered several). */
   style_code:            z.string().trim().max(20).optional().nullable(),
