@@ -97,6 +97,11 @@ npm run typecheck                  # tsc --noEmit (CI gate)
 npm test                           # pure-logic tests for the money paths
 ```
 
+TypeScript is installed twice on purpose: `tsc` is TypeScript 7 (`@typescript/native`), and the
+`typescript` package is the TypeScript 6 API (`@typescript/typescript6`) for typescript-eslint, Next's
+build-time type check and editors. TypeScript 7.0 has no API yet; drop the alias once typescript-eslint
+supports 7.x.
+
 Post-deploy checklist is in `README.md`'s "Deployment" section — public registration/RSVP
 submit, Stripe webhook receiving signed events, admin auth, policies page.
 
