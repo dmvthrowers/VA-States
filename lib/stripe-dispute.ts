@@ -50,7 +50,7 @@ export function disputeTransition(eventType: string, d: DisputeLike): DisputeTra
   }
   if (eventType === 'charge.dispute.closed') {
     if (d.status === 'won' || d.status === 'lost' || d.status === 'warning_closed') {
-      return { kind: 'closed', outcome: d.status, ...base };
+      return { kind: 'closed', outcome: d.status as 'won' | 'lost' | 'warning_closed', ...base };
     }
     return { kind: 'ignore', reason: 'unexpected_status' };
   }
