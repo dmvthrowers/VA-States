@@ -1,5 +1,6 @@
 {
   "framework": "nextjs",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude,glob)*.md' ':(exclude,glob)**/README.md' ':(exclude)docs' ':(exclude).github'",
   "regions": ["iad1"],
   "git": {
     "deploymentEnabled": {
