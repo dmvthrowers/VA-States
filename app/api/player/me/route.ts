@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildSlots, type MusicTrack } from '@/lib/music';

@@ -3,7 +3,7 @@ import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { logAudit } from '@/lib/audit';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 
 // Accepts either a plain YYYY-MM-DD (from the dashboard's <input type="date">)
 // or a full ISO datetime with offset. Plain dates are normalized to end-of-day

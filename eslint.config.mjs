@@ -16,6 +16,13 @@ const config = [
       'react-hooks/set-state-in-effect': 'warn',
     },
   },
+  {
+    // lib/zod.ts puts back the zod 3 error messages people see; importing 'zod' directly skips it.
+    ignores: ['lib/zod.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: [{ name: 'zod', message: "Import { z } from '@/lib/zod' (or './zod.ts' in lib)." }] }],
+    },
+  },
 ];
 
 export default config;

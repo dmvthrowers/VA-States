@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireCapabilityRequest } from '@/lib/auth/admin-request';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 
 const updateSpectatorSchema = z.object({
   nickname: z.string().trim().max(50).optional().or(z.literal('')),

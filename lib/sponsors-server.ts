@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { SPONSOR_STATUSES } from '@/lib/sponsors';
 
 export const sponsorFields = z.object({
@@ -11,5 +11,5 @@ export const sponsorFields = z.object({
   contact_email: z.string().trim().email().max(320).nullish().or(z.literal('')),
   notes: z.string().trim().max(2000).nullish(),
   deliverables: z.array(z.object({ label: z.string(), done: z.boolean().optional() })).max(20).optional(),
-  auth_user_id: z.string().uuid().nullish(),
+  auth_user_id: z.string().guid().nullish(),
 });

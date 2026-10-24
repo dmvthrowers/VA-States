@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireRunOrderEditorRequest } from '@/lib/auth/admin-request';
@@ -7,9 +7,9 @@ import { logAudit } from '@/lib/audit';
 import { applyWinner } from '@/lib/bracket-server';
 
 const schema = z.object({
-  match_id: z.string().uuid(),
+  match_id: z.string().guid(),
   /** The winning registration id, or null to clear the result. */
-  winner: z.string().uuid().nullable(),
+  winner: z.string().guid().nullable(),
   /** The match's updated_at as the caller saw it; a mismatch is a 409 instead of an overwrite. */
   expected_updated_at: z.string().max(40).optional(),
 });

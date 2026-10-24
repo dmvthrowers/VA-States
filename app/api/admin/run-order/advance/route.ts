@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireRunOrderEditorRequest } from '@/lib/auth/admin-request';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 
 const advanceSchema = z.object({
   division: z.enum(['1A', 'X', 'SBJ']),

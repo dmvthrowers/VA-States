@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireCapabilityRequest } from '@/lib/auth/admin-request';
@@ -66,7 +66,7 @@ export const DELETE = withErrorHandling(async (requestId, req: NextRequest) => {
   if (auth instanceof NextResponse) return auth;
 
   const id = req.nextUrl.searchParams.get('id') ?? '';
-  if (!z.string().uuid().safeParse(id).success) return apiError('bad_request', 'id must be a contact id', requestId);
+  if (!z.string().guid().safeParse(id).success) return apiError('bad_request', 'id must be a contact id', requestId);
 
   const { data, error } = await createAdminClient()
     .from('vsyc26_survey_contacts')
