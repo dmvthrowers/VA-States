@@ -6,7 +6,7 @@ import { logAudit } from '@/lib/audit';
 import { sendVolunteerConfirmedEmail } from '@/lib/email';
 import { VOLUNTEER_ROLE_KEYS, VOLUNTEER_STATUSES, getVolunteerRole } from '@/lib/volunteer-roles';
 import { generateReadableCode } from '@/lib/tokens';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 
 const updateVolunteerSchema = z.object({
   status:            z.enum(VOLUNTEER_STATUSES).optional(),

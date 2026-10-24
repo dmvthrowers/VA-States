@@ -3,7 +3,7 @@ import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireCapabilityRequest } from '@/lib/auth/admin-request';
 import { clearEventFlagCache, getEventFlagBoolean } from '@/lib/event-flags';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 
 const eventFlagsPatchSchema = z.object({
   results_published: z.boolean().optional(),

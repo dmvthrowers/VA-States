@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken, type StaffIdentity } from '@/lib/auth/staff';
@@ -39,11 +39,11 @@ const postSchema = z.object({
     return n;
   }),
   value: z.number().refine(isValidSideValue, 'Value must be 0 to 99999.99, with at most 2 decimals'),
-  registration_id: z.string().uuid().nullish(),
+  registration_id: z.string().guid().nullish(),
 }).strict();
 
 const patchSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
   hidden: z.boolean(),
 }).strict();
 

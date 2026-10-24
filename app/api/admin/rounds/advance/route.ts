@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireCapabilityRequest } from '@/lib/auth/admin-request';
@@ -20,7 +20,7 @@ const schema = z.object({
   /** A tie across the cut: "all" advances every tied entrant; "pick" advances only `pick` */
   ties: z.enum(['all', 'pick']).optional(),
   /** With ties: "pick", the tied registration ids to advance (as many as there are open spots) */
-  pick: z.array(z.string().uuid()).max(200).optional(),
+  pick: z.array(z.string().guid()).max(200).optional(),
 });
 
 /**

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireCapabilityRequest } from '@/lib/auth/admin-request';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { logAudit } from '@/lib/audit';
 import { DIVISION_CODES } from '@/contest.config';
 import { cleanStyles } from '@/lib/divisions-core';

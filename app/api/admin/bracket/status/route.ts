@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireRunOrderEditorRequest } from '@/lib/auth/admin-request';
@@ -7,7 +7,7 @@ import { extraLiveMatches } from '@/lib/bracket-store';
 import { MATCH_FIELDS } from '@/lib/bracket-server';
 
 const schema = z.object({
-  match_id: z.string().uuid(),
+  match_id: z.string().guid(),
   status: z.enum(['pending', 'live', 'done']),
 });
 
