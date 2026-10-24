@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { apiError } from '@/lib/api-error';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
 import { canAny, type Capability } from '@/lib/roles';

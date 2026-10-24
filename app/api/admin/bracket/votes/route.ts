@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireRunOrderEditorRequest } from '@/lib/auth/admin-request';
@@ -10,7 +10,7 @@ import { MATCH_FIELDS, bracketDivision } from '@/lib/bracket-server';
 
 const count = z.number().int().min(0).max(10_000_000).nullable();
 const schema = z.object({
-  match_id: z.string().uuid(),
+  match_id: z.string().guid(),
   votes_a: count,
   votes_b: count,
 });

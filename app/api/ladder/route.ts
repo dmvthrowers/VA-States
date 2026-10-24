@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken, type StaffIdentity } from '@/lib/auth/staff';
@@ -39,7 +39,7 @@ interface LadderEntry {
 const divisionField = z.string().trim().max(20).refine((d) => DIVISION_CODES.includes(d), 'Unknown division');
 const attemptKey = {
   division:        divisionField,
-  registration_id: z.string().uuid(),
+  registration_id: z.string().guid(),
   trick_index:     z.number().int().min(0).max(999),
   attempt:         z.number().int().min(1).max(99),
 };

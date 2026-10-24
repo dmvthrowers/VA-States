@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from './zod.ts';
 
 /**
  * Editable sponsor form settings. contest.config.ts holds the defaults; a saved copy (table

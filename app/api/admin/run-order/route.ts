@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireRunOrderEditorRequest } from '@/lib/auth/admin-request';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { DIVISION_CODES, dayOf, divisionByCode } from '@/contest.config';
 import { checkDrawMeta } from '@/lib/draw';
 import { logAudit } from '@/lib/audit';
@@ -17,7 +17,7 @@ function parseRound(division: string, raw: unknown): number | null {
 const saveRunOrderSchema = z.object({
   division: z.string().trim().refine((d) => DIVISION_CODES.includes(d), 'Unknown division'),
   /** Ordered array of registration IDs — determines position 1, 2, 3… */
-  registration_ids: z.array(z.string().uuid()).min(1).max(200),
+  registration_ids: z.array(z.string().guid()).min(1).max(200),
   /** 1-based round (default 1) */
   round: z.number().int().min(1).max(5).optional(),
   /** How the order was made (published draws, docs/FORMATS.md). Required when dayOf.publishedDraws is on. */

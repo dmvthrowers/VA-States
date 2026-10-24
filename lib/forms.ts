@@ -6,7 +6,7 @@
  *
  * The honeypot field `_hp` is part of every form and must stay empty; a filled one is flagged as a bot (`bot: true`).
  */
-import { z } from 'zod';
+import { z } from './zod.ts';
 
 export const FIELD_TYPES = ['text', 'longtext', 'email', 'phone', 'url', 'number', 'select', 'multiselect', 'checkbox'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
@@ -92,7 +92,7 @@ function fieldSchema(fd: FieldDef): z.ZodTypeAny {
       base = z.string().trim().max(500).refine((v) => v === '' || /^https?:\/\/\S+$/i.test(v), `"${fd.label}" should be a link starting with http:// or https://.`);
       break;
     case 'number':
-      base = z.number({ invalid_type_error: `"${fd.label}" should be a number.` }).finite().min(-1_000_000_000).max(1_000_000_000);
+      base = z.number({ error: (iss) => (iss.code === 'invalid_type' && iss.input !== undefined ? `"${fd.label}" should be a number.` : undefined) }).finite().min(-1_000_000_000).max(1_000_000_000);
       break;
     case 'select':
       base = z.string().refine((v) => v === '' || (fd.options ?? []).includes(v), `Pick one of the choices for "${fd.label}".`);
@@ -110,9 +110,9 @@ function fieldSchema(fd: FieldDef): z.ZodTypeAny {
   const fill = (v: unknown) => (v === undefined ? missing : v);
   switch (fd.type) {
     case 'checkbox': return z.preprocess(fill, base.refine((v) => v === true, need));
-    case 'multiselect': return z.preprocess(fill, base.refine((a: string[]) => a.length > 0, need));
-    case 'number': return z.preprocess(fill, z.number({ required_error: need, invalid_type_error: `"${fd.label}" should be a number.` }).finite().min(-1_000_000_000).max(1_000_000_000));
-    default: return z.preprocess(fill, base.refine((v: string) => v !== '', need));
+    case 'multiselect': return z.preprocess(fill, base.refine((a) => (a as string[]).length > 0, need));
+    case 'number': return z.preprocess(fill, z.number({ error: (iss) => (iss.code !== 'invalid_type' ? undefined : iss.input === undefined ? need : `"${fd.label}" should be a number.`) }).finite().min(-1_000_000_000).max(1_000_000_000));
+    default: return z.preprocess(fill, base.refine((v) => v !== '', need));
   }
 }
 

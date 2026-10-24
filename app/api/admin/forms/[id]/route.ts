@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formReviewAuth } from '@/lib/forms-server';
@@ -15,7 +15,7 @@ export const PATCH = withErrorHandling(async (requestId, req: NextRequest, ctx: 
   const auth = await formReviewAuth(req, requestId);
   if (auth instanceof NextResponse) return auth;
   const { id } = await ctx.params;
-  if (!z.string().uuid().safeParse(id).success) return apiError('bad_request', 'Not a valid id', requestId);
+  if (!z.string().guid().safeParse(id).success) return apiError('bad_request', 'Not a valid id', requestId);
 
   let json: unknown;
   try {

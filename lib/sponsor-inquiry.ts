@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from './zod.ts';
 
 /**
  * The public sponsor inquiry form (docs/HUB_ROADMAP.md, "Sponsor inquiry form"). Pure: the schema is built

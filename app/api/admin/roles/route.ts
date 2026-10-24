@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBearerToken, getStaffIdentityFromToken } from '@/lib/auth/staff';
@@ -13,7 +13,7 @@ import { GRANTABLE_ROLES, ROLES, can, grantsFromLegacyRole, grantsFromRows, woul
  */
 
 const grantSchema = z.object({
-  auth_user_id: z.string().uuid(),
+  auth_user_id: z.string().guid(),
   role: z.string().min(1).max(30),
   event_id: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,59}$/).nullish(),
 }).strict();

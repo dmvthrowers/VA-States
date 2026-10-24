@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { z } from '@/lib/zod';
 import { withErrorHandling, apiError } from '@/lib/api-error';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -8,7 +8,7 @@ import { SURVEY_SOURCES, SURVEY_TYPES, validateSurveyAnswers } from '@/lib/surve
 const bodySchema = z.object({
   survey_type: z.enum(SURVEY_TYPES),
   source: z.enum(SURVEY_SOURCES).optional(),
-  answers: z.record(z.unknown()),
+  answers: z.record(z.string(), z.unknown()),
   contact_name: z.string().trim().max(120).optional().or(z.literal('')),
   contact_email: z.string().trim().email('Enter a valid email or leave it blank').max(254).optional().or(z.literal('')),
   allow_quote: z.boolean().optional(),
