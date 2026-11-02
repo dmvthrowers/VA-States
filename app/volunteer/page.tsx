@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import Footer from '@/components/Footer';
+import SeasonClosed from '@/components/SeasonClosed';
+import { seasonClosed } from '@/contest.config';
 import { VOLUNTEER_ROLES, SHIFT_PREFERENCES, SHIFT_PREFERENCE_LABELS, OTHER_ROLE_KEY, isExperienceRequired, type ShiftPreference } from '@/lib/volunteer-roles';
 import { Field, inputCls } from '@/components/form/Field';
 
@@ -145,6 +147,9 @@ export default function VolunteerPage() {
       setSubmitting(false);
     }
   };
+
+  // The season is archived: no sign-ups until the next contest is set (contest.archive). The API refuses them too.
+  if (seasonClosed()) return <SeasonClosed title="Volunteer Sign-Up Is Closed" />;
 
   return (
     <>

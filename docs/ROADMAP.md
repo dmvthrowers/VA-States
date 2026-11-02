@@ -48,10 +48,10 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 
 ## Now (owner actions — dashboard, not code)
 
-1. **Close registration for VSYC-26.** The site says registration is closed, but the app still
-   accepts competitor and volunteer submissions 13 days after the event. Turn off
-   `online_registration_open` in the admin dashboard's event flags (or set
-   `ONLINE_REG_CUTOFF_ISO` in the past).
+1. ~~**Close registration for VSYC-26.**~~ Done 2026-11-02: the app is in archive mode (`contest.archive`). The
+   competitor cutoff had already passed; volunteer and spectator sign-ups now close after contest day too, page and
+   API. The 2026 results are frozen on the club site (`archive/2026/`). Next for the owner: the purge (step 4 of
+   `docs/specs/season-archive.md`), then the reset for VSYC-27 once the date and venue are set.
 2. **Remove dead env vars from Vercel:** `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DJ_PIN`,
    `JUDGE_PIN`. Nothing reads them.
 3. **Confirm the Stripe webhook endpoint subscribes to `charge.refunded`** (Dashboard →

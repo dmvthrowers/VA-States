@@ -19,7 +19,25 @@ export const contest = {
   eventId: 'vsyc26',
   name: 'Virginia State Yo-Yo Contest',
   shortName: 'VSYC-26',
-  nextShortName: 'VSYC-27',
+  /**
+   * The next contest, shown on the closed pages once this one is archived. Keep date and venue as 'TBD' until they
+   * are set; `url` is its page on the club site.
+   */
+  next: {
+    shortName: 'VSYC-27',
+    date: 'TBD',
+    venue: 'TBD',
+    url: 'https://dmvthrowers.club/vsyc27.html',
+  },
+  /**
+   * Season archive (docs/specs/season-archive.md). After `closedAfter` every public sign-up (competitors, volunteers,
+   * spectators) is closed and those pages point to the frozen record at `url` and to the next contest. Results,
+   * the directory and the other read-only pages keep working from the database until the purge.
+   */
+  archive: {
+    closedAfter: '2026-09-19T23:59:59-04:00',
+    url: 'https://dmvthrowers.club/archive/2026/index.html',
+  },
   tagline: 'All ages, all levels. Free to watch.',
 
   date: '2026-09-19',
@@ -632,6 +650,9 @@ export function shortMonthDay(iso: string = contest.date): string {
 
 /** Contest year as a number */
 export const contestYear = parts(contest.date).y;
+
+/** True once the season is archived: public sign-ups are closed (see `contest.archive`). */
+export const seasonClosed = (now: number = Date.now()): boolean => now > new Date(contest.archive.closedAfter).getTime();
 
 /** "Springfield, IL" */
 export const venueCity = `${contest.venue.city}, ${contest.venue.region}`;

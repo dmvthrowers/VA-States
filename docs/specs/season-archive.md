@@ -4,6 +4,12 @@
 competed, scores, placements, brackets) and delete everything else, so the next season starts
 clean and the app holds no old personal data or music.
 
+**2026 (done 2026-11-02).** The 2026 record is frozen: `archive/2026/` on the club site (club site PR #181), generated
+by `lib/season-archive.ts` from a read-only pull of the production results, with its own checks passing. The app is in
+archive mode (`contest.archive`, `seasonClosed()`): competitor, volunteer and spectator sign-ups are closed and those
+pages point to the frozen record and to VSYC-27 (date and venue TBD, `contest.next`). **The purge has not been run**:
+no data was deleted. Steps 4 and 5 below are still to do.
+
 **Status.** Freeze, verify, purge and reset are built. The retention decisions are made (below). `npm run purge`
 is a dry run unless you pass `--apply` plus its safety flags; **nothing has been run against production**, and the
 migration it needs (0060) has not been applied.
