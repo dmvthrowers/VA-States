@@ -61,6 +61,28 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 5. **Rotate staff accounts after the event:** deactivate contest-day judge/DJ/audio-tech rows in
    `vsyc_staff_accounts` that no longer need access.
 
+## January 2027: full rollover and purge (owner + agent)
+
+The 2026 freeze is done (club site `archive/2026/`) and the app is in archive mode. In the new year, finish the
+rollover in this order. Details and safety rules: `docs/specs/season-archive.md`.
+
+1. **Backups on and proven.** Set `SUPABASE_DB_URL` (secret) and `BACKUP_AGE_RECIPIENT` (variable) so `db-backup.yml`
+   runs (Now item 4). Do one test restore to a scratch project.
+2. **Apply migration 0060** (`supabase/migrations/20261008100000_0060_season_purge.sql`) in the SQL editor. It adds
+   `vsyc_season_purge()`, consent records and past champions; it deletes nothing on its own.
+3. **Re-check the freeze.** Confirm `https://dmvthrowers.club/archive/2026/index.html` is live and matches `/results`
+   (run `npm run archive:verify -- --season 2026 --site ../dmvthrowers.github.io` with `.env.local` filled in).
+4. **Dry run:** `npm run purge -- --season 2026 --event-date 2026-09-19`. Read the counts.
+5. **Purge** (owner runs it, the same day as a fresh backup):
+   `npm run purge -- --season 2026 --event-date 2026-09-19 --apply --archive-url https://dmvthrowers.club/archive/2026/index.html --backup-at <backup time, last 24h> --restore-tested --confirm "PURGE 2026"`.
+   Permanent: anonymizes registrants, volunteers and spectators; deletes music, scores, run order, survey answers,
+   comp codes and event flags; deactivates non-admin staff. Keeps payments, budget, sponsors and the audit log.
+6. **Reset for VSYC-27** (code PR): `contest.config.ts` (`eventId`, `shortName`, `date`, venue, deadlines, divisions,
+   `roundPlan` for 1A and X), `next` and `archive` for the season after, `npm run divisions` then apply
+   `supabase/divisions.sql`, and a new music bucket name for the season. Then turn sign-ups back on: `seasonClosed()`
+   is false once `archive.closedAfter` points past the new contest.
+7. **Club site:** fill in `vsyc27.html` (date, venue, divisions, fees, Event JSON-LD) in the same week the app reopens.
+
 ## Next (code, this quarter)
 
 6. **Stripe disputes: built, needs two owner steps.** `charge.dispute.created` / `.closed` open and
