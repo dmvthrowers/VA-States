@@ -4,12 +4,16 @@ import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { spectatorSchema } from '@/lib/validation';
 import { logAudit } from '@/lib/audit';
-import { contest } from '@/contest.config';
+import { contest, seasonClosed } from '@/contest.config';
 import { sendSpectatorConfirmationEmail } from '@/lib/email';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
+  // The season is archived (contest.archive): sign-ups reopen when the next contest is set.
+  if (seasonClosed()) {
+    return apiError('unprocessable', `${contest.shortName} is over and sign-ups are closed. ${contest.next.shortName} details will be posted at ${contest.next.url}.`, requestId);
+  }
   // 1. Rate limit — 5 spectator RSVPs per IP per hour (higher than competitor
   //    registration since it's free and expected to see more casual traffic).
   const ip = getClientIp(req.headers);

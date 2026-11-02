@@ -4,7 +4,7 @@ import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { volunteerSchema } from '@/lib/validation';
 import { logAudit } from '@/lib/audit';
-import { contest } from '@/contest.config';
+import { contest, seasonClosed } from '@/contest.config';
 import { sendVolunteerConfirmationEmail } from '@/lib/email';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getVolunteerRole } from '@/lib/volunteer-roles';
@@ -20,6 +20,10 @@ import { getVolunteerRole } from '@/lib/volunteer-roles';
  * taken; applicants can still apply and be waitlisted or offered an alternate.
  */
 export const POST = withErrorHandling(async (requestId, req: NextRequest) => {
+  // The season is archived (contest.archive): sign-ups reopen when the next contest is set.
+  if (seasonClosed()) {
+    return apiError('unprocessable', `${contest.shortName} is over and sign-ups are closed. ${contest.next.shortName} details will be posted at ${contest.next.url}.`, requestId);
+  }
   const ip = getClientIp(req.headers);
   const allowed = await checkRateLimit(ip, 'volunteer-register', 5, 60);
   if (!allowed) {

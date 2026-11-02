@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { contest } from '@/contest.config';
 
 const SITE_HOME = 'https://dmvthrowers.club/vsyc26-register.html';
 
@@ -84,14 +85,14 @@ export default function NavBar({ activePage }: NavBarProps) {
       {/* Top bar — gold strip matching UI kit #top-bar */}
       <div className="bg-gold px-3 py-1.5 flex justify-between items-center gap-3 flex-wrap md:px-6">
         <span className="font-condensed text-[0.62rem] md:text-[0.72rem] text-navy-deep tracking-caps font-extrabold uppercase">
-          <span className="hidden sm:inline">VSYC-26 · BROUGHT TO YOU BY GOODLES · SEPT 19, 2026 · DULLES TOWN CENTER · STERLING VA</span>
-          <span className="sm:hidden">VA STATE YOYO × GOODLES · SEPT 19</span>
+          <span className="hidden sm:inline">{contest.shortName} ARCHIVE · HELD SEPT 19, 2026 · {contest.next.shortName}: {contest.next.date === 'TBD' ? 'DATE AND VENUE TBD' : `${contest.next.date} · ${contest.next.venue}`}</span>
+          <span className="sm:hidden">{contest.shortName} ARCHIVE · {contest.next.shortName} {contest.next.date}</span>
         </span>
         <a
-          href="https://dmvthrowers.club/vsyc26-sponsors.html"
+          href={contest.next.url}
           className="font-condensed text-[0.62rem] md:text-[0.72rem] text-navy-deep font-extrabold tracking-caps uppercase underline whitespace-nowrap"
         >
-          BECOME A SPONSOR →
+          {contest.next.shortName} →
         </a>
       </div>
 
