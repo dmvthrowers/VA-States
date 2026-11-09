@@ -33,15 +33,15 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^26",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "autoprefixer": "^10.6.1",
-    "eslint": "^10.13.0",
-    "eslint-config-next": "16.4.3",
-    "postcss": "^8.5.31",
+    "autoprefixer": "^10.6.2",
+    "eslint": "^10.14.0",
+    "eslint-config-next": "16.4.5",
+    "postcss": "^8.5.32",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
