@@ -48,6 +48,8 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 
 ## Now (owner actions — dashboard, not code)
 
+Re-checked 2026-11-02. Items 2–6 are still open; the same list is in the club site's `docs/ROADMAP.md` ("Owner actions").
+
 1. ~~**Close registration for VSYC-26.**~~ Done 2026-11-02: the app is in archive mode (`contest.archive`). The
    competitor cutoff had already passed; volunteer and spectator sign-ups now close after contest day too, page and
    API. The 2026 results are frozen on the club site (`archive/2026/`). Next for the owner: the purge (step 4 of
@@ -57,9 +59,12 @@ land. Issues are off on this repo, so contest-app items are tracked on the club 
 3. **Confirm the Stripe webhook endpoint subscribes to `charge.refunded`** (Dashboard →
    Developers → Webhooks). Code handles it; Stripe only sends subscribed events.
 4. **Turn on backups:** set `SUPABASE_DB_URL` (secret) and `BACKUP_AGE_RECIPIENT` (variable) so
-   `db-backup.yml` runs, then do one test restore.
+   `db-backup.yml` runs, then do one test restore. **Needed before the January purge**, which refuses to run without
+   a backup from the last 24 hours and a tested restore.
 5. **Rotate staff accounts after the event:** deactivate contest-day judge/DJ/audio-tech rows in
    `vsyc_staff_accounts` that no longer need access.
+6. **Stripe dispute alerts (optional, built):** apply migration 0046, then subscribe the webhook endpoint to
+   `charge.dispute.created` and `charge.dispute.closed`. Details in Next item 6 and `docs/STRIPE_PAYMENTS.md`.
 
 ## January 2027: full rollover and purge (owner + agent)
 
